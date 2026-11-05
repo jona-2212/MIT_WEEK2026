@@ -1,0 +1,67 @@
+[
+  {
+    "source_id": "kemnaker-recruitment-warning-2024",
+    "type": "official_guidance",
+    "title": "Kemnaker Imbau Masyarakat Waspada Penipuan Lowongan Pekerjaan",
+    "article": "Siaran pers, 10 Oktober 2024 — ciri permintaan biaya dan penyamaran perekrut",
+    "official_url": "https://www.kemnaker.go.id/news/detail/kemnaker-imbau-masyarakat-waspada-penipuan-lowongan-pekerjaan",
+    "summary": "Kemnaker memperingatkan adanya perekrut yang memakai identitas perusahaan untuk memperdaya pelamar dan meminta biaya administrasi, pelatihan, atau akomodasi sebelum seleksi dilanjutkan. Materi ini menjadi alasan untuk memeriksa identitas perekrut dan permintaan biaya secara mandiri.",
+    "verified_at": "2026-10-31",
+    "review_after": "2027-01-31",
+    "verification_status": "verified",
+    "exceptions": "Ringkasan panduan resmi, bukan kutipan pasal atau putusan pelanggaran. Tidak menyimpulkan setiap biaya atau penggunaan kanal pesan tertentu ilegal; konteks, jenis penempatan, identitas, dan ketentuan yang berlaku tetap perlu diperiksa.",
+    "indicator_codes": ["upfront_payment", "unofficial_channel"]
+  },
+  {
+    "source_id": "uu-13-2003-pending",
+    "type": "regulation",
+    "title": "UU Nomor 13 Tahun 2003 tentang Ketenagakerjaan beserta perubahan yang berlaku",
+    "article": null,
+    "official_url": null,
+    "summary": "",
+    "verified_at": null,
+    "review_after": null,
+    "verification_status": "pending_verification",
+    "exceptions": "Perlu pemeriksaan naskah konsolidasi, perubahan, pasal, serta pengecualian biaya penempatan sebelum digunakan.",
+    "indicator_codes": ["upfront_payment"]
+  },
+  {
+    "source_id": "permenaker-18-2024-placement-fees",
+    "type": "regulation",
+    "title": "Permenaker Nomor 18 Tahun 2024 tentang Penempatan Tenaga Kerja Dalam Negeri",
+    "article": "Pasal 11 ayat (1) huruf c dan ayat (2), halaman PDF 7",
+    "official_url": "https://jdih.kemnaker.go.id/asset/data_puu/2024pmnaker018.pdf#page=7",
+    "summary": "Untuk PPTKS, Pasal 11 mengatur pembatasan pungutan biaya penempatan kepada pencari kerja sekaligus pengecualian bagi jabatan tertentu berdasarkan ketentuan terkait. Ringkasan ini memberi konteks untuk meminta kejelasan identitas pelaksana dan jenis biaya.",
+    "verified_at": "2026-10-31",
+    "review_after": "2027-01-31",
+    "verification_status": "verified",
+    "exceptions": "Ruang lingkup pasal ini khusus PPTKS dan memiliki pengecualian jabatan. Status perekrut sebagai PPTKS serta keberlakuan pengecualian pada kasus pengguna belum diperiksa. Bukan kesimpulan bahwa semua biaya ilegal, bukan putusan hukum, dan tidak mengubah skor. Status peraturan dicek pada JDIH Kemnaker pada tanggal verifikasi.",
+    "indicator_codes": ["upfront_payment"]
+  },
+  {
+    "source_id": "uu-27-2022-pending",
+    "type": "regulation",
+    "title": "UU Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi",
+    "article": null,
+    "official_url": null,
+    "summary": "",
+    "verified_at": null,
+    "review_after": null,
+    "verification_status": "pending_verification",
+    "exceptions": "Tautan PDF yang ditemukan mengalihkan ke beranda; naskah, status, dan konteks dasar pemrosesan perlu diverifikasi ulang. Tidak dipakai sebagai rujukan runtime.",
+    "indicator_codes": ["premature_sensitive_data", "credential_request"]
+  },
+  {
+    "source_id": "perpres-57-2023-pending",
+    "type": "regulation",
+    "title": "Perpres Nomor 57 Tahun 2023 tentang Wajib Lapor Lowongan Pekerjaan",
+    "article": null,
+    "official_url": null,
+    "summary": "",
+    "verified_at": null,
+    "review_after": null,
+    "verification_status": "pending_verification",
+    "exceptions": "Belum dikurasi dari naskah primer. Tidak tercantum pada portal bukan bukti otomatis penipuan atau pelanggaran.",
+    "indicator_codes": ["unofficial_channel"]
+  }
+]
