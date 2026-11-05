@@ -26,3 +26,164 @@ button, a { font: inherit; }
 
 .font-handwriting { font-family: var(--font-handwriting); }
 .font-serif-italic { font-style: italic; }
+
+@keyframes story-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
+}
+
+@keyframes story-pop {
+  from { opacity: 0; transform: translateY(18px) scale(.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes story-slide {
+  from { opacity: 0; transform: translateX(24px) scale(.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes story-scan {
+  0%, 100% { top: 8%; opacity: .35; }
+  50% { top: 88%; opacity: 1; }
+}
+
+@keyframes story-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(184, 240, 0, .45); }
+  50% { box-shadow: 0 0 0 8px rgba(184, 240, 0, 0); }
+}
+
+@keyframes story-receive-scene {
+  from { opacity: 0; transform: translateX(42px) scale(.94); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes story-notification-drop {
+  from { opacity: 0; transform: translateY(-24px) scale(.82); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes story-listen {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  45% { transform: rotate(-4deg) translateY(-7px); }
+}
+
+@keyframes story-analyze-scene {
+  from { opacity: 0; transform: translateY(28px) scale(.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes story-inspect {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(-8deg) translateX(-8px); }
+}
+
+@keyframes story-verify-scene {
+  from { opacity: 0; transform: rotateY(-12deg) translateX(-20px); }
+  to { opacity: 1; transform: rotateY(0) translateX(0); }
+}
+
+@keyframes story-check {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes story-decision-scene {
+  from { opacity: 0; transform: scale(.82) rotate(2deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes story-decide {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+
+.story-scene-shell {
+  position: relative;
+  min-height: 680px;
+  overflow: hidden;
+  border: 1px solid rgba(6, 75, 80, .15);
+  border-radius: 2rem;
+  background: linear-gradient(145deg, #fff 0%, #f7f7f0 70%, #e5f4e3 100%);
+  box-shadow: 0 20px 55px rgba(6, 75, 80, .12);
+}
+
+.story-scene-backdrop {
+  position: absolute;
+  inset: 12% 8% 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(184, 240, 0, .2), rgba(8, 127, 122, .06) 52%, transparent 70%);
+}
+
+.story-scene-animated { position: relative; z-index: 10; height: 100%; min-height: 680px; }
+.story-scene-receive { animation: story-receive-scene .65s cubic-bezier(.2,.8,.2,1) both; }
+.story-scene-analyze { animation: story-analyze-scene .7s cubic-bezier(.2,.8,.2,1) both; }
+.story-scene-verify { animation: story-verify-scene .7s cubic-bezier(.2,.8,.2,1) both; transform-origin: center; }
+.story-scene-decide { animation: story-decision-scene .65s cubic-bezier(.2,.8,.2,1) both; }
+.story-stage-content { position: relative; min-height: 680px; padding: 78px 36px 96px; }
+.story-character-wrap { display: flex; justify-content: center; min-height: 240px; align-items: flex-end; animation: story-float 4s ease-in-out infinite; }
+.story-character { position: relative; width: 170px; height: 220px; }
+.story-character-body { position: absolute; bottom: 20px; left: 50%; width: 125px; height: 160px; transform: translateX(-50%); border-radius: 52% 52% 34% 34%; background: linear-gradient(160deg, #17aaa2, #064b50); box-shadow: inset -12px -8px 0 rgba(0,0,0,.1), 0 12px 20px rgba(6,75,80,.2); }
+.story-character-face { position: absolute; top: -50px; left: 13px; width: 99px; height: 99px; border: 7px solid #064b50; border-radius: 50%; background: #d7fff1; box-shadow: inset -7px -6px 0 rgba(8,127,122,.13); }
+.story-eye { position: absolute; top: 34px; width: 9px; height: 13px; border-radius: 50%; background: #064b50; }
+.story-eye-left { left: 27px; }.story-eye-right { right: 27px; }
+.story-smile { position: absolute; bottom: 21px; left: 30px; width: 38px; height: 17px; border-bottom: 5px solid #b8f000; border-radius: 0 0 50% 50%; }
+.story-character-arm { position: absolute; top: 52px; width: 25px; height: 85px; border-radius: 20px; background: #087f7a; transform-origin: top center; }
+.story-arm-left { left: -17px; transform: rotate(28deg); }.story-arm-right { right: -17px; transform: rotate(-28deg); }
+.story-character-leg { position: absolute; bottom: -16px; width: 25px; height: 43px; border-radius: 0 0 15px 15px; background: #064b50; }.story-leg-left { left: 28px; }.story-leg-right { right: 28px; }
+.story-character-shadow { position: absolute; bottom: 0; left: 50%; width: 160px; height: 22px; transform: translateX(-50%); border-radius: 50%; background: rgba(6,75,80,.16); filter: blur(4px); }
+.story-character-receive .story-character-body { background: linear-gradient(160deg, #17aaa2, #064b50); }
+.story-character-receive .story-character-face { background: #d7fff1; }
+.story-character-receive .story-arm-right { transform: rotate(-52deg); transform-origin: top center; }
+.story-character-receive .story-arm-left { transform: rotate(38deg); }
+.story-character-analyze .story-character-body { width: 138px; height: 145px; transform: translateX(-50%) rotate(-7deg); background: linear-gradient(160deg, #6d64c7, #403477); }
+.story-character-analyze .story-character-face { background: #eeeaff; transform: rotate(7deg); }
+.story-character-analyze .story-arm-left { transform: rotate(62deg); height: 76px; }
+.story-character-analyze .story-arm-right { transform: rotate(-72deg); height: 72px; }
+.story-character-analyze .story-character-face::after { content: ""; position: absolute; right: -24px; top: 38px; width: 31px; height: 31px; border: 5px solid #b8f000; border-radius: 50%; background: rgba(184,240,0,.18); box-shadow: 0 0 0 5px rgba(184,240,0,.12); }
+.story-character-verify .story-character-body { width: 118px; height: 165px; background: linear-gradient(160deg, #198fbd, #07547a); }
+.story-character-verify .story-character-face { background: #e5f7ff; }
+.story-character-verify .story-character-face::before { content: "✓"; position: absolute; right: -22px; top: -12px; display: flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 3px solid #064b50; border-radius: 50%; background: #b8f000; color: #064b50; font-size: 15px; font-weight: 900; }
+.story-character-verify .story-arm-left { transform: rotate(18deg); }
+.story-character-verify .story-arm-right { transform: rotate(-18deg); }
+.story-character-decide .story-character-body { width: 132px; height: 158px; background: linear-gradient(160deg, #27a36a, #07563f); box-shadow: inset -12px -8px 0 rgba(0,0,0,.1), 0 0 0 8px rgba(184,240,0,.16), 0 12px 20px rgba(6,75,80,.2); }
+.story-character-decide .story-character-face { background: #e4fff0; }
+.story-character-decide .story-smile { width: 27px; left: 35px; border-bottom-color: #064b50; }
+.story-character-decide .story-arm-left { transform: rotate(58deg); }
+.story-character-decide .story-arm-right { transform: rotate(-58deg); }
+.story-character-decide .story-character-face::after { content: "•••"; position: absolute; left: -37px; top: -20px; color: #087f7a; font-size: 18px; letter-spacing: 3px; animation: story-pulse 2s infinite; }
+.story-prop { position: absolute; z-index: 3; display: flex; align-items: center; justify-content: center; border: 3px solid #064b50; border-radius: 15px; color: #b8f000; background: #087f7a; box-shadow: 0 8px 18px rgba(6,75,80,.2); }
+.story-phone { right: 0; top: 80px; width: 50px; height: 76px; transform: rotate(13deg); animation: story-float 2.5s ease-in-out infinite; }.story-laptop { right: -8px; top: 115px; width: 95px; height: 52px; border-radius: 10px 10px 5px 5px; animation: story-float 2.8s ease-in-out infinite; }.story-document { right: -5px; top: 75px; width: 65px; height: 85px; border-color: #087f7a; color: #087f7a; background: white; transform: rotate(8deg); animation: story-float 3s ease-in-out infinite; }.story-shield { right: -5px; top: 70px; width: 72px; height: 78px; border-radius: 50% 50% 45% 45%; animation: story-pulse 2s infinite; }
+.story-popup { position: relative; z-index: 4; width: 100%; border: 1px solid rgba(6,75,80,.15); border-radius: 1.25rem; background: rgba(255,255,255,.94); padding: 16px; box-shadow: 0 14px 28px rgba(6,75,80,.13); animation: story-pop .6s .18s ease both; }
+.story-popup-receive { margin-top: -6px; animation: story-notification-drop .65s .22s cubic-bezier(.2,.8,.2,1) both; }.story-popup-analyze { margin-top: -8px; animation: story-pop .55s .28s ease both; }.story-popup-verify { margin-top: -8px; animation: story-check .55s .2s ease both; }.story-popup-decide { margin-top: -8px; animation: story-pop .55s .2s ease both; }
+.story-floating-label { position: absolute; right: 12px; top: 48px; z-index: 5; border: 1px solid rgba(6,75,80,.15); border-radius: 999px; background: #b8f000; padding: 8px 12px; color: #064b50; font-size: 10px; font-weight: 800; animation: story-pop .6s .5s ease both, story-float 3s 1s ease-in-out infinite; }
+.story-pulse-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #dc2626; animation: story-pulse 1.6s infinite; }
+.story-scan-line { position: absolute; inset-inline: 0; height: 2px; background: #087f7a; box-shadow: 0 0 10px #087f7a; animation: story-scan 2.4s ease-in-out infinite; }
+.story-chip { display: inline-flex; align-items: center; border-radius: 9px; padding: 4px 7px; font-size: 10px; font-weight: 700; }.story-chip-danger { border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c; }.story-chip-warning { border: 1px solid #fde68a; background: #fffbeb; color: #b45309; }
+.story-verified-stamp { display: flex; align-items: center; gap: 6px; margin-top: 12px; border-radius: 10px; background: rgba(184,240,0,.22); padding: 8px; color: #064b50; font-size: 10px; font-weight: 700; animation: story-pop .7s .8s ease both; }
+.story-decision-option { display: flex; align-items: center; gap: 8px; border: 1px solid rgba(6,75,80,.12); border-radius: 11px; background: #fff; padding: 10px; color: #202c2b; font-size: 11px; font-weight: 700; }.story-decision-stop { border-color: #99f6e4; background: #ecfdf5; color: #065f46; }.story-decision-muted { color: rgba(32,44,43,.5); }
+
+.story-scene-receive .story-character-wrap { animation: story-listen 2.8s .4s ease-in-out infinite; }
+.story-scene-receive .story-phone { animation: story-pulse 1.8s .5s infinite, story-float 2.5s 1s ease-in-out infinite; }
+.story-scene-analyze .story-character-wrap { animation: story-inspect 2.4s .5s ease-in-out infinite; }
+.story-scene-analyze .story-laptop { animation: story-float 2.8s ease-in-out infinite, story-pulse 2s .2s infinite; }
+.story-scene-analyze .story-chip:nth-child(1) { animation: story-pop .45s .7s both; }
+.story-scene-analyze .story-chip:nth-child(2) { animation: story-pop .45s .95s both; }
+.story-scene-analyze .story-chip:nth-child(3) { animation: story-pop .45s 1.2s both; }
+.story-scene-verify .story-character-wrap { animation: story-float 3.2s .3s ease-in-out infinite; }
+.story-scene-verify .story-document { animation: story-check .6s .5s both, story-float 3s 1.1s ease-in-out infinite; }
+.story-scene-verify .story-popup-verify > div:nth-child(2) > div:nth-child(1) { animation: story-check .45s .55s both; }
+.story-scene-verify .story-popup-verify > div:nth-child(2) > div:nth-child(2) { animation: story-check .45s .8s both; }
+.story-scene-verify .story-popup-verify > div:nth-child(2) > div:nth-child(3) { animation: story-check .45s 1.05s both; }
+.story-scene-decide .story-character-wrap { animation: story-decide 2.6s .4s ease-in-out infinite; }
+.story-scene-decide .story-shield { animation: story-pulse 2s infinite, story-float 2.5s .4s ease-in-out infinite; }
+.story-scene-decide .story-decision-option:nth-child(1) { animation: story-pop .4s .55s both; }
+.story-scene-decide .story-decision-option:nth-child(2) { animation: story-pop .4s .8s both; }
+.story-scene-decide .story-decision-option:nth-child(3) { animation: story-pop .4s 1.05s both; }
+
+@media (max-width: 1023px) {
+  .story-scene-shell { min-height: 590px; }
+  .story-scene-animated, .story-stage-content { min-height: 590px; }
+  .story-stage-content { padding: 68px 18px 34px; }
+  .story-character-wrap { min-height: 205px; }
+  .story-character { transform: scale(.86); transform-origin: bottom center; }
+}

@@ -21,51 +21,52 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
   const [chatStep, setChatStep] = useState(0)
   const [score, setScore] = useState(100)
   const [completed, setCompleted] = useState(false)
+  const [lastFeedback, setLastFeedback] = useState<string | null>(null)
 
   const scenarios = [
     {
       id: 0,
-      title: "Kasus 1: Biaya Deposit Seragam WFH",
-      recruiterName: "Ibu Rina • HR PT Surya Sejahtera",
+      title: lang === "ID" ? "Kasus 1: Biaya Deposit Seragam WFH" : "Case 1: WFH Uniform Deposit Fee",
+      recruiterName: lang === "ID" ? "Ibu Rina • HR PT Surya Sejahtera" : "Mrs. Rina • HR at Surya Sejahtera",
       dialogues: [
         {
           recruiter:
-            "Halo Kak! Selamat, berkas kamu lolos seleksi Admin Data. Gaji Rp14.500.000/bulan. Jadwal interview besok jam 10 pagi. Untuk konfirmasi slot, mohon transfer uang jaminan seragam Rp350.000 ke BCA 8820xxxx atas nama Rahmat (akan dikembalikan hari pertama kerja).",
+            lang === "ID" ? "Halo Kak! Selamat, berkas kamu lolos seleksi Admin Data. Gaji Rp14.500.000/bulan. Jadwal interview besok jam 10 pagi. Untuk konfirmasi slot, mohon transfer uang jaminan seragam Rp350.000 ke BCA 8820xxxx atas nama Rahmat (akan dikembalikan hari pertama kerja)." : "Hello! Congratulations, your application passed the Data Admin screening. Salary: Rp14,500,000/month. Your interview is tomorrow at 10 AM. To confirm your slot, please transfer a Rp350,000 uniform deposit to BCA 8820xxxx under Rahmat's name (refunded on your first day).",
           options: [
             {
-              text: "Maaf Bu, apakah biaya ini bisa dipotong dari gaji pertama saja?",
+              text: lang === "ID" ? "Maaf Bu, apakah biaya ini bisa dipotong dari gaji pertama saja?" : "Could this fee be deducted from my first paycheck instead?",
               feedback:
-                "⚠️ Hati-hati: Penipu tetap akan mendesak transfer di awal dengan alasan SOP sistem.",
+                lang === "ID" ? "⚠️ Hati-hati: Penipu tetap akan mendesak transfer di awal dengan alasan SOP sistem." : "⚠️ Careful: Scammers will still pressure you to pay upfront by claiming it is standard procedure.",
               penalty: 15,
             },
             {
-              text: "Sesuai regulasi ketenagakerjaan, perusahaan resmi tidak memungut biaya apapun. Saya minta verifikasi via email korporat.",
+              text: lang === "ID" ? "Sesuai regulasi ketenagakerjaan, perusahaan resmi tidak memungut biaya apapun. Saya minta verifikasi via email korporat." : "Legitimate companies do not charge applicants under employment regulations. I would like verification through a corporate email.",
               feedback:
-                "🛡️ Tepat sekali! Kamu mengenali red flag biaya di awal dan menolak manipulasi.",
+                lang === "ID" ? "🛡️ Tepat sekali! Kamu mengenali red flag biaya di awal dan menolak manipulasi." : "🛡️ Exactly right! You identified the upfront-fee red flag and rejected the manipulation.",
               penalty: 0,
             },
             {
-              text: "Baik Bu, saya transfer sekarang juga agar slot interview tidak hangus.",
+              text: lang === "ID" ? "Baik Bu, saya transfer sekarang juga agar slot interview tidak hangus." : "Okay, I will transfer it now so I do not lose the interview slot.",
               feedback:
-                "🚨 Bahaya! Kamu baru saja kehilangan Rp350.000 dan nomor penipu akan memblokirmu.",
+                lang === "ID" ? "🚨 Bahaya! Kamu baru saja kehilangan Rp350.000 dan nomor penipu akan memblokirmu." : "🚨 Danger! You just lost Rp350,000 and the scammer will block your number.",
               penalty: 50,
             },
           ],
         },
         {
           recruiter:
-            "Jika tidak transfer dalam 30 menit, posisi ini terpaksa kami berikan kepada kandidat cadangan berikutnya!",
+            lang === "ID" ? "Jika tidak transfer dalam 30 menit, posisi ini terpaksa kami berikan kepada kandidat cadangan berikutnya!" : "If you do not transfer within 30 minutes, we will have to give this position to the next candidate!",
           options: [
             {
-              text: "Silakan dialihkan saja. Saya tidak akan mentransfer uang ke rekening pribadi sebelum ada kontrak resmi.",
+              text: lang === "ID" ? "Silakan dialihkan saja. Saya tidak akan mentransfer uang ke rekening pribadi sebelum ada kontrak resmi." : "Please give it to the next candidate. I will not transfer money to a personal account without an official contract.",
               feedback:
-                "🏆 Keputusan Juara! Kamu tidak panik menghadapi taktik tekanan waktu palsu.",
+                lang === "ID" ? "🏆 Keputusan Juara! Kamu tidak panik menghadapi taktik tekanan waktu palsu." : "🏆 Great decision! You did not panic when faced with a fake time-pressure tactic.",
               penalty: 0,
             },
             {
-              text: "Tunggu Bu jangan dibatalkan! Saya pinjam uang teman dulu sekarang.",
+              text: lang === "ID" ? "Tunggu Bu jangan dibatalkan! Saya pinjam uang teman dulu sekarang." : "Please do not cancel it! I will borrow money from a friend right now.",
               feedback:
-                "🚨 Terjebak! Penipu memanfaatkan rasa panik untuk menguras uangmu.",
+                lang === "ID" ? "🚨 Terjebak! Penipu memanfaatkan rasa panik untuk menguras uangmu." : "🚨 Trapped! The scammer is exploiting your panic to take your money.",
               penalty: 40,
             },
           ],
@@ -74,41 +75,41 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
     },
     {
       id: 1,
-      title: "Kasus 2: Misi Tugas Telegram Like & Subscribe",
-      recruiterName: "Admin Jessica • Global Media Group",
+      title: lang === "ID" ? "Kasus 2: Misi Tugas Telegram Like & Subscribe" : "Case 2: Telegram Like & Subscribe Task",
+      recruiterName: lang === "ID" ? "Admin Jessica • Global Media Group" : "Jessica • Global Media Group Admin",
       dialogues: [
         {
           recruiter:
-            "Pekerjaan Freelance: Cukup Like 3 video YouTube, langsung ditransfer Rp150.000 ke e-wallet. Mau mulai misi sekarang?",
+            lang === "ID" ? "Pekerjaan Freelance: Cukup Like 3 video YouTube, langsung ditransfer Rp150.000 ke e-wallet. Mau mulai misi sekarang?" : "Freelance work: Simply like 3 YouTube videos and receive Rp150,000 in your e-wallet. Would you like to start the task now?",
           options: [
             {
-              text: "Boleh, tapi saya tidak akan melakukan deposit uang apapun nanti.",
+              text: lang === "ID" ? "Boleh, tapi saya tidak akan melakukan deposit uang apapun nanti." : "I can do that, but I will not make any deposit later.",
               feedback:
-                "🛡️ Waspada! Ini adalah taktik awal membangun kepercayaan dengan uang receh.",
+                lang === "ID" ? "🛡️ Waspada! Ini adalah taktik awal membangun kepercayaan dengan uang receh." : "🛡️ Stay alert! This is an initial tactic to build trust with a small payout.",
               penalty: 5,
             },
             {
-              text: "Ini modus Task Scam. Saya tidak tertarik dan akan melaporkan grup ini.",
+              text: lang === "ID" ? "Ini modus Task Scam. Saya tidak tertarik dan akan melaporkan grup ini." : "This is a task scam. I am not interested and will report this group.",
               feedback:
-                "🏆 Refleks Pro! Kamu langsung mematikan jebakan sejak awal.",
+                lang === "ID" ? "🏆 Refleks Pro! Kamu langsung mematikan jebakan sejak awal." : "🏆 Pro reflexes! You stopped the trap before it could start.",
               penalty: 0,
             },
           ],
         },
         {
           recruiter:
-            "Selamat! Komisi pertama Rp150.000 berhasil cair. Sekarang untuk membuka misi VIP komisi Rp1.800.000, silakan transfer deposit jaminan Rp500.000.",
+            lang === "ID" ? "Selamat! Komisi pertama Rp150.000 berhasil cair. Sekarang untuk membuka misi VIP komisi Rp1.800.000, silakan transfer deposit jaminan Rp500.000." : "Congratulations! Your first Rp150,000 commission has been paid. To unlock the Rp1,800,000 VIP task, please transfer a Rp500,000 security deposit.",
           options: [
             {
-              text: "Saya tolak transfer deposit modal. Saya berhenti sampai di sini.",
+              text: lang === "ID" ? "Saya tolak transfer deposit modal. Saya berhenti sampai di sini." : "I refuse to transfer a deposit. I am stopping here.",
               feedback:
-                "🛡️ Mantap! Kamu tidak terpancing kerakusan dan berhasil keluar tanpa kerugian.",
+                lang === "ID" ? "🛡️ Mantap! Kamu tidak terpancing kerakusan dan berhasil keluar tanpa kerugian." : "🛡️ Excellent! You avoided the greed trap and left without losing money.",
               penalty: 0,
             },
             {
-              text: "Wah menggiurkan, saya transfer Rp500.000 ya.",
+              text: lang === "ID" ? "Wah menggiurkan, saya transfer Rp500.000 ya." : "That sounds tempting, I will transfer Rp500,000.",
               feedback:
-                "🚨 Kerugian Finansial! Uang deposit Rp500.000 akan dibawa kabur.",
+                lang === "ID" ? "🚨 Kerugian Finansial! Uang deposit Rp500.000 akan dibawa kabur." : "🚨 Financial loss! Your Rp500,000 deposit will be stolen.",
               penalty: 50,
             },
           ],
@@ -121,7 +122,8 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
   const curDialogue =
     curScenario.dialogues[chatStep] || curScenario.dialogues[0]
 
-  const handleSelectOption = (penalty: number) => {
+  const handleSelectOption = (penalty: number, feedback: string) => {
+    setLastFeedback(feedback)
     setScore((prev) => Math.max(10, prev - penalty))
     if (chatStep + 1 < curScenario.dialogues.length) {
       setChatStep(chatStep + 1)
@@ -134,6 +136,7 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
     setChatStep(0)
     setScore(100)
     setCompleted(false)
+    setLastFeedback(null)
   }
 
   return (
@@ -153,7 +156,7 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
 
           <div className="flex items-center gap-2 bg-[#064B50]/10 border border-[#064B50]/20 px-3 py-1.5 rounded-full text-xs font-bold text-[#064B50]">
             <Sparkles className="w-3.5 h-3.5 text-[#087F7A]" />
-            <span>Jeli Scam Simulator • Interaktif</span>
+            <span>Jeli Scam Simulator • {lang === "ID" ? "Interaktif" : "Interactive"}</span>
           </div>
         </div>
 
@@ -233,6 +236,15 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
               </div>
             </div>
 
+            {lastFeedback && !completed && (
+              <div className="rounded-2xl border border-[#087F7A]/20 bg-[#087F7A]/5 p-4 text-xs leading-relaxed text-[#064B50]">
+                <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-[#087F7A]">
+                  {lang === "ID" ? "Jeli membaca keputusanmu" : "Jeli read your decision"}
+                </p>
+                <p className="font-semibold">{lastFeedback}</p>
+              </div>
+            )}
+
             {/* Candidate Options when not completed */}
             {!completed ? (
               <div className="pt-4 border-t border-[#064B50]/10 space-y-3">
@@ -243,7 +255,7 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
                   {curDialogue.options.map((opt, i) => (
                     <button
                       key={i}
-                      onClick={() => handleSelectOption(opt.penalty)}
+                      onClick={() => handleSelectOption(opt.penalty, opt.feedback)}
                       className="w-full text-left p-3.5 rounded-2xl bg-white hover:bg-[#F7F7F0] border border-[#064B50]/12 text-xs sm:text-sm text-[#202C2B] transition-all flex items-center justify-between group shadow-2xs"
                     >
                       <span>{opt.text}</span>
@@ -263,8 +275,12 @@ export const ScamSimulatorPage: React.FC<ScamSimulatorPageProps> = ({
                 </h3>
                 <p className="text-xs text-[#202C2B]/80 mb-4 max-w-md mx-auto">
                   {score >= 80
-                    ? "Luar biasa! Naluri keamanan karirmu sangat tajam. Kamu berhasil menangkis jebakan penipuan tanpa kehilangan uang."
-                    : "Kamu telah belajar mengenali modus ini. Selalu ingat: perusahaan resmi tidak pernah memungut uang di awal!"}
+                    ? lang === "ID"
+                      ? "Luar biasa! Naluri keamanan karirmu sangat tajam. Kamu berhasil menangkis jebakan penipuan tanpa kehilangan uang."
+                      : "Excellent! Your career-safety instincts are sharp. You deflected the scam without losing money."
+                    : lang === "ID"
+                      ? "Kamu telah belajar mengenali modus ini. Selalu ingat: perusahaan resmi tidak pernah memungut uang di awal!"
+                      : "You learned how to recognize this scam. Remember: legitimate companies never charge upfront fees!"}
                 </p>
 
                 <div className="flex items-center justify-center gap-3">
