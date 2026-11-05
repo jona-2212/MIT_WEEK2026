@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import re
 from typing import Literal
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote_plus
+from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -144,29 +147,70 @@ def analyze_job(request: JobAnalysisRequest) -> dict[str, object]:
     }
 
 
-COMPANIES = [
-    {
-        "name": "PT Karya Digital Nusantara",
-        "registration_number": "AHU-0012345.AH.01.01 Tahun 2023",
-        "address": "Jl. Sudirman No. 10, Jakarta Selatan",
-        "status": "active",
-    },
-    {
-        "name": "PT Surya Sejahtera Indonesia",
-        "registration_number": "AHU-0098765.AH.01.01 Tahun 2022",
-        "address": "Jl. Gatot Subroto No. 22, Bandung",
-        "status": "active",
-    },
-]
+AHU_SEARCH_URL = "https://ahu.go.id/pencarian/profil-pt/"
+
+
+def fetch_ahu_profile(name: str) -> tuple[str, str]:
+    url = f"{AHU_SEARCH_URL}?tipe=perseroan&nama={quote_plus(name)}"
+    request = Request(
+        url,
+        headers={
+            "Accept": "text/html",
+            "User-Agent": "Jeli/1.0 (company verification; contact project owner)",
+        },
+    )
+    try:
+        with urlopen(request, timeout=12) as response:
+            return url, response.read().decode("utf-8", errors="replace")
+    except (HTTPError, URLError, TimeoutError) as error:
+        raise HTTPException(
+            status_code=502,
+            detail="Layanan AHU tidak dapat diakses sekarang. Coba lagi nanti.",
+        ) from error
+
+
+def parse_ahu_profile(html: str, requested_name: str) -> dict[str, str] | None:
+    lowered = html.lower()
+    if "pencarian tidak ditemukan" in lowered:
+        return None
+
+    def value_after(*labels: str) -> str:
+        for label in labels:
+            match = re.search(
+                rf"{re.escape(label)}\s*</[^>]+>\s*(?:<[^>]+>\s*)*([^<]+)",
+                html,
+                re.I,
+            )
+            if match:
+                return " ".join(match.group(1).split())
+        return ""
+
+    name = value_after("Nama Perseroan", "Nama Perusahaan") or requested_name
+    registration_number = value_after("Nomor SK", "Nomor Keputusan")
+    address = value_after("Alamat")
+    status = value_after("Status")
+    if not registration_number and not address and not status:
+        return None
+    return {
+        "name": name,
+        "registration_number": registration_number,
+        "address": address,
+        "status": "active" if status.lower() in {"aktif", "active"} else "inactive",
+    }
 
 
 @app.post("/api/company-search")
 def search_company(request: CompanySearchRequest) -> dict[str, object]:
-    query = request.name.strip().lower()
-    result = next((company for company in COMPANIES if query in company["name"].lower()), None)
+    requested_name = request.name.strip()
+    official_url, html = fetch_ahu_profile(requested_name)
+    result = parse_ahu_profile(html, requested_name)
     return {
         "found": result is not None,
         "company": result,
-        "source": "mock-ahu-dataset",
-        "disclaimer": "Data ini adalah mock untuk pengembangan dan bukan hasil verifikasi resmi AHU.",
+        "source": "ahu-online",
+        "official_url": official_url,
+        "disclaimer": (
+            "Data diambil dari halaman resmi Ditjen AHU Online. "
+            "Pastikan kembali detailnya sebelum mengambil keputusan."
+        ),
     }

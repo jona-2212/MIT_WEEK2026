@@ -19,6 +19,7 @@ export interface CompanySearchResponse {
   found: boolean
   company: CompanyResult | null
   source: string
+  official_url: string
   disclaimer: string
 }
 

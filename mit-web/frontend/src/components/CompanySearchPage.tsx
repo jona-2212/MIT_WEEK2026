@@ -14,6 +14,7 @@ export function CompanySearchPage({ onNavigate, lang }: CompanySearchPageProps) 
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [officialUrl, setOfficialUrl] = useState("")
 
   const handleSearch = async () => {
     if (name.trim().length < 2) {
@@ -26,6 +27,7 @@ export function CompanySearchPage({ onNavigate, lang }: CompanySearchPageProps) 
     try {
       const response = await searchCompany(name.trim())
       setCompany(response.company)
+      setOfficialUrl(response.official_url)
       setSearched(true)
     } catch (requestError) {
       setSearched(false)
@@ -41,7 +43,7 @@ export function CompanySearchPage({ onNavigate, lang }: CompanySearchPageProps) 
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#064B50] text-[#B8F000]"><Building2 /></div>
           <h1 className="text-3xl font-extrabold tracking-tight text-[#064B50] sm:text-4xl">{lang === "ID" ? "Pencarian Legalitas Perusahaan (Data AHU)" : "Company Legality Search (AHU Data)"}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-[#202C2B]/75">{lang === "ID" ? "Cari informasi dasar perusahaan berdasarkan nama PT. Data yang ditampilkan masih berupa simulasi untuk pengembangan." : "Search basic company information by name. The displayed data is a development simulation."}</p>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-[#202C2B]/75">{lang === "ID" ? "Cari informasi dasar perusahaan berdasarkan nama PT melalui Ditjen AHU Online." : "Search basic company information by name through Ditjen AHU Online."}</p>
         </div>
 
         <section className="rounded-3xl border border-[#064B50]/15 bg-white p-5 shadow-sm sm:p-7">
@@ -55,7 +57,7 @@ export function CompanySearchPage({ onNavigate, lang }: CompanySearchPageProps) 
         </section>
 
         {searched && !company && !error && (
-          <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800"><XCircle className="mx-auto mb-2 h-8 w-8" />{lang === "ID" ? "Perusahaan tidak ditemukan pada dataset simulasi." : "Company not found in the mock dataset."}</div>
+          <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800"><XCircle className="mx-auto mb-2 h-8 w-8" />{lang === "ID" ? "Profil tidak ditemukan atau AHU meminta verifikasi tambahan." : "The profile was not found or AHU requested additional verification."}{officialUrl && <a className="mt-3 block font-bold underline" href={officialUrl} target="_blank" rel="noreferrer">{lang === "ID" ? "Buka pencarian resmi AHU" : "Open official AHU search"}</a>}</div>
         )}
         {company && (
           <section className="mt-6 rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
@@ -68,7 +70,7 @@ export function CompanySearchPage({ onNavigate, lang }: CompanySearchPageProps) 
               <div><dt className="text-xs font-bold text-[#202C2B]/55">{lang === "ID" ? "Alamat" : "Address"}</dt><dd className="mt-1 font-semibold">{company.address}</dd></div>
               <div><dt className="text-xs font-bold text-[#202C2B]/55">{lang === "ID" ? "Status entitas" : "Entity status"}</dt><dd className="mt-1 font-semibold text-emerald-700">{lang === "ID" ? "Aktif" : "Active"}</dd></div>
             </dl>
-            <p className="mt-5 border-t border-[#064B50]/10 pt-4 text-[11px] text-[#202C2B]/60">{lang === "ID" ? "Data simulasi — bukan hasil verifikasi resmi AHU." : "Mock data — not an official AHU verification."}</p>
+            <p className="mt-5 border-t border-[#064B50]/10 pt-4 text-[11px] text-[#202C2B]/60">{lang === "ID" ? "Data diambil dari AHU Online. Verifikasi detail melalui sumber resmi sebelum digunakan." : "Data was retrieved from AHU Online. Verify details through the official source before use."}</p>
           </section>
         )}
       </div>
