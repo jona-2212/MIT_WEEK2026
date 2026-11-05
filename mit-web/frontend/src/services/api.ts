@@ -24,6 +24,7 @@ export interface CompanySearchResponse {
 }
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
+export const AHU_COMPANY_SEARCH_URL = "https://ahu.go.id/pencarian/profil-pt/"
 
 async function request<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, {
