@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react"
-import { Sparkles, Menu, X, ArrowRight, Search, Building2 } from "lucide-react"
+import { Sparkles, Menu, X, ArrowRight, Search } from "lucide-react"
 import { t } from "../i18n"
 import JeliLogo from "./JeliLogo"
-import { AHU_COMPANY_SEARCH_URL } from "../services/api"
 
 interface NavbarProps {
   activePage?: "home" | "checker" | "simulator" | "company"
@@ -97,16 +96,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               {t(lang, "knowScams")}
               <span className="w-1.5 h-1.5 rounded-full bg-[#B8F000]" />
             </button>
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                window.location.href = AHU_COMPANY_SEARCH_URL
-              }}
-              className="flex items-center justify-between rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-[#202C2B] hover:bg-[#F7F7F0]"
-            >
-              <span className="flex items-center gap-2"><Building2 className="h-4 w-4 text-[#087F7A]" />{lang === "ID" ? "Cek PT" : "Company Check"}</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
 
             <button
               onClick={() => onNavigate("simulator")}
@@ -118,13 +107,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Sparkles className="w-3.5 h-3.5 text-[#087F7A]" />
               {t(lang, "simulator")}
-            </button>
-            <button
-              onClick={() => { window.location.href = AHU_COMPANY_SEARCH_URL }}
-              className="flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-[#202C2B]/80 transition-all duration-200 hover:bg-[#064B50]/5 hover:text-[#064B50]"
-            >
-              <Building2 className="h-3.5 w-3.5 text-[#087F7A]" />
-              {lang === "ID" ? "Cek PT" : "Company Check"}
             </button>
           </nav>
 
