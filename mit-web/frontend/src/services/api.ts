@@ -8,21 +8,6 @@ export interface JobAnalysisResponse {
   disclaimer: string
 }
 
-export interface CompanyResult {
-  name: string
-  registration_number: string
-  address: string
-  status: "active" | "inactive"
-}
-
-export interface CompanySearchResponse {
-  found: boolean
-  company: CompanyResult | null
-  source: string
-  official_url: string
-  disclaimer: string
-}
-
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8000"
 export const AHU_COMPANY_SEARCH_URL = "https://ahu.go.id/pencarian/profil-pt/"
 
@@ -45,8 +30,4 @@ export function analyzeJob(inputType: "text" | "url" | "image", content: string,
     content,
     language,
   })
-}
-
-export function searchCompany(name: string) {
-  return request<CompanySearchResponse>("/api/company-search", { name })
 }

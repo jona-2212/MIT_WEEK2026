@@ -18,7 +18,7 @@ import { BottomNavigation } from "./BottomNavigation"
 
 interface JobOfferCheckerPageProps {
   onBackToHome: () => void
-  onNavigate: (page: "home" | "checker" | "simulator" | "company") => void
+  onNavigate: (page: "home" | "checker" | "simulator") => void
   lang: "ID" | "EN"
 }
 

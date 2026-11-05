@@ -8,14 +8,13 @@ import { ClosingCtaSection } from "./components/ClosingCtaSection"
 import Footer from "./components/Footer"
 import { JobOfferCheckerPage } from "./components/JobOfferCheckerPage"
 import { ScamSimulatorPage } from "./components/ScamSimulatorPage"
-import { CompanySearchPage } from "./components/CompanySearchPage"
 import type { Language } from "./i18n"
 
-export type Page = "home" | "checker" | "simulator" | "company"
+export type Page = "home" | "checker" | "simulator"
 
 function pageFromHash(): Page {
   const hash = window.location.hash.replace("#", "")
-  return hash === "checker" || hash === "simulator" || hash === "company" ? hash : "home"
+  return hash === "checker" || hash === "simulator" ? hash : "home"
 }
 
 export default function App() {
@@ -58,8 +57,6 @@ export default function App() {
         </main>
       ) : activePage === "checker" ? (
         <JobOfferCheckerPage onBackToHome={() => navigate("home")} onNavigate={navigate} lang={lang} />
-      ) : activePage === "company" ? (
-        <CompanySearchPage onNavigate={navigate} lang={lang} />
       ) : (
         <ScamSimulatorPage onBackToHome={() => navigate("home")} lang={lang} />
       )}

@@ -4,7 +4,7 @@ import JeliLogo from "./JeliLogo"
 import { t } from "../i18n"
 
 interface FooterProps {
-  onNavigate: (page: "home" | "checker" | "simulator" | "company") => void
+  onNavigate: (page: "home" | "checker" | "simulator") => void
   onScrollTo: (id: string) => void
   lang: "ID" | "EN"
 }

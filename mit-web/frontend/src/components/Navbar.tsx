@@ -4,8 +4,8 @@ import { t } from "../i18n"
 import JeliLogo from "./JeliLogo"
 
 interface NavbarProps {
-  activePage?: "home" | "checker" | "simulator" | "company"
-  onNavigate?: (page: "home" | "checker" | "simulator" | "company") => void
+  activePage?: "home" | "checker" | "simulator"
+  onNavigate?: (page: "home" | "checker" | "simulator") => void
   lang?: "ID" | "EN"
   onToggleLang?: () => void
 }
