@@ -8,9 +8,10 @@ import { ClosingCtaSection } from "./components/ClosingCtaSection"
 import Footer from "./components/Footer"
 import { JobOfferCheckerPage } from "./components/JobOfferCheckerPage"
 import { ScamSimulatorPage } from "./components/ScamSimulatorPage"
+import { CompanySearchPage } from "./components/CompanySearchPage"
 import type { Language } from "./i18n"
 
-type Page = "home" | "checker" | "simulator"
+export type Page = "home" | "checker" | "simulator" | "company"
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>("home")
@@ -42,7 +43,9 @@ export default function App() {
           <ClosingCtaSection onCheckJobOffer={() => navigate("checker")} onStartSimulation={() => navigate("simulator")} lang={lang} />
         </main>
       ) : activePage === "checker" ? (
-        <JobOfferCheckerPage onBackToHome={() => navigate("home")} lang={lang} />
+        <JobOfferCheckerPage onBackToHome={() => navigate("home")} onNavigate={navigate} lang={lang} />
+      ) : activePage === "company" ? (
+        <CompanySearchPage onNavigate={navigate} lang={lang} />
       ) : (
         <ScamSimulatorPage onBackToHome={() => navigate("home")} lang={lang} />
       )}

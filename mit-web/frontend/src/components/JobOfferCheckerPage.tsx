@@ -1,250 +1,269 @@
-import React, { useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import {
-  ArrowLeft,
-  Scan,
   AlertTriangle,
-  RefreshCw,
-  Copy,
+  ArrowLeft,
   Check,
+  Copy,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  RefreshCw,
+  Scan,
+  Search,
+  ShieldCheck,
+  Upload,
 } from "lucide-react"
 import { t } from "../i18n"
+import { analyzeJob, type JobAnalysisResponse } from "../services/api"
+import { BottomNavigation } from "./BottomNavigation"
 
 interface JobOfferCheckerPageProps {
   onBackToHome: () => void
+  onNavigate: (page: "home" | "checker" | "simulator" | "company") => void
   lang: "ID" | "EN"
+}
+
+type InputMode = "text" | "url" | "image"
+type RiskLevel = "low" | "medium" | "high"
+
+interface AnalysisResult {
+  score: number
+  level: RiskLevel
+  flags: string[]
+  summary: string
+  recommendations: string[]
+  disclaimer: string
+}
+
+const levelStyles: Record<RiskLevel, string> = {
+  low: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  medium: "border-amber-200 bg-amber-50 text-amber-800",
+  high: "border-red-200 bg-red-50 text-red-800",
 }
 
 export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
   onBackToHome,
+  onNavigate,
   lang,
 }) => {
-  const [inputText, setInputText] = useState(
-    "Selamat Kak! Kamu terpilih sebagai Staff Admin Data WFH. Gaji Rp14.000.000/bln. Untuk konfirmasi jadwal wawancara, mohon transfer biaya jaminan seragam & kartu identitas sebesar Rp350.000 ke rekening BCA 882012345 a.n. Rahmat. Biaya akan direfund 100% pada hari pertama kerja.",
-  )
+  const [mode, setMode] = useState<InputMode>("text")
+  const [text, setText] = useState("")
+  const [url, setUrl] = useState("")
+  const [image, setImage] = useState<File | null>(null)
+  const [imageDescription, setImageDescription] = useState("")
+  const [imagePreview, setImagePreview] = useState("")
   const [isScanning, setIsScanning] = useState(false)
+  const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [error, setError] = useState("")
   const [copied, setCopied] = useState(false)
 
-  const presets = [
-    {
-      title: "Modus Biaya Seragam WFH",
-      text: "Selamat Kak! Kamu terpilih sebagai Staff Admin Data WFH. Gaji Rp14.000.000/bln. Untuk konfirmasi jadwal wawancara, mohon transfer biaya jaminan seragam & kartu identitas sebesar Rp350.000 ke rekening BCA 882012345 a.n. Rahmat. Biaya akan direfund 100% pada hari pertama kerja.",
-      score: 12,
-      verdict: "BAHAYA TINGGI (96% RISIKO PENIPUAN)",
-      isSafe: false,
-    },
-    {
-      title: "Misi Telegram Like & Subscribe",
-      text: "Lowongan Paruh Waktu: Cukup like 5 video YouTube dan follow akun IG. Komisi harian Rp450.000 langsung cair. Untuk aktivasi akun VIP dan komisi berlipat ganda, wajib deposit saldo awal Rp500.000 ke rekening admin.",
-      score: 8,
-      verdict: "PONZI TASK SCAM (98% RISIKO)",
-      isSafe: false,
-    },
-    {
-      title: "Tawaran Resmi Tech Company",
-      text: "Halo Andi, terima kasih telah melamar posisi Frontend Engineer di PT Karya Digital Nusantara. Kami mengundang Anda untuk mengikuti sesi wawancara teknis via Google Meet. Proses rekrutmen kami 100% gratis tanpa biaya apapun.",
-      score: 95,
-      verdict: "AMAN (TERVERIFIKASI RESMI)",
-      isSafe: true,
-    },
-  ]
+  useEffect(() => {
+    if (!image) {
+      setImagePreview("")
+      return
+    }
+    const previewUrl = URL.createObjectURL(image)
+    setImagePreview(previewUrl)
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [image])
 
-  const handleScan = () => {
+  const currentInput = useMemo(() => {
+    if (mode === "url") return url
+    if (mode === "image") return `${image?.name ?? ""} ${imageDescription}`
+    return text
+  }, [image, imageDescription, mode, text, url])
+
+  const handleAnalyze = async () => {
+    if (!currentInput.trim()) {
+      setError(lang === "ID" ? "Masukkan data lowongan terlebih dahulu." : "Enter job-offer data first.")
+      return
+    }
+    if (mode === "url" && !/^https?:\/\/\S+$/i.test(url.trim())) {
+      setError(lang === "ID" ? "Masukkan URL yang valid." : "Enter a valid URL.")
+      return
+    }
+    setError("")
+    setResult(null)
     setIsScanning(true)
-    setTimeout(() => {
+    try {
+      const response: JobAnalysisResponse = await analyzeJob(mode, currentInput, lang)
+      setResult({
+        score: response.score,
+        level: response.risk_level,
+        flags: response.indicators,
+        summary: response.summary,
+        recommendations: response.recommendations,
+        disclaimer: response.disclaimer,
+      })
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Analysis failed.")
+    } finally {
       setIsScanning(false)
-    }, 600)
+    }
   }
 
-  const handleCopyReply = () => {
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setImage(event.target.files?.[0] ?? null)
+    setResult(null)
+    setError("")
   }
+
+  const handleCopyReply = async () => {
+    const reply =
+      lang === "ID"
+        ? "Terima kasih. Saya akan memverifikasi proses ini melalui kanal resmi perusahaan dan tidak dapat membayar biaya sebelum kontrak resmi."
+        : "Thank you. I will verify this process through the company's official channels and cannot pay any fee before an official contract."
+    await navigator.clipboard.writeText(reply)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1800)
+  }
+
+  const risk = result ?? { score: 0, level: "low" as RiskLevel, flags: [], summary: "", recommendations: [], disclaimer: "" }
 
   return (
-    <div className="min-h-screen bg-[#F7F7F0] bg-warm-grid text-[#202C2B] pt-24 pb-20">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top Back Navigation Bar */}
-        <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#064B50]/10">
-          <button
-            onClick={onBackToHome}
-            className="flex items-center gap-2 text-xs sm:text-sm font-bold text-[#202C2B] hover:text-[#064B50] transition-colors p-2 rounded-xl hover:bg-white border border-transparent hover:border-[#064B50]/15"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>
-              {lang === "ID" ? "Kembali ke Beranda" : "Back to Homepage"}
-            </span>
+    <div className="min-h-screen bg-[#F7F7F0] bg-warm-grid px-4 pb-20 pt-24 text-[#202C2B]">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-8 flex items-center justify-between border-b border-[#064B50]/10 pb-4">
+          <button onClick={onBackToHome} className="flex items-center gap-2 rounded-xl p-2 text-sm font-bold hover:bg-white hover:text-[#064B50]">
+            <ArrowLeft className="h-4 w-4" /> {t(lang, "backHome")}
           </button>
-
-          <div className="flex items-center gap-2 bg-[#064B50]/10 border border-[#064B50]/20 px-3 py-1.5 rounded-full text-xs font-bold text-[#064B50]">
-            <Scan className="w-3.5 h-3.5 text-[#087F7A]" />
-            <span>Jeli Job Offer Scanner v2.4</span>
+          <div className="flex items-center gap-2 rounded-full border border-[#064B50]/20 bg-[#064B50]/10 px-3 py-1.5 text-xs font-bold text-[#064B50]">
+            <Scan className="h-3.5 w-3.5 text-[#087F7A]" /> Jeli Job Offer Scanner
           </div>
+          <BottomNavigation activePage="checker" onNavigate={onNavigate} lang={lang} />
         </div>
 
-        {/* Page Header */}
-        <div className="text-center max-w-2xl mx-auto mb-10">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#064B50] tracking-tight mb-3">
-            {lang === "ID"
-              ? "Pemeriksa Tawaran Kerja Jeli"
-              : "Jeli Job Offer Scanner"}
+        <div className="mx-auto mb-8 max-w-2xl text-center">
+          <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-[#064B50] sm:text-4xl">
+            {lang === "ID" ? "Cek Tawaran Kerja" : "Check a Job Offer"}
           </h1>
-          <p className="text-sm sm:text-base text-[#202C2B]/80">
+          <p className="text-sm text-[#202C2B]/80 sm:text-base">
             {lang === "ID"
-              ? "Tempelkan teks lowongan kerja, pesan chat perekrut, atau undangan wawancara untuk mendeteksi kejanggalan dalam 15 detik."
-              : "Paste job vacancy text or recruiter messages to inspect red flags and get safety clarity in 15 seconds."}
+              ? "Tempel teks, masukkan URL, atau unggah gambar tawaran kerja untuk mendapatkan analisis risiko berbasis indikator."
+              : "Paste text, enter a URL, or upload a job-offer image to get an indicator-based risk analysis."}
           </p>
         </div>
 
-        {/* Preset Presets Buttons */}
-        <div className="mb-4">
-          <p className="text-xs font-bold text-[#202C2B]/70 mb-2">
-            {lang === "ID"
-              ? "Uji dengan contoh kasus nyata:"
-              : "Test with realistic presets:"}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {presets.map((p, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setInputText(p.text)
-                  handleScan()
-                }}
-                className="text-xs font-bold px-3 py-2 rounded-xl bg-white hover:bg-[#EBECE1] border border-[#064B50]/15 text-[#202C2B] transition-all shadow-2xs"
-              >
-                {p.title}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Main Checker Workspace */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Text Input Box */}
-          <div className="lg:col-span-7 bg-white border border-[#064B50]/15 rounded-3xl p-5 sm:p-6 shadow-sm">
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-[#064B50] mb-2">
-              {t(lang, "jobTextLabel")}
-            </label>
-
-            <textarea
-              rows={7}
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={t(lang, "jobTextPlaceholder")}
-              className="w-full bg-[#F7F7F0] border border-[#064B50]/15 rounded-2xl p-4 text-xs sm:text-sm text-[#202C2B] placeholder-slate-400 focus:outline-none focus:border-[#064B50] transition-colors font-sans resize-none leading-relaxed"
-            />
-
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-[11px] text-[#202C2B]/60 font-mono">
-                {inputText.length} karakter terisi
-              </span>
-
-              <button
-                onClick={handleScan}
-                disabled={isScanning}
-                className="bg-[#064B50] hover:bg-[#087F7A] text-white font-extrabold text-xs sm:text-sm px-6 py-2.5 rounded-xl shadow-sm flex items-center gap-2 transition-all hover:scale-102"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 text-[#B8F000] ${
-                    isScanning ? "animate-spin" : ""
-                  }`}
-                />
-                <span>{isScanning ? t(lang, "scanning") : t(lang, "scanAgain")}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Right Column: Real-time Analysis Card */}
-          <div className="lg:col-span-5 bg-white border-2 border-red-200 rounded-3xl p-5 sm:p-6 shadow-md relative overflow-hidden">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
-                <span className="text-xs font-extrabold text-[#202C2B]">
-                  HASIL EVALUASI JELI
-                </span>
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-wider bg-red-100 text-red-800 border border-red-200 px-2 py-0.5 rounded">
-                96% RISIKO PENIPUAN
-              </span>
-            </div>
-
-            {/* Safety Score Meter */}
-            <div className="bg-red-50/60 border border-red-100 rounded-2xl p-4 text-center mb-4">
-              <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider">
-                Tingkat Keamanan Tawaran
-              </p>
-              <p className="text-4xl font-black text-red-700 font-mono my-1">
-                12{" "}
-                <span className="text-sm text-slate-400 font-normal">
-                  / 100
-                </span>
-              </p>
-              <p className="text-xs font-bold text-red-800">
-                {t(lang, "unsafe")}
-              </p>
-            </div>
-
-            {/* Detected Red Flags */}
-            <div className="space-y-2 mb-4">
-              <p className="text-xs font-extrabold text-[#202C2B] uppercase tracking-wider">
-                {t(lang, "redFlags")}
-              </p>
-              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-start gap-2">
-                <span className="font-bold shrink-0">1.</span>
-                <span>
-                  Memungut biaya seragam & ID Card di awal (Pelanggaran UU
-                  Ketenagakerjaan).
-                </span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-start gap-2">
-                <span className="font-bold shrink-0">2.</span>
-                <span>
-                  Rekening tujuan transfer mengatasnamakan rekening bank
-                  pribadi.
-                </span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
-                <span className="font-bold shrink-0">3.</span>
-                <span>
-                  Gaji Rp14.000.000 untuk posisi admin entry data tanpa seleksi
-                  wawancara mendalam.
-                </span>
-              </div>
-            </div>
-
-            {/* Safe Reply Script */}
-            <div className="p-3 bg-[#F7F7F0] border border-[#064B50]/12 rounded-2xl mb-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold text-[#064B50]">
-                  {t(lang, "safeDraft")}
-                </span>
+        <div className="grid items-start gap-6 lg:grid-cols-12">
+          <section className="rounded-3xl border border-[#064B50]/15 bg-white p-5 shadow-sm sm:p-6 lg:col-span-7">
+            <div className="mb-5 grid grid-cols-3 gap-2 rounded-2xl bg-[#F7F7F0] p-1">
+              {([
+                ["text", lang === "ID" ? "Teks" : "Text", Search],
+                ["url", "URL", LinkIcon],
+                ["image", lang === "ID" ? "Gambar" : "Image", ImageIcon],
+              ] as const).map(([value, label, Icon]) => (
                 <button
-                  onClick={handleCopyReply}
-                  className="text-[11px] font-bold text-[#064B50] hover:text-[#087F7A] hover:underline flex items-center gap-1"
+                  key={value}
+                  onClick={() => setMode(value)}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-bold ${mode === value ? "bg-[#064B50] text-white" : "text-[#202C2B]/70"}`}
                 >
-                  {copied ? (
-                    <Check className="w-3 h-3 text-[#16A34A]" />
-                  ) : (
-                    <Copy className="w-3 h-3" />
-                  )}
-                  <span>{copied ? t(lang, "copied") : t(lang, "copy")}</span>
+                  <Icon className="h-3.5 w-3.5" /> {label}
                 </button>
-              </div>
-              <p className="text-xs text-[#202C2B] italic bg-white p-2.5 rounded-xl border border-[#064B50]/10">
-                &quot;Terima kasih. Sesuai standar rekrutmen profesional, saya
-                tidak dapat mentransfer biaya apapun sebelum kontrak kerja resmi
-                ditandatangani.&quot;
-              </p>
+              ))}
             </div>
 
-            {/* Action Buttons */}
+            {mode === "text" && (
+              <textarea
+                rows={10}
+                value={text}
+                onChange={(event) => {
+                  setText(event.target.value)
+                  setResult(null)
+                }}
+                placeholder={
+                  lang === "ID"
+                    ? "Tempelkan tawaran kerja atau pesan recruiter secara lengkap di sini..."
+                    : "Paste the complete job offer or recruiter message here..."
+                }
+                className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-4 text-sm leading-relaxed outline-none focus:border-[#064B50]"
+              />
+            )}
+            {mode === "url" && (
+              <div>
+                <label className="mb-2 block text-xs font-extrabold uppercase tracking-wider text-[#064B50]">
+                  {lang === "ID" ? "URL tawaran kerja" : "Job offer URL"}
+                </label>
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(event) => {
+                    setUrl(event.target.value)
+                    setResult(null)
+                  }}
+                  placeholder="https://contoh-perusahaan.com/careers"
+                  className="w-full rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-4 text-sm outline-none focus:border-[#064B50]"
+                />
+                <p className="mt-2 text-xs text-[#202C2B]/60">
+                  {lang === "ID" ? "Jeli memeriksa pola domain dan tautan. Jangan membuka tautan yang mencurigakan." : "Jeli checks domain and URL patterns. Do not open suspicious links."}
+                </p>
+              </div>
+            )}
+            {mode === "image" && (
+              <div>
+                <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#064B50]/20 bg-[#F7F7F0] p-5 text-center hover:border-[#087F7A]">
+                  <Upload className="mb-2 h-7 w-7 text-[#087F7A]" />
+                  <span className="text-sm font-bold">{lang === "ID" ? "Unggah screenshot tawaran" : "Upload an offer screenshot"}</span>
+                  <span className="mt-1 text-xs text-[#202C2B]/60">PNG, JPG, WEBP</span>
+                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} className="hidden" />
+                </label>
+                {imagePreview && <img src={imagePreview} alt="Job offer preview" className="mt-3 max-h-48 w-full rounded-xl object-contain" />}
+                <textarea
+                  rows={3}
+                  value={imageDescription}
+                  onChange={(event) => setImageDescription(event.target.value)}
+                  placeholder={lang === "ID" ? "Tambahkan teks penting dari gambar (opsional)..." : "Add important text from the image (optional)..."}
+                  className="mt-3 w-full resize-none rounded-xl border border-[#064B50]/15 bg-[#F7F7F0] p-3 text-xs outline-none focus:border-[#064B50]"
+                />
+                <p className="mt-2 text-xs text-[#202C2B]/60">
+                  {lang === "ID" ? "Demo ini tidak mengirim gambar ke layanan pihak ketiga. Tambahkan teks gambar agar indikator dapat dianalisis." : "This demo does not send images to third-party services. Add image text so indicators can be analyzed."}
+                </p>
+              </div>
+            )}
+
             <button
-              onClick={onBackToHome}
-              className="w-full bg-[#064B50] hover:bg-[#087F7A] text-white font-bold text-xs py-2.5 rounded-xl transition-colors text-center shadow-xs"
+              onClick={handleAnalyze}
+              disabled={isScanning || !currentInput.trim()}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#064B50] px-5 py-3 font-extrabold text-white transition-colors hover:bg-[#087F7A] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t(lang, "backHomepage")}
+              <RefreshCw className={`h-4 w-4 text-[#B8F000] ${isScanning ? "animate-spin" : ""}`} />
+              {isScanning ? (lang === "ID" ? "Menganalisis..." : "Analyzing...") : (lang === "ID" ? "Analisis Tawaran" : "Analyze Offer")}
             </button>
-          </div>
+            {error && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-700">{error}</p>}
+            <p className="mt-3 text-center text-[11px] text-[#202C2B]/55">
+              {lang === "ID" ? "Hasil adalah indikasi berbasis aturan, bukan bukti pasti bahwa tawaran aman atau penipuan." : "This is an explainable rule-based indication, not proof that an offer is safe or fraudulent."}
+            </p>
+          </section>
+
+          <section className={`rounded-3xl border-2 p-5 shadow-md sm:p-6 lg:col-span-5 ${result ? levelStyles[risk.level] : "border-[#064B50]/15 bg-white"}`}>
+            {!result ? (
+              <div className="flex min-h-72 flex-col items-center justify-center text-center">
+                <ShieldCheck className="mb-3 h-12 w-12 text-[#087F7A]" />
+                <h2 className="text-lg font-extrabold text-[#064B50]">{lang === "ID" ? "Hasil analisis akan muncul di sini" : "Your analysis will appear here"}</h2>
+                <p className="mt-2 text-sm opacity-75">{lang === "ID" ? "Masukkan data lalu tekan Analisis Tawaran." : "Enter data and click Analyze Offer."}</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 flex items-center justify-between border-b border-current/10 pb-3">
+                  <span className="flex items-center gap-2 text-xs font-extrabold uppercase"><AlertTriangle className="h-4 w-4" /> {lang === "ID" ? "Hasil Evaluasi Jeli" : "Jeli Evaluation Result"}</span>
+                  <span className="text-3xl font-black">{risk.score}<small className="text-sm font-normal">/100</small></span>
+                </div>
+                <h2 className="mb-2 text-xl font-extrabold">{lang === "ID" ? (risk.level === "high" ? "Risiko Tinggi" : risk.level === "medium" ? "Perlu Waspada" : "Risiko Rendah") : (risk.level === "high" ? "High Risk" : risk.level === "medium" ? "Needs Caution" : "Low Risk")}</h2>
+                <p className="mb-5 text-sm leading-relaxed">{risk.summary}</p>
+                <div className="mb-5 space-y-2">
+                  <h3 className="text-xs font-extrabold uppercase">{lang === "ID" ? "Indikator terdeteksi" : "Detected indicators"}</h3>
+                  {risk.flags.map((flag) => <div key={flag} className="rounded-xl border border-current/10 bg-white/60 p-3 text-xs leading-relaxed"><Check className="mr-1 inline h-3.5 w-3.5" />{flag}</div>)}
+                </div>
+                <div className="mb-5 space-y-2">
+                  <h3 className="text-xs font-extrabold uppercase">{lang === "ID" ? "Rekomendasi" : "Recommendations"}</h3>
+                  {risk.recommendations.map((recommendation) => <div key={recommendation} className="rounded-xl border border-current/10 bg-white/60 p-3 text-xs leading-relaxed"><Check className="mr-1 inline h-3.5 w-3.5" />{recommendation}</div>)}
+                </div>
+                <p className="mb-4 text-[11px] opacity-70">{risk.disclaimer}</p>
+                <button onClick={handleCopyReply} className="flex items-center gap-2 rounded-xl border border-current/20 bg-white/60 px-3 py-2 text-xs font-bold">
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? t(lang, "copied") : (lang === "ID" ? "Salin balasan aman" : "Copy safe reply")}
+                </button>
+              </>
+            )}
+          </section>
         </div>
       </div>
     </div>

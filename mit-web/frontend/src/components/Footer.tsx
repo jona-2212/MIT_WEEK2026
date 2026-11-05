@@ -4,7 +4,7 @@ import JeliLogo from "./JeliLogo"
 import { t } from "../i18n"
 
 interface FooterProps {
-  onNavigate: (page: "home" | "checker" | "simulator") => void
+  onNavigate: (page: "home" | "checker" | "simulator" | "company") => void
   onScrollTo: (id: string) => void
   lang: "ID" | "EN"
 }
@@ -23,6 +23,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate, onScrollTo, lang }) => (
           <button onClick={() => onScrollTo("know-the-scams")} className="text-left hover:text-white">{t(lang, "knowScamsFull")}</button>
           <button onClick={() => onNavigate("simulator")} className="text-left hover:text-[#B8F000]">{t(lang, "simulator")}</button>
           <button onClick={() => onNavigate("checker")} className="text-left hover:text-[#B8F000]">{t(lang, "checkOffer")}</button>
+          <button onClick={() => onNavigate("company")} className="text-left hover:text-[#B8F000]">{lang === "ID" ? "Cek PT" : "Company Check"}</button>
         </div>
       </div>
       <div>

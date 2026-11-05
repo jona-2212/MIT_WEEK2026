@@ -1,0 +1,22 @@
+import { Building2, BriefcaseBusiness } from "lucide-react"
+
+type AppPage = "home" | "checker" | "simulator" | "company"
+
+interface BottomNavigationProps {
+  activePage: "checker" | "company"
+  onNavigate: (page: AppPage) => void
+  lang: "ID" | "EN"
+}
+
+export function BottomNavigation({ activePage, onNavigate, lang }: BottomNavigationProps) {
+  return (
+    <nav className="fixed bottom-4 left-1/2 z-40 flex w-[min(92vw,28rem)] -translate-x-1/2 gap-1 rounded-2xl border border-[#064B50]/15 bg-white/95 p-1.5 shadow-lg backdrop-blur">
+      <button onClick={() => onNavigate("checker")} className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-extrabold ${activePage === "checker" ? "bg-[#064B50] text-white" : "text-[#064B50]"}`}>
+        <BriefcaseBusiness className="h-4 w-4" /> {lang === "ID" ? "Cek Loker" : "Job Checker"}
+      </button>
+      <button onClick={() => onNavigate("company")} className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-extrabold ${activePage === "company" ? "bg-[#064B50] text-white" : "text-[#064B50]"}`}>
+        <Building2 className="h-4 w-4" /> {lang === "ID" ? "Cek PT" : "Company Check"}
+      </button>
+    </nav>
+  )
+}
