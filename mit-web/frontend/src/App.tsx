@@ -10,17 +10,31 @@ import { JobOfferCheckerPage } from "./components/JobOfferCheckerPage"
 import { ScamSimulatorPage } from "./components/ScamSimulatorPage"
 import type { Language } from "./i18n"
 
-type Page = "home" | "checker" | "simulator"
+export type Page = "home" | "checker" | "simulator"
+
+function pageFromHash(): Page {
+  const hash = window.location.hash.replace("#", "")
+  return hash === "checker" || hash === "simulator" ? hash : "home"
+}
 
 export default function App() {
-  const [activePage, setActivePage] = useState<Page>("home")
+  const [activePage, setActivePage] = useState<Page>(pageFromHash)
   const [lang, setLang] = useState<Language>("ID")
+
+  useEffect(() => {
+    const handleHashChange = () => setActivePage(pageFromHash())
+    window.addEventListener("hashchange", handleHashChange)
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [activePage])
 
-  const navigate = (page: Page) => setActivePage(page)
+  const navigate = (page: Page) => {
+    setActivePage(page)
+    window.history.pushState(null, "", page === "home" ? window.location.pathname : `#${page}`)
+  }
   const scrollTo = (id: string) => {
     if (activePage !== "home") {
       setActivePage("home")
@@ -42,7 +56,7 @@ export default function App() {
           <ClosingCtaSection onCheckJobOffer={() => navigate("checker")} onStartSimulation={() => navigate("simulator")} lang={lang} />
         </main>
       ) : activePage === "checker" ? (
-        <JobOfferCheckerPage onBackToHome={() => navigate("home")} lang={lang} />
+        <JobOfferCheckerPage onBackToHome={() => navigate("home")} onNavigate={navigate} lang={lang} />
       ) : (
         <ScamSimulatorPage onBackToHome={() => navigate("home")} lang={lang} />
       )}
