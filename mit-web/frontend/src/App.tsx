@@ -13,15 +13,29 @@ import type { Language } from "./i18n"
 
 export type Page = "home" | "checker" | "simulator" | "company"
 
+function pageFromHash(): Page {
+  const hash = window.location.hash.replace("#", "")
+  return hash === "checker" || hash === "simulator" || hash === "company" ? hash : "home"
+}
+
 export default function App() {
-  const [activePage, setActivePage] = useState<Page>("home")
+  const [activePage, setActivePage] = useState<Page>(pageFromHash)
   const [lang, setLang] = useState<Language>("ID")
+
+  useEffect(() => {
+    const handleHashChange = () => setActivePage(pageFromHash())
+    window.addEventListener("hashchange", handleHashChange)
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [activePage])
 
-  const navigate = (page: Page) => setActivePage(page)
+  const navigate = (page: Page) => {
+    setActivePage(page)
+    window.history.pushState(null, "", page === "home" ? window.location.pathname : `#${page}`)
+  }
   const scrollTo = (id: string) => {
     if (activePage !== "home") {
       setActivePage("home")
