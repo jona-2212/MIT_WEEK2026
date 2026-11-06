@@ -1,6 +1,6 @@
 [project]
 name = "job-scam-guardian-ai"
-version = "0.2.0"
+version = "0.3.0"
 description = "Backend AI Job Scam Guardian dengan analisis rekrutmen yang dapat ditelusuri."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -16,6 +16,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "chromadb>=1,<2",
+    "pypdf>=6,<7",
     "pytest>=8.3,<10.0",
     "ruff>=0.9,<1.0",
 ]

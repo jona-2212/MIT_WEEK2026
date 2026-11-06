@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.schemas.recognition import AnalysisResponse
-from app.services.knowledge.retrieval import KnowledgeRetriever
+from app.services.knowledge.static_index import StaticKnowledgeRetriever
 from app.services.uploads import MAX_IMAGE_BYTES, MAX_REQUEST_BYTES
 from tests.factories import (
     NORMAL_TEXT,
@@ -18,16 +18,18 @@ from tests.factories import (
     observation,
     open_test_client,
 )
+from tests.legal_fixtures import MockEmbeddings
 
 pytestmark = pytest.mark.anyio
 
 
-async def test_text_only_end_to_end_with_mocked_gemini() -> None:
+async def test_text_only_end_to_end_with_mocked_gemini(rag_bundle) -> None:
     content = extraction(
         observation("upfront_payment", "Transfer biaya administrasi Rp150.000"),
         observation("urgency_pressure", "Konfirmasi hari ini juga"),
     )
-    app, calls = build_test_app(content)
+    settings, embeddings = rag_bundle
+    app, calls = build_test_app(content, settings=settings, embedding_provider=embeddings)
     request_id = "a8b8f493-3681-4a1c-89b8-654d33700910"
     async with open_test_client(app) as client:
         response = await client.post(
@@ -39,13 +41,10 @@ async def test_text_only_end_to_end_with_mocked_gemini() -> None:
     result = AnalysisResponse.model_validate(response.json())
     assert result.request_id == response.headers["x-request-id"] == request_id
     assert result.input_mode == "text"
-    assert result.risk_score == result.score_breakdown.raw_score == 55
-    assert result.risk_level == "high"
-    assert result.legal_status == "available"
-    assert {item.source_id for item in result.legal_context} == {
-        "kemnaker-recruitment-warning-2024",
-        "permenaker-18-2024-placement-fees",
-    }
+    assert result.fraud_assessment.risk_category == "high"
+    assert result.legal_screening.status == "needs_more_context"
+    assert {item.source_id for item in result.legal_screening.references} == {"mock-legal-fixture"}
+    assert embeddings.query_calls == 1
     assert len(calls) == 1
     upstream = json.loads(calls[0].content)
     assert SUSPICIOUS_TEXT in upstream["contents"][0]["parts"][0]["text"]
@@ -67,7 +66,7 @@ async def test_image_only_decoded_and_sent_as_inline_data(fmt: str, mime: str) -
         )
     assert response.status_code == 200
     assert response.json()["input_mode"] == "image"
-    assert response.json()["risk_score"] == 40
+    assert response.json()["fraud_assessment"]["risk_category"] == "high"
     assert len(calls) == 1
     parts = json.loads(calls[0].content)["contents"][0]["parts"]
     assert parts[1]["inline_data"]["mime_type"] == mime
@@ -87,9 +86,8 @@ async def test_combined_input_is_one_request_and_no_double_scoring() -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["input_mode"] == "both"
-    assert data["risk_score"] == 40
-    assert data["score_breakdown"]["contributions"] == [{"code": "upfront_payment", "weight": 40}]
-    assert len(data["indicators"][0]["evidence"]) == 2
+    assert data["fraud_assessment"]["risk_category"] == "high"
+    assert len(data["fraud_assessment"]["indicators"][0]["evidence"]) == 2
     assert len(calls) == 1
 
 
@@ -99,11 +97,10 @@ async def test_normal_offer_does_not_claim_verified_safety() -> None:
         response = await client.post("/api/v1/analyze", files=form_parts(NORMAL_TEXT))
     data = response.json()
     assert response.status_code == 200
-    assert data["risk_score"] == 0
-    assert data["risk_level"] == "low"
-    assert "tidak dinyatakan aman" in data["summary"]
+    assert data["fraud_assessment"]["risk_category"] == "low"
+    assert "tidak dinyatakan aman" in data["fraud_assessment"]["summary"]
     assert "bukan" in data["disclaimer"]
-    assert data["legal_status"] == "not_available"
+    assert data["legal_screening"]["status"] == "reference_unavailable"
 
 
 async def test_tiny_text_is_insufficient_without_calling_ai() -> None:
@@ -112,9 +109,8 @@ async def test_tiny_text_is_insufficient_without_calling_ai() -> None:
         response = await client.post("/api/v1/analyze", files=form_parts("halo"))
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == data["risk_level"] == "insufficient_data"
-    assert data["risk_score"] is None
-    assert data["score_breakdown"] == {"raw_score": 0, "final_score": None, "contributions": []}
+    assert data["status"] == data["fraud_assessment"]["risk_category"] == "insufficient_data"
+    assert "risk_score" not in response.text and "score_breakdown" not in response.text
     assert calls == []
 
 
@@ -131,7 +127,7 @@ async def test_unreadable_image_is_insufficient(content: dict) -> None:
     async with open_test_client(app) as client:
         response = await client.post("/api/v1/analyze", files=form_parts(image=image_bytes()))
     assert response.status_code == 200
-    assert response.json()["risk_score"] is None
+    assert response.json()["fraud_assessment"]["risk_category"] == "insufficient_data"
 
 
 async def test_unsupported_evidence_is_removed_from_final_score() -> None:
@@ -140,8 +136,8 @@ async def test_unsupported_evidence_is_removed_from_final_score() -> None:
     async with open_test_client(app) as client:
         response = await client.post("/api/v1/analyze", files=form_parts(NORMAL_TEXT))
     assert response.status_code == 200
-    assert response.json()["risk_score"] == 0
-    assert response.json()["indicators"][0]["state"] == "uncertain"
+    assert response.json()["fraud_assessment"]["risk_category"] == "insufficient_data"
+    assert response.json()["fraud_assessment"]["indicators"][0]["state"] == "uncertain"
     assert "minta biaya seribu juta" not in response.text
 
 
@@ -313,12 +309,14 @@ async def test_unavailable_knowledge_does_not_block_recognition(tmp_path) -> Non
     content = extraction(observation("upfront_payment", "Transfer biaya administrasi Rp150.000"))
     app, _ = build_test_app(content)
     async with open_test_client(app) as client:
-        app.state.recognition_service.knowledge = KnowledgeRetriever(tmp_path / "missing.json")
+        app.state.recognition_service.knowledge = StaticKnowledgeRetriever(
+            Settings(_env_file=None, legal_index_path=tmp_path / "missing"), MockEmbeddings()
+        )
         response = await client.post("/api/v1/analyze", files=form_parts(SUSPICIOUS_TEXT))
     assert response.status_code == 200
-    assert response.json()["risk_score"] == 40
-    assert response.json()["legal_status"] == "not_available"
-    assert response.json()["legal_context"] == []
+    assert response.json()["fraud_assessment"]["risk_category"] == "high"
+    assert response.json()["legal_screening"]["status"] == "reference_unavailable"
+    assert response.json()["legal_screening"]["references"] == []
 
 
 async def test_multipart_cutoff_never_silently_drops_image() -> None:
@@ -363,17 +361,143 @@ async def test_post_cors_and_trimmed_text_are_supported() -> None:
     assert json.loads(sent)["job_text"] == NORMAL_TEXT
 
 
-async def test_openapi_response_examples_are_valid_and_calculable() -> None:
+async def test_openapi_response_examples_are_valid_and_qualitative() -> None:
     app, _ = build_test_app()
     schema = app.openapi()
     examples = schema["paths"]["/api/v1/analyze"]["post"]["responses"]["200"]["content"][
         "application/json"
     ]["examples"]
-    from app.services.risk.scoring import risk_level_for_score, score_indicators
-
     for item in examples.values():
         result = AnalysisResponse.model_validate(item["value"])
-        calculated = score_indicators(result.indicators, sufficient=result.status == "completed")
-        assert calculated == result.score_breakdown
-        if result.risk_score is not None:
-            assert result.risk_level == risk_level_for_score(result.risk_score)
+        assert result.fraud_assessment.risk_category == "high"
+    serialized = json.dumps(schema)
+    for forbidden in ("risk_score", "score_breakdown", "scoring_version", '"weight"'):
+        assert forbidden not in serialized
+
+
+@pytest.mark.parametrize("chunked", [False, True])
+async def test_vercel_total_multipart_limit_is_enforced(chunked: bool) -> None:
+    settings = Settings(_env_file=None, upload_profile="vercel")
+    assert settings.max_image_bytes == 4 * 1024 * 1024
+    assert settings.max_request_bytes < 4_500_000
+    app, calls = build_test_app(settings=settings)
+
+    async def chunks():
+        for _ in range(5):
+            yield b"x" * (1024 * 1024)
+
+    headers = {"Content-Type": "multipart/form-data; boundary=test"}
+    if not chunked:
+        headers["Content-Length"] = str(settings.max_request_bytes + 1)
+    async with open_test_client(app) as client:
+        response = await client.post(
+            "/api/v1/analyze", content=chunks() if chunked else b"", headers=headers
+        )
+        demo = await client.get("/demo")
+    assert response.status_code == 413 and calls == []
+    assert "Maksimal 4 MiB" in demo.text and "__MAX_IMAGE_BYTES__" not in demo.text
+
+
+async def test_model_category_conflict_and_forged_legal_quotes_are_safe(rag_bundle) -> None:
+    settings, embeddings = rag_bundle
+    content = extraction(
+        observation("upfront_payment", "Transfer biaya administrasi Rp150.000"),
+        category="low",
+        legal_observations=[
+            {
+                "topic": "personal_data",
+                "evidence": [
+                    {
+                        "source": "text",
+                        "quote": "Permintaan data pribadi tidak terdapat pada sumber",
+                    }
+                ],
+            }
+        ],
+    )
+    app, calls = build_test_app(content, settings=settings, embedding_provider=embeddings)
+    async with open_test_client(app) as client:
+        result = (await client.post("/api/v1/analyze", files=form_parts(SUSPICIOUS_TEXT))).json()
+    assert result["fraud_assessment"]["risk_category"] == result["status"] == "insufficient_data"
+    assert len(calls) == embeddings.query_calls == 1
+    assert all(ref["page_start"] == 1 for ref in result["legal_screening"]["references"])
+
+
+async def test_text_url_is_never_fetched() -> None:
+    app, calls = build_test_app()
+    async with open_test_client(app) as client:
+        response = await client.post(
+            "/api/v1/analyze", files=form_parts(NORMAL_TEXT + " https://example.invalid/job")
+        )
+    assert response.status_code == 200 and len(calls) == 1
+    assert calls[0].url.host == "generativelanguage.googleapis.com"
+
+
+@pytest.mark.parametrize(
+    "reason", ["embedding_timeout", "embedding_rate_limited", "embedding_not_configured"]
+)
+async def test_rag_provider_failure_preserves_successful_fraud(rag_bundle, reason) -> None:
+    from app.services.ai.embeddings import EmbeddingError
+
+    settings, _ = rag_bundle
+
+    class Failing(MockEmbeddings):
+        async def embed_query(self, text):
+            raise EmbeddingError(reason)
+
+    content = extraction(observation("upfront_payment", "Transfer biaya administrasi Rp150.000"))
+    app, calls = build_test_app(content, settings=settings, embedding_provider=Failing())
+    async with open_test_client(app) as client:
+        response = await client.post("/api/v1/analyze", files=form_parts(SUSPICIOUS_TEXT))
+    assert response.status_code == 200 and len(calls) == 1
+    data = response.json()
+    assert data["fraud_assessment"]["risk_category"] == "high"
+    assert data["legal_screening"]["status"] == "reference_unavailable"
+    assert data["legal_screening"]["references"] == []
+    assert reason in data["legal_screening"]["warnings"]
+
+
+async def test_vercel_individual_file_limit_and_pdf_input_rejection() -> None:
+    settings = Settings(_env_file=None, upload_profile="vercel")
+    app, calls = build_test_app(settings=settings)
+    async with open_test_client(app) as client:
+        response = await client.post(
+            "/api/v1/analyze", files=form_parts(image=b"x" * (settings.max_image_bytes + 1))
+        )
+        pdf = await client.post(
+            "/api/v1/analyze", files=[("file", ("law.pdf", b"%PDF-fixture", "application/pdf"))]
+        )
+    assert response.status_code == 413 and response.json()["error"]["code"] == "image_too_large"
+    assert pdf.status_code == 415 and pdf.json()["error"]["code"] == "unsupported_image_type"
+    assert calls == []
+
+
+async def test_mock_demo_exercises_real_api_and_labels_all_fixture_outputs() -> None:
+    from tests.demo_server import create_test_app
+
+    async with open_test_client(create_test_app()) as client:
+        html = (await client.get("/demo")).text
+        response = await client.post("/api/v1/analyze", files=form_parts(SUSPICIOUS_TEXT))
+    assert "MODE UJI MOCK" in html and "__MAX_IMAGE_BYTES__" not in html
+    assert "risk_score" not in html and "score_breakdown" not in html
+    assert response.status_code == 200
+    legal = response.json()["legal_screening"]
+    assert legal["references"] and all(
+        r["source_kind"] == "test_fixture" for r in legal["references"]
+    )
+
+
+@pytest.mark.parametrize(
+    "code,quote",
+    [
+        ("unrealistic_offer", "Gaji bulanan Rp100.000.000"),
+        ("unofficial_channel", "Hubungi alamat Gmail perekrut"),
+    ],
+)
+async def test_salary_or_channel_alone_never_supports_high(code, quote) -> None:
+    text = f"Lowongan staf administrasi PT Contoh Fiktif. {quote}. Rincian proses belum tersedia."
+    app, _ = build_test_app(extraction(observation(code, quote), category="high"))
+    async with open_test_client(app) as client:
+        response = await client.post("/api/v1/analyze", files=form_parts(text))
+    assert response.status_code == 200
+    assert response.json()["fraud_assessment"]["risk_category"] == "insufficient_data"

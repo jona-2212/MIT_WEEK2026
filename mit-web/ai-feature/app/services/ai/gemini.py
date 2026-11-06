@@ -13,9 +13,9 @@ from app.schemas.recognition import AIExtraction
 from app.services.uploads import ValidatedImage
 
 logger = logging.getLogger("job_scam_guardian.ai")
-PROMPT_VERSION = "recognition-v1"
+PROMPT_VERSION = "recognition-v2"
 MAX_PROVIDER_BYTES = 256 * 1024
-SYSTEM_PROMPT = (PROJECT_ROOT / "app/services/ai/prompts/recognition-v1.txt").read_text(
+SYSTEM_PROMPT = (PROJECT_ROOT / "app/services/ai/prompts/recognition-v2.txt").read_text(
     encoding="utf-8"
 )
 

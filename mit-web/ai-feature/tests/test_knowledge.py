@@ -1,51 +1,38 @@
 import json
-from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 
-from app.services.knowledge.retrieval import KnowledgeRetriever
-from app.services.risk.scoring import score_indicators
-from tests.test_scoring import indicator
+from app.schemas.knowledge import KnowledgeEntry
+from app.schemas.recognition import AIExtraction
+from app.services.knowledge.retrieval import grounded_query, is_verified, load_registry
+from app.services.risk.grounding import ground_indicators
+from tests.factories import NORMAL_TEXT, extraction, observation
 
 
 def entry(**changes) -> dict:
-    today = date(2026, 10, 31)
     result = {
         "source_id": "synthetic-official-guidance",
         "type": "official_guidance",
-        "title": "Panduan fiktif untuk uji loader",
+        "title": "Panduan fiktif khusus tes",
         "article": None,
         "official_url": "https://www.kemnaker.go.id/",
-        "summary": "Ringkasan sintetis khusus tes, bukan rujukan runtime.",
-        "verified_at": (today - timedelta(days=1)).isoformat(),
-        "review_after": (today + timedelta(days=30)).isoformat(),
+        "summary": "Fixture, bukan rujukan runtime.",
+        "verified_at": "2026-10-30",
+        "review_after": "2027-01-31",
         "verification_status": "verified",
-        "exceptions": "Hanya fixture pengujian.",
+        "exceptions": "Hanya fixture.",
         "indicator_codes": ["upfront_payment"],
     }
     result.update(changes)
     return result
 
 
-def loader(tmp_path: Path, entries: list[dict]) -> KnowledgeRetriever:
-    path = tmp_path / "sources.json"
-    path.write_text(json.dumps(entries), encoding="utf-8")
-    return KnowledgeRetriever(path)
-
-
-def test_retrieve_only_matching_verified_reference_and_deduplicate(tmp_path: Path) -> None:
-    retriever = loader(tmp_path, [entry(), entry()])
-    result = retriever.retrieve(["upfront_payment", "upfront_payment"])
-    assert len(result) == 1
-    assert result[0].source_id == "synthetic-official-guidance"
-    assert retriever.retrieve(["credential_request"]) == []
-
-
 @pytest.mark.parametrize(
     "changes",
     [
         {"verification_status": "pending_verification"},
+        {"verification_status": "expired"},
         {"verified_at": None},
         {"review_after": "2000-01-01"},
         {"verified_at": "2099-01-01"},
@@ -54,25 +41,43 @@ def test_retrieve_only_matching_verified_reference_and_deduplicate(tmp_path: Pat
         {"official_url": "https://kemnaker.go.id.evil.example/"},
         {"official_url": "http://www.kemnaker.go.id/"},
         {"official_url": "https://user:password@www.kemnaker.go.id/"},
-        {"type": "regulation", "article": None},
     ],
 )
-def test_retrieval_excludes_unverified_incomplete_or_unsafe_sources(
-    tmp_path: Path, changes: dict
-) -> None:
-    assert loader(tmp_path, [entry(**changes)]).retrieve(["upfront_payment"]) == []
+def test_registry_verification_gating(changes: dict) -> None:
+    assert not is_verified(KnowledgeEntry.model_validate(entry(**changes)))
 
 
-@pytest.mark.parametrize("content", ["broken-json", "{}", '[{"unexpected": true}]'])
-def test_invalid_knowledge_is_safe_fallback(tmp_path: Path, content: str) -> None:
-    path = tmp_path / "sources.json"
+def test_nullable_article_is_allowed_without_guessing() -> None:
+    assert is_verified(KnowledgeEntry.model_validate(entry(type="regulation", article=None)))
+
+
+@pytest.mark.parametrize("content", ["broken-json", "{}", '[{"unexpected":true}]'])
+def test_invalid_registry_is_rejected(tmp_path: Path, content: str) -> None:
+    path = tmp_path / "registry.json"
     path.write_text(content, encoding="utf-8")
-    assert KnowledgeRetriever(path).retrieve(["upfront_payment"]) == []
+    with pytest.raises(ValueError, match="legal_registry_invalid"):
+        load_registry(path)
 
 
-def test_missing_knowledge_does_not_change_scoring(tmp_path: Path) -> None:
-    indicators = [indicator("upfront_payment")]
-    before = score_indicators(indicators)
-    assert KnowledgeRetriever(tmp_path / "absent.json").retrieve(["upfront_payment"]) == []
-    assert score_indicators(indicators) == before
-    assert before.final_score == 40
+def test_registry_rejects_duplicate_ids(tmp_path: Path) -> None:
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps([entry(), entry()]), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_registry(path)
+
+
+def test_query_uses_grounded_material_only_and_respects_negation() -> None:
+    model = AIExtraction.model_validate(
+        extraction(
+            observation("upfront_payment", "biaya palsu yang tidak ada"),
+            legal_observations=[
+                {
+                    "topic": "recruitment_fees",
+                    "evidence": [{"source": "text", "quote": "dipungut biaya"}],
+                }
+            ],
+        )
+    )
+    items, _ = ground_indicators(model, NORMAL_TEXT, has_image=False, sufficient=True)
+    query, topics = grounded_query(model, items, NORMAL_TEXT, has_image=False)
+    assert query == "" and topics == set()

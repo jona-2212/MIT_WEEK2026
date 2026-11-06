@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "functions": {
+    "index.py": {
+      "excludeFiles": "{tests/**,scripts/**,docs/**,data/knowledge/pdf/**,data/chroma_local/**,data/legal_staging/**,.venv/**,.uv-cache/**,.pytest_cache/**,.ruff_cache/**,.env*}"
+    }
+  }
+}

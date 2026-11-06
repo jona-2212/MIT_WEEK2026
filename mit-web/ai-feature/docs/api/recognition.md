@@ -1,85 +1,77 @@
-# API Fitur 01 — Recognition
+# API Fitur 01 — recognition-v2
 
-Tujuan: kontrak integrasi frontend untuk satu kasus rekrutmen. Acuan kebutuhan: [BRIEF](../features/01-job-scam-recognition/BRIEF.md), perilaku: [IMPLEMENTATION](../features/01-job-scam-recognition/IMPLEMENTATION.md), registry endpoint: [README API](README.md).
+Kontrak mengganti response numerik versi 0.2.0. Request multipart, endpoint health/docs/demo, request ID, dan envelope error dipertahankan. Acuan: [SRS](../features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md), [ADR](../decisions/ADR-0003-qualitative-static-rag.md).
 
 ## Request
 
-`POST /api/v1/analyze`, `Content-Type: multipart/form-data`. Header `X-Request-ID` opsional berupa UUID. Minimal satu input nonempty; tidak ada endpoint terpisah `/analyze/text` atau `/analyze/image` pada proyek ini.
+`POST /api/v1/analyze`, `multipart/form-data`. Minimal satu input; `X-Request-ID` UUID opsional.
 
-| Field | Jenis | Aturan |
-|---|---|---|
-| `text` | string opsional | Whitespace tepi dipangkas; maksimal 12.000 karakter; field mentah maksimal 48.000 byte |
-| `file` | binary opsional | Satu JPEG/PNG/WebP statis, maksimal 5 MiB dan 16 juta piksel; MIME harus sesuai decode aktual |
+| Field | Aturan |
+|---|---|
+| `text` | Opsional; trim; maksimal 12.000 karakter/48.000 byte mentah |
+| `file` | Satu PNG/JPEG/WebP statis, 16 MP; 5 MiB lokal atau 4 MiB profil Vercel |
 
-Form dengan field berulang/tidak dikenal, tipe field yang salah, atau boundary tidak lengkap ditolak. Total body maksimum 5 MiB + 64 KiB; ukuran dihitung juga pada stream tanpa Content-Length. Nama/ekstensi file tidak menentukan format. Teks + gambar digabung menjadi satu kasus dan satu request provider.
+Total body termasuk semua field, header multipart, dan boundary maksimal batas gambar + 64 KiB: lokal 5.308.416 byte, Vercel 4.259.840 byte. Server memeriksa deklarasi maupun byte stream aktual. Form duplikat, field tak dikenal, boundary terputus, MIME/decode tidak cocok, animasi, PDF, dan file rusak ditolak.
 
-Contoh PowerShell dari root proyek; `curl.exe` dipakai agar tidak tertukar dengan alias PowerShell. Ubah path gambar sesuai berkas lokal. Materi contoh ini fiktif. Hapus data pribadi sebelum mengirim karena provider eksternal akan memproses input.
+Teks + gambar adalah satu kasus, satu panggilan generatif tanpa retry. URL dalam teks tidak di-fetch. Tidak ada endpoint ingestion PDF hukum.
 
 ```powershell
-# Teks saja
-curl.exe -X POST http://127.0.0.1:8000/api/v1/analyze -F "text=Lowongan staf PT Contoh Fiktif. Transfer biaya administrasi Rp150.000 sebelum wawancara. Konfirmasi hari ini juga."
-
-# Gambar saja
-curl.exe -X POST http://127.0.0.1:8000/api/v1/analyze -F "file=@data/examples/suspicious-synthetic.png;type=image/png"
-
-# Satu kasus gabungan
-curl.exe -X POST http://127.0.0.1:8000/api/v1/analyze -F "text=Informasi dari perekrut fiktif: transfer biaya administrasi Rp150.000 sebelum wawancara." -F "file=@data/examples/suspicious-synthetic.png;type=image/png"
+# MOCK: server tes port 8001, bukan Gemini live
+curl.exe -X POST http://127.0.0.1:8001/api/v1/analyze -F "text=Lowongan staf administrasi PT Contoh Fiktif. Transfer biaya administrasi Rp150.000 sebelum wawancara. Konfirmasi hari ini juga."
+curl.exe -X POST http://127.0.0.1:8001/api/v1/analyze -F "file=@data/examples/suspicious-synthetic.png;type=image/png"
 ```
 
-Pada JavaScript gunakan `FormData`, append hanya input yang diisi, lalu `fetch(..., {method:'POST', body: formData})`. **Jangan** menetapkan Content-Type multipart secara manual karena browser harus membuat boundary. Error dibaca dari JSON walau HTTP status bukan 200. Tampilkan `null` sebagai `—`, bukan 0. Lihat implementasi lengkap pada `demo/index.html` dan contoh request di Swagger `/docs`.
+Browser memakai FormData tanpa menetapkan Content-Type multipart manual. Input diproses pihak ketiga pada server biasa; pengguna perlu menyamarkan data pribadi.
 
-## Respons 200
+## Response 200
 
-| Field | Kontrak |
+| Field | Makna |
 |---|---|
-| `request_id` | UUID yang sama dengan header respons |
-| `status` | `completed` atau `insufficient_data` |
-| `input_mode` | `text`, `image`, atau `both` |
-| `analysis_version` / `scoring_version` | `recognition-v1` / `rules-v1` |
-| `risk_score` | Integer 0–100, atau null ketika data tidak cukup |
-| `risk_level` | `low`, `medium`, `high`, atau `insufficient_data` |
-| `score_breakdown` | `raw_score`, `final_score`, `contributions` dengan kode dan bobot unik |
-| `summary` | Ringkasan berskop pada materi yang dikirim; bukan putusan keamanan |
-| `indicators` | Enam kode, masing-masing `state`, bobot aturan, daftar evidence, dan `reason` |
-| `unknowns` | Batas informasi/ketidakpastian, termasuk keterbatasan pembacaan gambar bila ada |
-| `recommendations` | Tindakan verifikasi aman berdasarkan indikator |
-| `legal_status` | `available` berarti ada konteks regulasi/panduan terverifikasi yang relevan; selain itu `not_available` |
-| `legal_context` | Entri `source_id`, `type`, `title`, `article`, `official_url`, `summary`, `verified_at`, `exceptions` |
-| `disclaimer` | Skor heuristik, bukan probabilitas, putusan hukum, atau jaminan keamanan |
+| `request_id` | UUID sesuai header X-Request-ID |
+| `status` | completed atau insufficient_data, mengikuti kategori fraud |
+| `analysis_version` | recognition-v2 |
+| `input_mode` | text, image, both |
+| `fraud_assessment` | risk_category, summary, indicators, unknowns, recommendations |
+| `legal_screening` | status, summary, references, missing_facts, warnings |
+| `disclaimer` | Rubrik heuristik awal; bukan jaminan aman atau putusan hukum |
 
-Setiap indikator memiliki `code`, `state=detected/uncertain/not_detected`, `weight`, `evidence=[{source:text/image, quote}]`, dan `reason`. `weight` selalu bobot aturan; kontribusi 0 jika tidak detected atau tidak berbukti. UI sebaiknya menampilkan bobot **dan** kontribusi agar keduanya tidak tertukar.
+Tidak ada risk_score, score_breakdown, scoring_version, atau bobot indikator. Masing-masing indikator berisi code, state detected/uncertain/not_detected, evidence source=text/image dan quote, serta reason.
 
-Contoh perhitungan sintetis: upfront_payment 40 + urgency_pressure 15 → raw 55 → final 55 → high. Maksimum jumlah mentah 135 dibatasi menjadi 100. Pengulangan kutipan/kode pada kedua sumber tidak menambah bobot lagi. Versi aturan menandai heuristik yang dipakai; jangan menafsirkan 55 sebagai 55% peluang penipuan.
+Gemini mengusulkan kategori. Backend menolak bukti yang tidak cocok dan memvalidasi rubrik: high untuk permintaan berbahaya eksplisit berbukti; medium memerlukan dua indikator pendukung independen; low memerlukan materi cukup tanpa ketidakpastian material. Konflik/usulan tanpa dukungan menjadi insufficient_data. Kutipan sama dari dua modalitas tidak menjadi dua indikator independen. Ini heuristik awal, bukan hasil kalibrasi ilmiah.
 
-Untuk insufficient_data: `risk_score=null`, `risk_level=insufficient_data`, `score_breakdown={raw_score:0, final_score:null, contributions:[]}`. Keenam indikator menjadi uncertain. Materi kurang dari 40 karakter/enam token tanpa gambar mendapat respons ini sebelum provider dipanggil; pada input lain model juga memeriksa kecukupan/relevansi.
+| Status legal | Makna |
+|---|---|
+| `potential_issue` | Rujukan mendukung potensi isu untuk ditinjau; bukan vonis |
+| `needs_more_context` | Fakta cakupan/pengecualian belum memadai |
+| `no_relevant_reference` | Tidak ada rujukan aktif yang memenuhi topik/ambang |
+| `reference_unavailable` | Indeks/registry/embedding tidak tersedia atau tidak valid |
 
-Referensi hanya lapisan konteks. Tidak adanya referensi, atau tidak tercantumnya sebuah lowongan pada portal tertentu, tidak menjadi bukti pelanggaran. Saat ini cakupan KB aktif terbatas pada dua entri yang dijelaskan dalam [README KB](../../data/knowledge/README.md). Tidak ada pasal yang dihasilkan LLM.
+Setiap reference berasal dari chunk tersimpan: source_id, source_kind, chunk_id, title/type, article (nullable), official_url, excerpt, page_start/page_end, document_version, verification_status, verified_at/review_after, pdf_sha256/index_sha256, scope, exceptions. source_kind=test_fixture hanya pada mode tes dan bukan otoritas hukum. Pasal yang belum divalidasi tidak ditebak. Similarity tidak dipublikasikan sebagai probabilitas atau bukti pelanggaran.
+
+Regulasi pada MVP selalu memerlukan pemeriksaan manusia atas jenis pelaksana/cakupan/pengecualian; fakta tersebut tidak diputus dari klaim model. Kegagalan RAG mempertahankan response fraud yang valid dan mengisi status reference_unavailable dengan warning aman. Ketidakcukupan materi fraud memberi HTTP 200 insufficient_data; input kosong/format invalid tetap error.
+
+Contoh response lengkap berlabel **MOCK**: [recognition-mock.json](../examples/recognition-mock.json). Contoh OpenAPI juga sintetis dan tervalidasi, bukan hasil inferensi live.
 
 ## Error
 
+Envelope tetap:
+
 ```json
-{
-  "request_id": "66f30281-d8e3-4fb6-9dfa-e48db972f808",
-  "error": {
-    "code": "provider_not_configured",
-    "message": "Gemini belum dikonfigurasi. Isi GEMINI_API_KEY pada backend, lalu jalankan ulang server.",
-    "request_id": "66f30281-d8e3-4fb6-9dfa-e48db972f808"
-  }
-}
+{"request_id":"66f30281-d8e3-4fb6-9dfa-e48db972f808","error":{"code":"provider_not_configured","message":"Gemini belum dikonfigurasi. Isi GEMINI_API_KEY pada backend, lalu jalankan ulang server.","request_id":"66f30281-d8e3-4fb6-9dfa-e48db972f808"}}
 ```
 
-| Status | Kategori utama |
+| HTTP | Kategori |
 |---|---|
-| 400 | `empty_input`, `request_incomplete` |
-| 413 | `request_too_large`, `image_too_large`, `image_dimensions_too_large`, `normalized_image_too_large` |
-| 415 | `multipart_required`, `unsupported_image_type`, `image_type_mismatch`, `invalid_image`, `animated_image` |
-| 422 | `invalid_content_length`, `invalid_multipart`, `unknown_form_field`, `duplicate_form_field`, `invalid_form_field`, `invalid_text` |
-| 502 | `provider_error`, `provider_invalid_response` |
-| 503 | `provider_not_configured`, `provider_auth_error`, `provider_rate_limited`, `provider_model_unavailable`, `provider_unavailable`, `service_not_ready` |
-| 504 | `provider_timeout` |
+| 400 | empty_input, request_incomplete |
+| 413 | request_too_large, image_too_large, image_dimensions_too_large, normalized_image_too_large |
+| 415 | multipart_required, unsupported_image_type, image_type_mismatch, invalid_image, animated_image |
+| 422 | invalid_content_length, invalid_multipart, unknown_form_field, duplicate_form_field, invalid_form_field, invalid_text |
+| 502 | provider_error, provider_invalid_response |
+| 503 | provider_not_configured, provider_auth_error, provider_rate_limited, provider_model_unavailable, provider_unavailable, service_not_ready |
+| 504 | provider_timeout |
 
-Tidak ada skor sintetis pada kegagalan provider. Jangan mengandalkan kalimat pesan sebagai identifier; pakai status dan `error.code`. Raw input, isi error provider, key, dan traceback tidak diteruskan. Header CORS untuk origin yang diizinkan dan X-Request-ID juga berlaku pada jalur gagal.
+Tidak ada fallback hasil AI palsu. Respons/log tidak mengandung key, traceback, raw prompt, atau error provider mentah. Gunakan code/status untuk mesin. CORS dan request ID tetap berlaku pada error.
 
-## Kompatibilitas
+## Migrasi
 
-Versi 0.2.0 menambah endpoint analisis terpadu; endpoint health, Swagger/OpenAPI, dan `/demo` tetap ada. Error sekarang menambah `request_id` di root; `error.request_id` lama tetap dipertahankan. CORS diperluas untuk POST dengan daftar origin eksplisit. Model/kontrak lengkap dihasilkan melalui OpenAPI dan schema Pydantic; perubahan kontrak berikutnya harus disertai tes dan catatan pada [changelog](../../CHANGELOG.md).
+Klien lama yang membaca field numerik wajib beralih ke fraud_assessment dan legal_screening. Endpoint/field request tidak berubah. Frontend React produksi tidak diedit; demo mandiri sudah mengikuti kontrak baru. OpenAPI dan Pydantic adalah schema yang dieksekusi.

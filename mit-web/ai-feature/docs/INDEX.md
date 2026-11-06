@@ -9,11 +9,11 @@ Tujuan: menyediakan titik masuk dokumentasi produk dan engineering tanpa menggan
 | [AGENTS.md](../AGENTS.md) | Instruksi operasional agen dan workflow wajib |
 | [Document router](engineering/DOCUMENT_ROUTER.md) | Kebijakan memilih dokumen yang dibaca/diperbarui |
 | [System overview](architecture/SYSTEM_OVERVIEW.md) | Arsitektur fondasi yang benar-benar diimplementasikan |
-| [Feature registry](features/README.md) | Status Fitur 01 dan fitur berikutnya |
-| [Recognition — BRIEF](features/01-job-scam-recognition/BRIEF.md) | Sumber kebutuhan MVP yang diotorisasi pengguna |
-| [Recognition — implementasi](features/01-job-scam-recognition/IMPLEMENTATION.md) | Pipeline, grounding, aturan skor, privasi, dan batas |
+| [SRS Fitur 01 v1.2](features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md) | Kebutuhan backend mandiri, kategori kualitatif dan RAG hukum |
+| [ADR-0003](decisions/ADR-0003-qualitative-static-rag.md) | Keputusan implementasi terbaru dan perluasan Chroma offline/pilot |
+| [Runbook PDF/Chroma](engineering/LEGAL_INDEX_RUNBOOK.md) | Provenance, biaya/kuota, format indeks, build/verify/redeploy |
 | [Recognition — API](api/recognition.md) | Multipart, ketiga contoh curl, response/error, dan integrasi frontend |
-| [Recognition — test plan](features/01-job-scam-recognition/TEST_PLAN.md) | Acceptance criteria, mock vs live, dan uji demo |
+| [Laporan Fase A](reports/F01_PHASE_A_MOCK.md) | Bukti tes, smoke, mock vs live dan keterbatasan |
 | [ADR-0002](decisions/ADR-0002-recognition-pipeline.md) | Keputusan arsitektur Recognition |
 | [Knowledge base](../data/knowledge/README.md) | Dua sumber aktif, kandidat pending, dan verifikasi/expiry |
 | [Kontrak API](api/README.md) | Endpoint, health response, request ID, CORS, dan error |
@@ -24,4 +24,4 @@ Tujuan: menyediakan titik masuk dokumentasi produk dan engineering tanpa menggan
 | [Changelog](../CHANGELOG.md) | Perubahan proyek yang penting menurut versi |
 | [Kebijakan data](../data/README.md) | Contoh fiktif, sanitasi, dan sumber knowledge base mendatang |
 
-Status per 31 Oktober 2026: Fase C — Fitur 01 Recognition diimplementasikan; inferensi live memerlukan verifikasi key/kuota/model. Untuk pekerjaan baru, mulai dari router lalu baca dokumen yang berlaku; hasil mock bukan bukti akurasi/inferensi nyata dan rencana fitur lain belum menjadi implementasi.
+Status per 5 November 2026: recognition-v2 dan tooling indeks/Chroma lokal diimplementasikan serta diuji mock; embedding/inferensi live menunggu izin kuota owner. Dokumen fitur v1 dalam arsip adalah konteks historis. Hasil mock bukan bukti kualitas inferensi atau akurasi.

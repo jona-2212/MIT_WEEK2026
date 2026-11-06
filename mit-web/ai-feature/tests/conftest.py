@@ -7,6 +7,8 @@ from fastapi import FastAPI
 
 from app.core.config import Settings
 from app.main import create_app
+from app.services.knowledge.indexing import build_index
+from tests.legal_fixtures import MockEmbeddings, create_fixture_files
 
 
 @pytest.fixture(autouse=True)
@@ -23,9 +25,9 @@ def isolated_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     class KnowledgeSnapshotTime(datetime):
         @classmethod
         def now(cls, tz=None):
-            return datetime(2026, 10, 31, 12, tzinfo=UTC)
+            return datetime(2026, 11, 5, 12, tzinfo=UTC)
 
-    # Snapshot tanggal kurasi KB; tidak membekukan jam log/runtime aplikasi.
+    # Snapshot persetujuan SRS/pilot; tidak membekukan jam log/runtime aplikasi.
     monkeypatch.setattr("app.services.knowledge.retrieval.datetime", KnowledgeSnapshotTime)
 
 
@@ -53,3 +55,18 @@ async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
         ) as test_client,
     ):
         yield test_client
+
+
+@pytest.fixture
+async def rag_bundle(tmp_path):
+    documents, registry = create_fixture_files(tmp_path)
+    embeddings = MockEmbeddings()
+    await build_index(documents, registry, tmp_path / "index", embeddings, purpose="test_fixture")
+    return Settings(
+        _env_file=None,
+        app_env="test",
+        gemini_api_key="synthetic-test-key",
+        legal_index_path=tmp_path / "index",
+        legal_registry_path=registry,
+        embedding_model=embeddings.model_id,
+    ), embeddings

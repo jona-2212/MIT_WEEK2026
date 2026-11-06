@@ -8,7 +8,7 @@ Tujuan: menetapkan dokumen otoritatif yang harus dibaca dan diperbarui untuk set
 |---|---|---|
 | Kebutuhan/prioritas produk | [Product Blueprint](<../../01_Product_Blueprint_Job_Scam_Guardian_MIT_WEEK_2026 (1).md>) | Blueprint melalui revisi yang disepakati; registry spesifikasi terkait |
 | Arsitektur atau batas modul | [System overview](../architecture/SYSTEM_OVERVIEW.md), ADR terkait | `docs/architecture/`; ADR baru untuk keputusan penting |
-| Implementasi fitur | Blueprint, [feature registry](../features/README.md), spesifikasi fitur yang disetujui, ADR relevan | Spesifikasi di `docs/features/`, tes, kontrak API, dokumentasi integrasi |
+| Implementasi fitur | Blueprint, [SRS Fitur 01](../features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md), ADR relevan | Spesifikasi, tes, kontrak API, dokumentasi integrasi |
 | Kontrak API | [Kontrak API](../api/README.md), spesifikasi fitur, schema yang ada | `docs/api/`, Pydantic schema, OpenAPI, tes kontrak; changelog bila penting |
 | Aturan development/quality | [Development rules](DEVELOPMENT_RULES.md), konfigurasi tool/CI | `docs/engineering/`, `AGENTS.md` bila aturan operasional berubah |
 | Keputusan teknis signifikan | ADR sebelumnya, [template ADR](../decisions/ADR-TEMPLATE.md) | ADR baru di `docs/decisions/`; hubungkan ke arsitektur/spesifikasi |
@@ -28,4 +28,4 @@ Tujuan: menetapkan dokumen otoritatif yang harus dibaca dan diperbarui untuk set
 6. Catat perubahan pekerjaan dan verifikasi di worklog. Changelog hanya merangkum perubahan penting, bukan riwayat setiap file.
 7. Jika kebutuhan bertentangan, jangan mengubah blueprint diam-diam; jelaskan konflik dan cari keputusan dalam konteks permintaan pengguna. Instruksi eksplisit pengguna tetap menentukan ruang lingkup pekerjaan.
 
-Status saat ini: fondasi diatur oleh [ADR-0001](../decisions/ADR-0001-project-foundation.md). Fitur 01 sudah diotorisasi melalui [brief Recognition](../features/01-job-scam-recognition/BRIEF.md) dan [prompt implementasi pengguna](../04_PROMPT_Codex_Implementasi_Fitur_01.md). Baca/perbarui [implementasi](../features/01-job-scam-recognition/IMPLEMENTATION.md), [test plan](../features/01-job-scam-recognition/TEST_PLAN.md), [API Recognition](../api/recognition.md), [ADR-0002](../decisions/ADR-0002-recognition-pipeline.md), serta [metadata KB](../../data/knowledge/README.md) ketika komponennya berubah. Dokumen sumber pengguna dipertahankan; entrypoint BRIEF menautkannya tanpa menduplikasi isi.
+Status 5 November 2026: spesifikasi Fitur 01 terbaru adalah [SRS v1.2](../features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md), dengan keputusan [ADR-0003](../decisions/ADR-0003-qualitative-static-rag.md), [API](../api/recognition.md), dan [runbook PDF/Chroma](LEGAL_INDEX_RUNBOOK.md). Dokumen fitur v1 dipindah tim ke arsip; jangan memulihkan path lama atau menimpa perubahan tim. Blueprint dan ADR lama adalah konteks historis, bukan pengganti kontrak kualitatif yang telah disetujui.

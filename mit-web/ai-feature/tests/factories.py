@@ -9,6 +9,7 @@ from PIL import Image
 
 from app.core.config import Settings
 from app.main import create_app
+from app.services.ai.embeddings import EmbeddingProvider
 
 SUSPICIOUS_TEXT = (
     "Lowongan staf administrasi PT Contoh Fiktif. Transfer biaya administrasi Rp150.000 "
@@ -34,13 +35,30 @@ def observation(code: str, quote: str, source: str = "text", state: str = "detec
 
 
 def extraction(
-    *observations: dict, image_text: str = "", sufficient: bool = True, related: bool = True
+    *observations: dict,
+    image_text: str = "",
+    sufficient: bool = True,
+    related: bool = True,
+    category: str | None = None,
+    legal_observations: list[dict] | None = None,
 ) -> dict:
     codes = {item["code"] for item in observations}
     return {
         "is_job_related": related,
         "sufficient_content": sufficient,
         "image_text": image_text,
+        "proposed_category": category
+        or (
+            "insufficient_data"
+            if not sufficient or not related
+            else "high"
+            if any(
+                i["state"] == "detected" and i["code"] in {"upfront_payment", "credential_request"}
+                for i in observations
+            )
+            else "low"
+        ),
+        "legal_observations": legal_observations or [],
         "indicators": list(observations)
         + [
             {"code": code, "state": "not_detected", "evidence": []}
@@ -76,6 +94,7 @@ def build_test_app(
     *,
     handler: Callable[[httpx.Request], httpx.Response] | None = None,
     settings: Settings | None = None,
+    embedding_provider: EmbeddingProvider | None = None,
 ) -> tuple[FastAPI, list[httpx.Request]]:
     calls: list[httpx.Request] = []
 
@@ -86,7 +105,11 @@ def build_test_app(
         return httpx.Response(200, json=envelope(content if content is not None else extraction()))
 
     settings = settings or Settings(_env_file=None, gemini_api_key="synthetic-test-key")
-    return create_app(settings, provider_transport=httpx.MockTransport(handle)), calls
+    return create_app(
+        settings,
+        provider_transport=httpx.MockTransport(handle),
+        embedding_provider=embedding_provider,
+    ), calls
 
 
 @asynccontextmanager

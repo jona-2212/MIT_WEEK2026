@@ -20,7 +20,7 @@
     button:focus-visible,textarea:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #d4a442;outline-offset:3px}
     #preview{max-width:100%;max-height:200px;border-radius:8px;display:block;margin:12px 0}#preview[hidden]{display:none}
     #filename{overflow-wrap:anywhere}.small{font-size:.82rem}.error{background:#fff0ed;border-left:3px solid #b33e32;padding:16px;color:#8b2c24;white-space:pre-wrap}
-    .score-header{display:flex;flex-wrap:wrap;align-items:center;gap:18px}.score{font-size:3.2rem;font-weight:750;line-height:1}.pill{border-radius:30px;background:#e8efec;padding:5px 12px;font-size:.8rem;display:inline-block}
+    .assessment-header{display:flex;flex-wrap:wrap;align-items:center;gap:18px}.pill{border-radius:30px;background:#e8efec;padding:5px 12px;font-size:.8rem;display:inline-block}
     [data-level=high]{color:#9c302b;background:#fff0ed}[data-level=medium]{color:#805609;background:#fff4d8}[data-level=low]{color:#245d4a;background:#e9f4ed}
     table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #e1e8e5}th:last-child,td:last-child{text-align:right}
     .table-wrap{overflow:auto}.indicator{border-top:1px solid #e0e8e4;padding:14px 0}.indicator h3{margin:0 0 6px}.indicator p{margin:6px 0}
@@ -37,7 +37,7 @@
     <div class="eyebrow">MIT-WEEK 2026 / DEMO AI ENGINEER</div>
     <h1>Periksa tawaran kerja yang meragukan.</h1>
     <p class="muted">Job Scam Guardian AI · Baca indikasinya, telusuri buktinya, dan tentukan langkah verifikasi berikutnya.</p>
-    <p class="notice">Skor adalah heuristik 0–100, bukan persentase peluang penipuan. Skor rendah tidak menjamin lowongan aman. Demo ini terhubung ke backend; frontend produksi dikerjakan tim terpisah.</p>
+    <p class="notice">Kategori memakai rubrik heuristik awal, belum tervalidasi ilmiah. Kategori rendah tidak berarti lowongan terverifikasi aman. Screening hukum terpisah dan bukan putusan hukum. Demo ini menampilkan hasil backend atau error yang sebenarnya.</p>
   </header>
   <section class="panel" aria-labelledby="form-title">
     <h2 id="form-title">01 · Masukkan informasi lowongan</h2>
@@ -52,7 +52,7 @@
         <div>
           <label for="file">Satu screenshot lowongan</label>
           <input type="file" id="file" name="file" accept="image/jpeg,image/png,image/webp">
-          <p class="small muted">JPEG, PNG, atau WebP · Maksimal 5 MiB · Gambar statis, maksimal 16 megapiksel.</p>
+          <p class="small muted">JPEG, PNG, atau WebP · Maksimal __UPLOAD_MIB__ MiB · Gambar statis, maksimal 16 megapiksel. Total multipart termasuk teks dan boundary juga dibatasi server.</p>
           <p class="small" id="filename">Belum ada gambar.</p>
           <img id="preview" alt="Pratinjau screenshot yang dipilih" hidden>
           <button id="clear-image" class="secondary" type="button" hidden>Hapus gambar</button>
@@ -66,31 +66,26 @@
       </div>
     </form>
     <p id="analysis-error" class="error" role="alert" hidden></p>
+    <details id="error-details" hidden><summary>Lihat JSON error</summary><pre id="error-json"></pre></details>
     <p class="small muted">Request ID: <span id="request-id" class="request-id">—</span></p>
   </section>
 
   <section class="panel" id="results" aria-labelledby="result-title" aria-live="polite" hidden>
     <h2 id="result-title">02 · Hasil analisis</h2>
-    <div class="score-header">
-      <span class="score" id="risk-score">—</span>
+    <h3>Fraud screening</h3>
+    <div class="assessment-header">
       <div><span class="pill" id="risk-level"></span><p class="small muted" id="versions"></p></div>
     </div>
     <p id="summary"></p>
-    <h3>Bagaimana skor terbentuk</h3>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th scope="col">Indikator</th><th scope="col">Bobot aturan</th><th scope="col">Kontribusi</th></tr></thead>
-        <tbody id="breakdown"></tbody>
-      </table>
-    </div>
-    <p id="score-formula" class="small"></p>
     <h3>Indikator, bukti, dan penjelasan</h3>
     <div id="indicators"></div>
     <div class="grid">
       <div><h3>Yang belum diketahui</h3><ul id="unknowns"></ul></div>
       <div><h3>Langkah berikutnya</h3><ul id="recommendations"></ul></div>
     </div>
-    <h3>Konteks hukum / panduan resmi</h3>
+    <h3>Legal screening / panduan resmi</h3>
+    <p id="legal-status"></p><p id="legal-summary"></p>
+    <ul id="missing-facts"></ul><p id="legal-warnings" class="small muted"></p>
     <div id="legal-context"></div>
     <p id="disclaimer" class="notice"></p>
     <details><summary>Lihat respons JSON</summary><pre id="result-json"></pre></details>
@@ -102,10 +97,12 @@
     <button id="health-check" class="secondary" type="button">Periksa backend</button>
     <pre id="health-response">Belum diperiksa.</pre>
   </section>
-  <footer>Input teks dan gambar diproses sebagai satu kasus. Setiap indikator dihitung paling banyak sekali. Verifikasi hasil secara mandiri.</footer>
+  <footer>Input teks dan gambar diproses sebagai satu kasus. PDF hukum dikelola developer secara offline; bukan input pengguna. Verifikasi hasil secara mandiri.</footer>
 </main>
 <script>
   const el = (id) => document.getElementById(id);
+  const MAX_IMAGE_BYTES = __MAX_IMAGE_BYTES__;
+  const MAX_REQUEST_BYTES = __MAX_REQUEST_BYTES__;
   const form = el("analyze-form");
   const fileInput = el("file");
   const textInput = el("text");
@@ -120,11 +117,13 @@
   };
   const states = {detected: "Teramati", uncertain: "Belum pasti", not_detected: "Tidak teramati"};
   const levels = {low: "Indikasi rendah", medium: "Perlu perhatian", high: "Indikasi tinggi", insufficient_data: "Data belum cukup"};
+  const legalStates = {potential_issue: "Potensi isu untuk ditinjau", needs_more_context: "Perlu konteks tambahan", no_relevant_reference: "Tidak ada rujukan relevan", reference_unavailable: "Rujukan belum tersedia"};
   let previewUrl = null;
 
   function invalidateResult() {
     el("results").hidden = true;
     el("analysis-error").hidden = true;
+    el("error-details").hidden = true;
     el("analysis-status").textContent = "";
     el("request-id").textContent = "—";
   }
@@ -145,7 +144,7 @@
     if (!file) return;
     el("filename").textContent = file.name;
     el("clear-image").hidden = false;
-    if (["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 5 * 1024 * 1024) {
+    if (["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= MAX_IMAGE_BYTES) {
       previewUrl = URL.createObjectURL(file);
       el("preview").src = previewUrl;
       el("preview").hidden = false;
@@ -156,6 +155,7 @@
     form.reset(); clearPreview();
     el("results").hidden = true;
     el("analysis-error").hidden = true;
+    el("error-details").hidden = true;
     el("analysis-status").textContent = "";
     el("request-id").textContent = "—";
   });
@@ -170,22 +170,13 @@
     el(id).replaceChildren(...items.map((text) => node("li", text)));
   }
   function renderResult(data) {
-    el("risk-score").textContent = data.risk_score ?? "—";
-    el("risk-level").textContent = levels[data.risk_level] || data.risk_level;
-    el("risk-level").dataset.level = data.risk_level;
-    el("versions").textContent = data.analysis_version + " · " + data.scoring_version + " · " + data.input_mode;
-    el("summary").textContent = data.summary;
-    const contributions = new Map(data.score_breakdown.contributions.map((item) => [item.code, item.weight]));
-    el("breakdown").replaceChildren(...data.indicators.map((item) => {
-      const row = node("tr");
-      row.append(node("td", labels[item.code] || item.code), node("td", "+" + item.weight), node("td", contributions.get(item.code) || 0));
-      return row;
-    }));
-    const score = data.score_breakdown;
-    el("score-formula").textContent = score.final_score === null
-      ? "Skor tidak dihitung karena data belum memadai."
-      : "Jumlah kontribusi " + score.raw_score + " → min(100, " + score.raw_score + ") = " + score.final_score + ". Indikator yang sama dihitung sekali.";
-    el("indicators").replaceChildren(...data.indicators.map((item) => {
+    const fraud = data.fraud_assessment;
+    const legal = data.legal_screening;
+    el("risk-level").textContent = levels[fraud.risk_category] || fraud.risk_category;
+    el("risk-level").dataset.level = fraud.risk_category;
+    el("versions").textContent = data.analysis_version + " · " + data.input_mode;
+    el("summary").textContent = fraud.summary;
+    el("indicators").replaceChildren(...fraud.indicators.map((item) => {
       const card = node("article", undefined, "indicator");
       card.append(node("h3", labels[item.code] || item.code), node("span", states[item.state] || item.state, "pill"), node("p", item.reason));
       item.evidence.forEach((evidence) => {
@@ -195,17 +186,23 @@
       });
       return card;
     }));
-    renderList("unknowns", data.unknowns);
-    renderList("recommendations", data.recommendations);
+    renderList("unknowns", fraud.unknowns);
+    renderList("recommendations", fraud.recommendations);
+    el("legal-status").textContent = legalStates[legal.status] || legal.status;
+    el("legal-summary").textContent = legal.summary;
+    renderList("missing-facts", legal.missing_facts);
+    el("legal-warnings").textContent = legal.warnings.join(" · ");
     el("legal-context").replaceChildren();
-    if (!data.legal_context.length) {
+    if (!legal.references.length) {
       el("legal-context").append(node("p", "Belum ada rujukan terverifikasi yang relevan untuk hasil ini. Tidak ada pasal yang dibuat-buat.", "muted"));
     }
-    data.legal_context.forEach((reference) => {
+    legal.references.forEach((reference) => {
       const card = node("article", undefined, "reference");
       card.append(node("strong", reference.title));
       card.append(node("p", (reference.type === "official_guidance" ? "Panduan resmi" : "Regulasi") + " · " + (reference.article || "Tanpa nomor pasal")));
-      card.append(node("p", reference.summary), node("p", reference.exceptions, "small muted"));
+      card.append(node("blockquote", reference.excerpt), node("p", "Cakupan: " + reference.scope), node("p", reference.exceptions, "small muted"));
+      card.append(node("p", "Halaman PDF " + reference.page_start + "–" + reference.page_end + " · Versi " + reference.document_version, "small muted"));
+      if (reference.source_kind === "test_fixture") card.append(node("strong", "MOCK — fixture sintetis, bukan dasar hukum."));
       try {
         const url = new URL(reference.official_url);
         if (url.protocol === "https:" && url.hostname.endsWith(".go.id")) {
@@ -214,7 +211,10 @@
           card.append(link);
         }
       } catch {}
-      card.append(node("p", reference.source_id + " · Diverifikasi " + reference.verified_at, "small muted"));
+      card.append(node("p", reference.source_id + " · " + reference.verification_status + " · Ditinjau " + reference.verified_at + " · Review berikutnya " + reference.review_after, "small muted"));
+      const provenance = node("details");
+      provenance.append(node("summary", "Provenance / checksum"), node("pre", "Chunk: " + reference.chunk_id + "\nPDF SHA-256: " + reference.pdf_sha256 + "\nIndex SHA-256: " + reference.index_sha256));
+      card.append(provenance);
       el("legal-context").append(card);
     });
     el("disclaimer").textContent = data.disclaimer;
@@ -225,6 +225,7 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     el("analysis-error").hidden = true;
+    el("error-details").hidden = true;
     el("results").hidden = true;
     el("request-id").textContent = "—";
     const text = textInput.value.trim();
@@ -232,7 +233,8 @@
     let validation = "";
     if (!text && !file) validation = "Isi teks lowongan atau pilih satu gambar.";
     else if (text.length > 12000) validation = "Teks maksimal 12.000 karakter.";
-    else if (file && file.size > 5 * 1024 * 1024) validation = "Gambar maksimal 5 MiB.";
+    else if (file && file.size > MAX_IMAGE_BYTES) validation = "Gambar melebihi batas profil upload (__UPLOAD_MIB__ MiB).";
+    else if (new TextEncoder().encode(text).length + (file?.size || 0) > MAX_REQUEST_BYTES) validation = "Materi melebihi batas total request. Kurangi teks atau ukuran gambar.";
     else if (file && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) validation = "Gunakan gambar JPEG, PNG, atau WebP.";
     if (validation) {
       el("analysis-error").textContent = validation; el("analysis-error").hidden = false; return;
@@ -255,7 +257,11 @@
       try {data = await response.json();}
       catch {throw new Error("Backend mengembalikan respons yang bukan JSON. Periksa koneksi server.");}
       el("request-id").textContent = response.headers.get("X-Request-ID") || data.request_id || data.error?.request_id || "Tidak tersedia";
-      if (!response.ok) throw new Error("HTTP " + response.status + " · " + (data.error?.message || "Analisis gagal."));
+      if (!response.ok) {
+        el("error-json").textContent = JSON.stringify(data, null, 2);
+        el("error-details").hidden = false;
+        throw new Error("HTTP " + response.status + " · " + (data.error?.code || "error") + " · " + (data.error?.message || "Analisis gagal."));
+      }
       renderResult(data);
       el("analysis-status").textContent = data.status === "completed" ? "Analisis selesai." : "Perbaiki materi lalu analisis ulang.";
     } catch (error) {

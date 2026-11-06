@@ -1,3 +1,4 @@
+from datetime import date
 from enum import StrEnum
 from typing import Literal
 
@@ -51,66 +52,90 @@ class ExtractedIndicator(StrictModel):
     evidence: list[Evidence] = Field(max_length=6)
 
 
+RiskCategory = Literal["high", "medium", "low", "insufficient_data"]
+LegalTopic = Literal["recruitment_fees", "personal_data", "employment_terms"]
+
+
+class LegalObservation(StrictModel):
+    topic: LegalTopic
+    evidence: list[Evidence] = Field(min_length=1, max_length=6)
+
+
 class AIExtraction(StrictModel):
     is_job_related: StrictBool
     sufficient_content: StrictBool
     image_text: str = Field(max_length=16_000, repr=False)
     indicators: list[ExtractedIndicator] = Field(max_length=12)
+    proposed_category: RiskCategory
+    legal_observations: list[LegalObservation] = Field(max_length=6)
 
 
 class Indicator(ExtractedIndicator):
-    weight: int = Field(ge=0, le=100)
     reason: str
 
 
-class ScoreContribution(StrictModel):
-    code: IndicatorCode
-    weight: int = Field(ge=0, le=100)
-
-
-class ScoreBreakdown(StrictModel):
-    raw_score: int = Field(ge=0, le=135)
-    final_score: int | None = Field(ge=0, le=100)
-    contributions: list[ScoreContribution]
-
-
-class LegalContext(StrictModel):
+class LegalReference(StrictModel):
     source_id: str
+    source_kind: Literal["official", "test_fixture"]
+    chunk_id: str
     type: Literal["regulation", "official_guidance"]
     title: str
     article: str | None
     official_url: str
-    summary: str
-    verified_at: str
+    excerpt: str = Field(min_length=1, max_length=1800)
+    page_start: int = Field(ge=1)
+    page_end: int = Field(ge=1)
+    document_version: str
+    verification_status: Literal["verified"] = "verified"
+    verified_at: date
+    review_after: date
+    pdf_sha256: str
+    index_sha256: str
+    scope: str
     exceptions: str
+
+
+class FraudAssessment(StrictModel):
+    risk_category: RiskCategory
+    summary: str
+    indicators: list[Indicator]
+    unknowns: list[str]
+    recommendations: list[str]
+
+
+class LegalScreening(StrictModel):
+    status: Literal[
+        "potential_issue", "needs_more_context", "no_relevant_reference", "reference_unavailable"
+    ]
+    summary: str
+    references: list[LegalReference] = Field(default_factory=list, max_length=10)
+    missing_facts: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def consistent_references(self) -> "LegalScreening":
+        if self.status in {"reference_unavailable", "no_relevant_reference"} and self.references:
+            raise ValueError("Status tidak boleh memuat rujukan.")
+        if self.status == "potential_issue" and not self.references:
+            raise ValueError("Potensi isu memerlukan rujukan.")
+        if self.status == "needs_more_context" and not self.missing_facts:
+            raise ValueError("Fakta yang kurang wajib dijelaskan.")
+        return self
 
 
 class AnalysisResponse(StrictModel):
     request_id: str
     status: Literal["completed", "insufficient_data"]
     input_mode: Literal["text", "image", "both"]
-    analysis_version: Literal["recognition-v1"] = "recognition-v1"
-    scoring_version: Literal["rules-v1"] = "rules-v1"
-    risk_score: int | None = Field(ge=0, le=100)
-    risk_level: Literal["low", "medium", "high", "insufficient_data"]
-    score_breakdown: ScoreBreakdown
-    summary: str
-    indicators: list[Indicator]
-    unknowns: list[str]
-    recommendations: list[str]
-    legal_status: Literal["available", "not_available"]
-    legal_context: list[LegalContext]
+    analysis_version: Literal["recognition-v2"] = "recognition-v2"
+    fraud_assessment: FraudAssessment
+    legal_screening: LegalScreening
     disclaimer: str
 
     @model_validator(mode="after")
-    def consistent_score(self) -> "AnalysisResponse":
-        insufficient = self.status == "insufficient_data"
-        if insufficient != (self.risk_score is None):
-            raise ValueError("Status dan skor tidak konsisten.")
-        if insufficient != (self.risk_level == "insufficient_data"):
+    def consistent_category(self) -> "AnalysisResponse":
+        if (self.status == "insufficient_data") != (
+            self.fraud_assessment.risk_category == "insufficient_data"
+        ):
             raise ValueError("Status dan level tidak konsisten.")
-        if self.risk_score != self.score_breakdown.final_score:
-            raise ValueError("Skor final tidak konsisten.")
-        if bool(self.legal_context) != (self.legal_status == "available"):
-            raise ValueError("Status referensi tidak konsisten.")
         return self

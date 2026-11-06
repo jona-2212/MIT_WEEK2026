@@ -7,8 +7,9 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
 from app.core.config import PROJECT_ROOT, Settings
-from app.main import create_app
+from app.main import create_app, render_demo
 from tests.factories import SUSPICIOUS_TEXT, envelope, extraction, observation
+from tests.legal_fixtures import MockEmbeddings
 
 
 def create_test_app() -> FastAPI:
@@ -28,13 +29,18 @@ def create_test_app() -> FastAPI:
         content = extraction(*observations, image_text=SUSPICIOUS_TEXT if has_image else "")
         return httpx.Response(200, json=envelope(content))
 
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        app_name="Job Scam Guardian AI — MODE UJI MOCK",
+        gemini_api_key="synthetic-test-key",
+        legal_index_path=PROJECT_ROOT / "tests/fixtures/legal_index",
+        legal_registry_path=PROJECT_ROOT / "tests/fixtures/legal_sources.json",
+    )
     app = create_app(
-        Settings(
-            _env_file=None,
-            app_name="Job Scam Guardian AI — MODE UJI MOCK",
-            gemini_api_key="synthetic-test-key",
-        ),
+        settings,
         provider_transport=httpx.MockTransport(mocked_provider),
+        embedding_provider=MockEmbeddings(),
     )
     app.router.routes[:] = [
         route for route in app.router.routes if getattr(route, "path", None) != "/demo"
@@ -42,12 +48,12 @@ def create_test_app() -> FastAPI:
 
     @app.get("/demo", include_in_schema=False)
     async def test_demo() -> HTMLResponse:
-        html = (PROJECT_ROOT / "demo/index.html").read_text(encoding="utf-8")
+        html = render_demo(settings)
         html = html.replace(
             "<main>",
             (
                 '<main><p class="notice" role="status"><strong>MODE UJI MOCK</strong> — '
-                "Respons ekstraksi adalah fixture. Tidak ada request Gemini; "
+                "Ekstraksi, embedding, dan PDF adalah fixture sintetis. Tidak ada request Gemini; "
                 "bukan hasil AI nyata.</p>"
             ),
             1,

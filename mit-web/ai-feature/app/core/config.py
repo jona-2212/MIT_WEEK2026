@@ -25,7 +25,29 @@ class Settings(BaseSettings):
         default="gemini-3.5-flash-lite", pattern=r"^[a-z0-9][a-z0-9.-]{0,99}$"
     )
     gemini_timeout_seconds: float = Field(default=45.0, ge=1.0, le=120.0)
+    upload_profile: Literal["local", "vercel"] = "local"
+    legal_index_path: Path = PROJECT_ROOT / "data/legal_index"
+    legal_registry_path: Path = PROJECT_ROOT / "data/knowledge/sources.json"
+    embedding_model: str = Field(default="gemini-embedding-001", pattern=r"^[a-z0-9.-]{1,100}$")
+    embedding_dimensions: int = Field(default=768, ge=1, le=3072)
+    embedding_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
+    legal_top_k: int = Field(default=3, ge=1, le=10)
+    legal_min_similarity: float = Field(default=0.75, ge=-1, le=1, allow_inf_nan=False)
     elevenlabs_api_key: SecretStr | None = None
+
+    @property
+    def max_image_bytes(self) -> int:
+        return (4 if self.upload_profile == "vercel" else 5) * 1024 * 1024
+
+    @property
+    def max_request_bytes(self) -> int:
+        # Total raw multipart, termasuk teks, header part, dan boundary.
+        return self.max_image_bytes + 64 * 1024
+
+    @field_validator("legal_index_path", "legal_registry_path")
+    @classmethod
+    def absolute_legal_path(cls, value: Path) -> Path:
+        return value if value.is_absolute() else PROJECT_ROOT / value
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

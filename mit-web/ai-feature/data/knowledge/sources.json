@@ -32,10 +32,10 @@
     "article": "Pasal 11 ayat (1) huruf c dan ayat (2), halaman PDF 7",
     "official_url": "https://jdih.kemnaker.go.id/asset/data_puu/2024pmnaker018.pdf#page=7",
     "summary": "Untuk PPTKS, Pasal 11 mengatur pembatasan pungutan biaya penempatan kepada pencari kerja sekaligus pengecualian bagi jabatan tertentu berdasarkan ketentuan terkait. Ringkasan ini memberi konteks untuk meminta kejelasan identitas pelaksana dan jenis biaya.",
-    "verified_at": "2026-10-31",
+    "verified_at": "2026-11-05",
     "review_after": "2027-01-31",
     "verification_status": "verified",
-    "exceptions": "Ruang lingkup pasal ini khusus PPTKS dan memiliki pengecualian jabatan. Status perekrut sebagai PPTKS serta keberlakuan pengecualian pada kasus pengguna belum diperiksa. Bukan kesimpulan bahwa semua biaya ilegal, bukan putusan hukum, dan tidak mengubah skor. Status peraturan dicek pada JDIH Kemnaker pada tanggal verifikasi.",
+    "exceptions": "Ruang lingkup pasal ini khusus PPTKS dan memiliki pengecualian jabatan. Status perekrut sebagai PPTKS serta keberlakuan pengecualian pada kasus pengguna belum diperiksa. Bukan kesimpulan bahwa semua biaya ilegal atau putusan hukum. Status pada JDIH Kemnaker dan kecocokan checksum PDF pilot diperiksa pada tanggal verifikasi.",
     "indicator_codes": ["upfront_payment"]
   },
   {

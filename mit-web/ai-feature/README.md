@@ -1,118 +1,97 @@
-# Job Scam Guardian AI
+# Jeli — Fitur 01 backend AI
 
-Backend AI untuk MIT-WEEK 2026, mengikuti [Product Blueprint](<01_Product_Blueprint_Job_Scam_Guardian_MIT_WEEK_2026 (1).md>). Produk membantu pencari kerja Indonesia mengenali indikasi penipuan rekrutmen, belajar merespons, dan memahami langkah perlindungan. Skor bersifat indikatif, bukan kepastian penipuan.
+Backend mandiri FastAPI untuk screening indikatif rekrutmen dari teks/screenshot. Versi 0.3.0 memakai kategori `high`, `medium`, `low`, atau `insufficient_data`, bukti kutipan, serta legal screening terpisah. Rubrik merupakan heuristik awal, belum tervalidasi ilmiah; `low` tidak berarti lowongan terverifikasi aman.
 
-**Status: Fase C — Fitur 01 Recognition, versi 0.2.0.** Tersedia satu endpoint teks/gambar/gabungan, adaptor Gemini multimodal, grounding, scoring Python dengan breakdown, retrieval lokal, dan demo HTML. Jalur live membutuhkan API key dan model/kuota akun yang tersedia; verifikasi mocked tidak membuktikan akurasi model. Simulator, assistant, panduan darurat, dan voice menunggu spesifikasi terpisah.
+Acuan: [SRS v1.2](docs/features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md), [API](docs/api/recognition.md), [ADR Fase A](docs/decisions/ADR-0003-qualitative-static-rag.md), [runbook PDF/Chroma](docs/engineering/LEGAL_INDEX_RUNBOOK.md). Tidak ada integrasi React, URL fetch, public upload PDF, training, atau Chroma Cloud.
 
-Mulai dari [brief Fitur 01](docs/features/01-job-scam-recognition/BRIEF.md), [kontrak API beserta tiga contoh curl](docs/api/recognition.md), atau [rincian implementasi](docs/features/01-job-scam-recognition/IMPLEMENTATION.md).
+## Menjalankan demo sekarang — MODE UJI MOCK
 
-## Ruang lingkup dan stack
-
-AI Engineer menangani backend, orkestrasi/integrasi AI, scoring deterministik, retrieval, evaluasi, tes, dan kontrak API ketika spesifikasinya disetujui. Frontend produksi dikerjakan tim lain; `demo/` hanya membantu pengujian lokal.
-
-Python 3.11+, FastAPI, Pydantic v2, Pydantic Settings, Uvicorn, HTTPX, python-multipart, Pillow, pytest, Ruff, standard logging berformat JSON, serta HTML/CSS/JavaScript tanpa framework. Dependency dikelola **hanya dengan uv**; versi hasil resolusi disimpan di `uv.lock`.
-
-## Struktur proyek
-
-```text
-ai-feature/
-├── 01_Product_Blueprint_Job_Scam_Guardian_MIT_WEEK_2026 (1).md
-├── app/             # api/v1, core, schemas, services
-├── data/            # examples fiktif dan knowledge/sources.json terkurasi
-├── demo/            # satu halaman demo lokal
-├── tests/           # tes tanpa koneksi provider
-├── docs/            # indeks, arsitektur, kontrak, aturan, ADR, worklog
-├── scripts/         # petunjuk penambahan utilitas bila diperlukan
-├── .github/workflows/ci.yml
-├── AGENTS.md
-├── .env.example     # template yang boleh masuk Git
-├── .env             # konfigurasi lokal; diabaikan Git
-├── .gitignore
-├── .python-version
-├── pyproject.toml
-├── uv.lock
-└── CHANGELOG.md
-```
-
-## Prasyarat dan instalasi
-
-Gunakan Python 3.11+ dan [uv](https://docs.astral.sh/uv/getting-started/installation/). `.python-version` memilih Python 3.11 sebagai baseline. Jalankan perintah dari folder `ai-feature/`.
+Jalankan dari folder `mit-web/ai-feature/`:
 
 ```powershell
-cd "C:\Local D\Galeri Belajar\Project Code\mit-week\ai-feature"
-uv python install 3.11
 uv sync --locked
+uv run --locked python -m uvicorn tests.demo_server:create_test_app --factory --host 127.0.0.1 --port 8001 --no-access-log
 ```
 
-Instalasi awal membutuhkan internet untuk dependency. Setelah environment tersedia, startup, health, demo, dan tes berjalan tanpa API key maupun jaringan eksternal. Analisis bermateri cukup memerlukan koneksi Gemini serta key/kuota yang sah; key kosong menghasilkan error 503 yang jujur. `uv sync` membuat `.venv`; aktivasi manual tidak diperlukan.
+Buka [demo mock](http://127.0.0.1:8001/demo). Ekstraksi Gemini, embedding, serta PDF hukum pada mode ini adalah fixture sintetis, bukan hasil AI atau rujukan hukum nyata. Form tetap memanggil API FastAPI dan menjalankan validasi, grounding, kategori, retrieval JSON, serta rendering hasil/error. Sampel teks/gambar tersedia di `data/examples/`.
 
-File `.env` lokal sudah disiapkan saat inisialisasi, dengan API key kosong. Pada checkout baru, salin template **hanya jika `.env` belum ada**:
+Fixture indeks sudah dibundel untuk tes. Perintah rebuild bila diperlukan:
+
+```powershell
+uv run --locked python -m tests.legal_fixtures
+uv run --locked python scripts/build_legal_index.py --mock --manifest tests/fixtures/legal_documents.json --registry tests/fixtures/legal_sources.json --output tests/fixtures/legal_index
+uv run --locked python scripts/verify_legal_index.py --index tests/fixtures/legal_index --registry tests/fixtures/legal_sources.json --allow-test-fixture
+```
+
+Server mock hanya untuk pengujian lokal dan tidak menjadi entrypoint deployment. Indeks fixture ditolak pada aplikasi non-test.
+
+## Backend biasa
 
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+uv run --locked python -m uvicorn app.main:create_app --factory --reload --reload-dir app --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-Environment OS mengungguli `.env`. Lokasi `.env` ditentukan relatif terhadap root proyek. Tes mengabaikan file `.env` lokal dan membersihkan variabel aplikasi agar tidak bergantung pada kredensial pengembang.
+Tersedia `/health`, `/api/v1/health`, `/docs`, `/openapi.json`, `/demo`, dan `POST /api/v1/analyze`. Health adalah liveness, bukan bukti kesiapan Gemini/kuota/RAG. Swagger memakai aset CDN bawaan.
 
-## Menjalankan backend dan demo
+Startup/health/demo tidak memanggil API AI. Analisis bermateri cukup memakai Gemini; key kosong memberi 503 `provider_not_configured`. Tidak ada hasil simulasi pada server biasa. Indeks hukum resmi yang belum tersedia menghasilkan `legal_screening.status=reference_unavailable` sementara fraud yang berhasil tetap dikembalikan.
+
+## Pilot PDF dan ChromaDB lokal
+
+PDF pilot owner: `data/knowledge/pdf/2024pmnaker018.pdf`. Manifest memilih **Pasal 11, halaman PDF 7** dari dokumen 74 halaman, termasuk pengecualiannya. PDF lain tidak masuk manifest pilot. Checksum berkas owner cocok dengan PDF resmi JDIH; [catatan provenance](data/knowledge/pilot_provenance.json) dan [runbook](docs/engineering/LEGAL_INDEX_RUNBOOK.md) menjelaskan batas kurasi.
+
+ChromaDB hanya tooling developer/offline di `data/chroma_local/`; aplikasi Vercel tetap membaca tiga file JSON dari `data/legal_index/`. Chroma/pypdf berada di dependency dev dan tidak diimpor application factory. Koleksi resmi menunggu izin embedding Gemini, sehingga belum berisi vektor PDF resmi.
 
 ```powershell
-uv run --locked uvicorn app.main:create_app --factory --reload --reload-dir app --host 127.0.0.1 --port 8000 --no-access-log
+# Aman tanpa API AI: validasi PDF, seleksi pasal, dan estimasi request embedding
+uv run --locked python scripts/build_legal_index.py --plan --manifest data/knowledge/legal_documents.json --output data/legal_index
+# Membuat koleksi lokal kosong; tidak membuat embedding atau mengunduh model
+uv run --locked python scripts/manage_legal_chroma.py init
 ```
 
-- Health: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
-- Health versi API: [http://127.0.0.1:8000/api/v1/health](http://127.0.0.1:8000/api/v1/health)
-- Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- OpenAPI: [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json)
-- Demo: [http://127.0.0.1:8000/demo](http://127.0.0.1:8000/demo), isi teks dan/atau satu gambar, lalu klik **Analisis Lowongan**. Tombol **Periksa backend** tetap tersedia.
+**Embedding live dan analisis live belum diuji dalam pekerjaan ini. Owner memilih menunggu persetujuan kuota terpisah.** Jangan menjalankan flag `--allow-embedding-api` sampai disetujui. Biaya hosting vector DB cloud tidak ada pada alur lokal ini; Gemini/embedding dan hosting aplikasi tetap mungkin memakai kuota/biaya.
 
-Buka demo melalui FastAPI, bukan dengan membuka `index.html` sebagai `file://`. Demo menggunakan origin backend yang sama sehingga tidak memerlukan server frontend tambahan. JSON dan `X-Request-ID` ditampilkan; error jaringan, HTTP, JSON, dan timeout ditangani. Swagger memakai aset CDN bawaan FastAPI; UI interaktifnya membutuhkan internet untuk memuat aset tersebut, sedangkan endpoint `/docs`, `/openapi.json`, demo, dan health tetap dilayani lokal.
+## Konfigurasi
 
-Health sukses berbentuk `{"status":"ok","service":"Job Scam Guardian AI","version":"0.2.0"}`. Ini hanya liveness proses, bukan pemeriksaan provider AI. Detail ada di [kontrak API](docs/api/README.md).
+Key hanya di environment backend/`.env`, tidak di browser, source, fixture, log, atau commit. Environment OS mengungguli `.env`; restart server setelah perubahan. `.env` existing tidak ditimpa.
 
-Untuk analisis nyata, isi `GEMINI_API_KEY` di `.env`, pastikan `GEMINI_MODEL` tersedia untuk akun, lalu **restart server**. Model default dipilih dari [dokumentasi resmi Gemini](https://ai.google.dev/gemini-api/docs/models) saat implementasi dan dapat diganti melalui environment. Jangan mengirim key ke browser atau menaruhnya pada curl frontend. Sampel fiktif teks dan PNG tersedia di `data/examples/` untuk menguji tiga kombinasi input. Pengujian live akan memakai kuota akun dan mengirim materi ke Google Gemini.
-
-## Konfigurasi environment
-
-| Variabel | Default tanpa `.env` | Kegunaan |
+| Variabel | Default | Kegunaan |
 |---|---|---|
-| `APP_NAME` | `Job Scam Guardian AI` | Nama layanan pada OpenAPI, health, dan log |
-| `APP_ENV` | `development` | `development`, `test`, atau `production` |
-| `DEBUG` | `false` | Level log aplikasi DEBUG; tidak mengaktifkan traceback HTTP |
-| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
-| `ALLOWED_ORIGINS` | kosong | Origin frontend dipisah koma; `.env.example` menyediakan localhost 3000/5173 |
-| `GEMINI_API_KEY` | kosong | Wajib untuk analisis bermateri cukup; tetap opsional saat startup/health |
-| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Model multimodal/structured-output yang tersedia pada akun |
-| `GEMINI_TIMEOUT_SECONDS` | `45` | Timeout total provider, rentang 1–120 detik |
-| `ELEVENLABS_API_KEY` | kosong | Disiapkan untuk voice opsional; belum dipakai |
+| `GEMINI_API_KEY` | kosong | Analisis generatif dan embedding; startup tetap bekerja tanpa key |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Model generatif; ketersediaan akun belum diuji live |
+| `GEMINI_TIMEOUT_SECONDS` | 45 | Timeout generatif total, tanpa retry otomatis |
+| `EMBEDDING_MODEL` | `gemini-embedding-001` | Harus sama dengan model indeks |
+| `EMBEDDING_DIMENSIONS` | 768 | Dimensi indeks/query yang sama |
+| `EMBEDDING_TIMEOUT_SECONDS` | 15 | Timeout embedding |
+| `LEGAL_INDEX_PATH` | `data/legal_index` | Bundle JSON read-only, relatif root layanan |
+| `LEGAL_REGISTRY_PATH` | `data/knowledge/sources.json` | Registry kurasi |
+| `LEGAL_TOP_K` | 3 | Batas hasil, 1–10 |
+| `LEGAL_MIN_SIMILARITY` | 0.75 | Ambang cosine eksperimen, bukan ukuran kepastian hukum |
+| `UPLOAD_PROFILE` | `local` | `local`: gambar 5 MiB; `vercel`: 4 MiB |
+| `APP_ENV` | `development` | development/test/production; fixture hanya di test |
+| `APP_NAME`, `LOG_LEVEL`, `DEBUG` | lihat template | Metadata layanan/log; DEBUG false pada produksi |
+| `ALLOWED_ORIGINS` | kosong | Origin HTTP(S) eksplisit, dipisah koma; bukan autentikasi |
+| `ELEVENLABS_API_KEY` | kosong | Belum digunakan |
 
-Pada produksi gunakan `APP_ENV=production`, `DEBUG=false`, dan origin frontend HTTPS yang eksplisit. Wildcard origin ditolak; credentials CORS dinonaktifkan. CORS mengizinkan GET/POST serta header Content-Type dan X-Request-ID. CORS bukan autentikasi atau pembatas jaringan. Hilangkan `--reload` pada produksi. Pemilihan hosting dan hardening deployment dilakukan pada fase integrasi.
+Total multipart dibatasi **batas gambar + 64 KiB**, baik dari Content-Length maupun stream aktual. Profil Vercel: 4.259.840 byte total, di bawah 4,5 MB. Batas teks 12.000 karakter/48.000 byte, gambar 16 MP; MIME/decode, animasi, metadata, dan spool memori tetap diperiksa. Screenshot dibaca model yang sama, belum OCR independen. Samarkan data pribadi sebelum submit.
 
-Jangan memasukkan API key ke JavaScript, fixture, dokumentasi, atau commit. `.env` diabaikan Git. Logger hanya mencatat metadata terpilih; input, query, header rahasia, dan pesan exception tidak direkam. `--no-access-log` menghindari log akses Uvicorn tambahan yang dapat memuat URL mentah; log request JSON aplikasi tetap aktif.
-
-## Pengujian dan kualitas
+## Quality gate
 
 ```powershell
-uv run --locked ruff format .
+uv sync --locked
 uv run --locked ruff check .
 uv run --locked ruff format --check .
 uv run --locked pytest -q
 ```
 
-Tes mencakup fondasi serta tiga modalitas Recognition, JSON provider, grounding/negasi, scoring, upload dalam memori, KB gating/fallback, error provider, dan log tanpa input/key. Transport HTTPX eksternal diblokir; provider dimock melalui MockTransport, bukan menampilkan inferensi nyata. CI menjalankan lockfile check, lint, format check, dan pytest pada Python 3.11 dan 3.13. CI cloud baru berjalan setelah proyek diunggah ke GitHub. Pemetaan acceptance criteria dan langkah live tersedia pada [test plan](docs/features/01-job-scam-recognition/TEST_PLAN.md).
+Tes default memblokir transport API eksternal dan memakai fixture sintetis. Tes Chroma memakai SDK/database lokal dengan embedding yang sudah disediakan; tidak memakai default embedding model, API AI, atau telemetry eksternal. Tes pilot owner dilewati pada checkout yang tidak menyertakan PDF lokal.
 
-Untuk uji rendering browser tanpa key, tersedia server **khusus tes berlabel MODE UJI MOCK**:
+[Hasil verifikasi](docs/reports/F01_PHASE_A_MOCK.md) membedakan mock, pilot parsing/provenance, Gemini live, embedding live, dan Vercel.
 
-```powershell
-uv run --locked uvicorn tests.demo_server:create_test_app --factory --host 127.0.0.1 --port 8001 --no-access-log
-```
+## Persiapan Vercel
 
-Buka `http://127.0.0.1:8001/demo`. Respons ekstraksi pada server ini adalah fixture; jangan memakai command tersebut untuk deployment atau mengklaimnya sebagai hasil Gemini. Demo biasa di port 8000 tetap memakai provider sebenarnya dan error jujur bila belum tersedia.
+`index.py` mengekspor factory yang sama dengan profil upload Vercel. `vercel.json` mengecualikan PDF sumber, Chroma lokal, fixture, scripts, dokumen, cache, dan `.env`; demo, prompt, registry, serta indeks JSON harus ikut bundle. Root project hosting adalah folder layanan ini. Instalasi runtime tidak memerlukan dependency dev (`uv sync --locked --no-dev`).
 
-Dependency baru ditambahkan dengan `uv add nama-paket` atau `uv add --dev nama-paket`, lalu tinjau perubahan `pyproject.toml` dan `uv.lock`. Jangan membuat `requirements.txt` paralel. Folder ini adalah root backend; bila seluruh folder `mit-week` dijadikan satu Git repository, pindahkan workflow ke `.github/workflows/` root repository dan atur `working-directory: ai-feature`.
+Tidak ada write persisten saat startup/request. Build indeks dilakukan offline dan perubahan PDF/registry/model memerlukan rebuild + redeploy. Entry point diuji lokal; build/deployment Vercel dan ukuran bundle akhirnya belum diuji. Tidak ada deployment, commit, atau push otomatis.
 
-## Dokumentasi dan alur kerja
-
-Mulai dari [AGENTS.md](AGENTS.md), [indeks dokumentasi](docs/INDEX.md), dan [document router](docs/engineering/DOCUMENT_ROUTER.md). Siklus perubahan: READ → PLAN → IMPLEMENT → VERIFY → DOCUMENT → LOG → REPORT. Perubahan arsitektur penting mendapat ADR; kontrak API dan tes diperbarui bersama implementasi. Hasil kerja dicatat di [worklog](docs/logs/WORKLOG.md); perubahan penting diringkas di [changelog](CHANGELOG.md).
-
-Langkah berikutnya: verifikasi live dengan key/kuota yang sah, evaluasi pembacaan gambar serta kasus normal/berisiko/ambigu, dan serahkan [kontrak frontend](docs/api/recognition.md) ke tim frontend produksi. Bobot belum dikalibrasi, OCR belum independen, dan kurasi hukum masih terbatas; cakupan sumber serta kandidat pending dijelaskan pada [README KB](data/knowledge/README.md). Review kedua entri aktif paling lambat 31 Januari 2027. Tidak ada klaim akurasi, verifikasi perusahaan, atau putusan pelanggaran hukum.
+Keterbatasan: rubrik/ambang belum dikalibrasi, sumber pilot terbatas, transkripsi screenshot tidak independen, rate limiting publik dan redaksi PII otomatis belum diimplementasikan. Hasil mock tidak membuktikan kualitas inferensi atau akurasi model.

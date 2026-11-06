@@ -3,9 +3,8 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.errors import AnalysisError
 from app.schemas.errors import ErrorResponse
-from app.schemas.recognition import AnalysisResponse
+from app.schemas.recognition import AnalysisResponse, IndicatorCode
 from app.services.recognition import DISCLAIMER
-from app.services.risk.scoring import WEIGHTS
 from app.services.uploads import read_analyze_form, validate_image
 
 router = APIRouter(tags=["Recognition"])
@@ -17,35 +16,31 @@ COMPLETED_EXAMPLE = {
     "request_id": "66f30281-d8e3-4fb6-9dfa-e48db972f808",
     "status": "completed",
     "input_mode": "text",
-    "analysis_version": "recognition-v1",
-    "scoring_version": "rules-v1",
-    "risk_score": 55,
-    "risk_level": "high",
-    "score_breakdown": {
-        "raw_score": 55,
-        "final_score": 55,
-        "contributions": [
-            {"code": "upfront_payment", "weight": 40},
-            {"code": "urgency_pressure", "weight": 15},
+    "analysis_version": "recognition-v2",
+    "fraud_assessment": {
+        "risk_category": "high",
+        "summary": "Contoh sintetis MOCK, bukan hasil inferensi Gemini live.",
+        "indicators": [
+            {
+                "code": code,
+                "state": "detected" if code in EXAMPLE_QUOTES else "not_detected",
+                "evidence": [{"source": "text", "quote": EXAMPLE_QUOTES[code]}]
+                if code in EXAMPLE_QUOTES
+                else [],
+                "reason": "Ilustrasi kontrak; lihat kutipan dan batas pemeriksaan.",
+            }
+            for code in IndicatorCode
         ],
+        "unknowns": ["Identitas perekrut belum diverifikasi secara independen."],
+        "recommendations": ["Jangan transfer sebelum verifikasi melalui kanal resmi."],
     },
-    "summary": "Contoh sintetis untuk dokumentasi, bukan hasil inferensi Gemini live.",
-    "indicators": [
-        {
-            "code": code,
-            "state": "detected" if code in EXAMPLE_QUOTES else "not_detected",
-            "weight": weight,
-            "evidence": [{"source": "text", "quote": EXAMPLE_QUOTES[code]}]
-            if code in EXAMPLE_QUOTES
-            else [],
-            "reason": "Ilustrasi kontrak; lihat kutipan dan batas pemeriksaan.",
-        }
-        for code, weight in WEIGHTS.items()
-    ],
-    "unknowns": ["Identitas perekrut belum diverifikasi secara independen."],
-    "recommendations": ["Verifikasi lewat kanal resmi perusahaan yang ditemukan secara mandiri."],
-    "legal_status": "not_available",
-    "legal_context": [],
+    "legal_screening": {
+        "status": "reference_unavailable",
+        "summary": "Indeks resmi belum tersedia.",
+        "references": [],
+        "missing_facts": [],
+        "warnings": ["legal_index_missing"],
+    },
     "disclaimer": DISCLAIMER,
 }
 ERROR_RESPONSES = {
@@ -65,14 +60,14 @@ RESPONSES = {
     200: {
         "description": (
             "Contoh completed di bawah bersifat sintetis. Untuk insufficient_data, "
-            "risk_score dan score_breakdown.final_score bernilai null, "
-            "risk_level=insufficient_data, contributions kosong."
+            "fraud_assessment.risk_category=insufficient_data. "
+            "Hasil legal terpisah dan tidak menentukan kategori fraud."
         ),
         "content": {
             "application/json": {
                 "examples": {
                     "completed": {
-                        "summary": "Contoh sintetis 55/high; KB tidak tersedia",
+                        "summary": "MOCK high; indeks resmi belum tersedia",
                         "value": COMPLETED_EXAMPLE,
                     },
                 }
@@ -89,8 +84,9 @@ RESPONSES = {
     summary="Analisis indikasi risiko satu kasus rekrutmen",
     description=(
         "Kirim text, file JPEG/PNG/WebP, atau keduanya. Teks maksimal 12.000 karakter; "
-        "satu gambar maksimal 5 MiB dan 16 megapiksel. Input diproses pihak ketiga (Gemini). "
-        "Samarkan data pribadi. Skor heuristik dihitung Python; bukan probabilitas penipuan."
+        "satu gambar maksimal 5 MiB lokal / 4 MiB profil Vercel dan 16 megapiksel. "
+        "Total multipart juga dibatasi. Input diproses pihak ketiga (Gemini). "
+        "Samarkan data pribadi. Kategori memakai rubrik heuristik awal, bukan probabilitas."
     ),
     openapi_extra={
         "requestBody": {
@@ -109,7 +105,7 @@ RESPONSES = {
                             "file": {
                                 "type": "string",
                                 "format": "binary",
-                                "description": "Satu JPEG/PNG/WebP, maksimal 5 MiB.",
+                                "description": "JPEG/PNG/WebP, 5 MiB lokal atau 4 MiB Vercel.",
                             },
                         },
                     },
@@ -141,7 +137,13 @@ RESPONSES = {
 )
 async def analyze(request: Request) -> AnalysisResponse:
     data, upload = await read_analyze_form(request)
-    image = await run_in_threadpool(validate_image, *upload) if upload is not None else None
+    image = (
+        await run_in_threadpool(
+            validate_image, *upload, max_bytes=request.app.state.settings.max_image_bytes
+        )
+        if upload is not None
+        else None
+    )
     service = getattr(request.app.state, "recognition_service", None)
     if service is None:
         raise AnalysisError(503, "service_not_ready", "Aplikasi belum siap memproses analisis.")

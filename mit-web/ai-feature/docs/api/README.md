@@ -21,7 +21,7 @@ Health/dokumentasi/demo tidak membutuhkan key atau request provider. Analisis be
 {
   "status": "ok",
   "service": "Job Scam Guardian AI",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }
 ```
 

@@ -2,6 +2,23 @@
 
 Tujuan: merangkum perubahan proyek yang penting bagi pengembang dan integrator. Gunakan versi `MAJOR.MINOR.PATCH`; rilis awal ini belum menyatakan stabilitas API produk. Detail pekerjaan dan verifikasi ada di [worklog](docs/logs/WORKLOG.md).
 
+## [0.3.0] — 2026-11-05
+
+- Breaking response: recognition-v2 memisahkan fraud_assessment dan legal_screening,
+  mengganti skor/bobot dengan kategori kualitatif dan validasi konflik berbasis bukti.
+- Pipeline PDF offline, plan/build/verify JSON statis read-only, provenance/checksum,
+  pasal/halaman terkurasi, kompatibilitas embedding, top-k/relevance configurable dan fallback.
+- Tooling ChromaDB lokal dev-only atas permintaan owner, ekspor JSON tervalidasi;
+  tidak ada Chroma Cloud atau persistent database runtime Vercel.
+- Pilot tunggal Permenaker 18/2024 Pasal 11 halaman 7 telah diverifikasi sumber/checksum;
+  embedding resminya menunggu persetujuan kuota terpisah.
+- Demo tanpa skor, hasil fraud/legal terpisah, raw JSON/error jujur dan MODE UJI MOCK.
+- Profil upload Vercel 4 MiB beserta batas total multipart, entrypoint ASGI dan config bundle.
+- Tests parser/index/embedding/Chroma/read-only/injection/mismatch dan regresi provider/upload.
+
+Hasil mock tidak membuktikan kualitas model live atau akurasi. Tidak ada request AI live,
+deployment, commit, atau push dalam pekerjaan ini. Detail pada laporan Fase A.
+
 ## [0.2.0] — 2026-10-31
 
 ### Added

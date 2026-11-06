@@ -53,3 +53,9 @@ def test_production_disallows_debug() -> None:
 def test_configured_secrets_are_masked() -> None:
     settings = Settings(_env_file=None, gemini_api_key="synthetic-test-key")
     assert "synthetic-test-key" not in repr(settings)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -1.1, 1.1])
+def test_experimental_threshold_must_be_finite_and_bounded(value) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, legal_min_similarity=value)

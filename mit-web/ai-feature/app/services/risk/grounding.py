@@ -2,17 +2,18 @@ import re
 import unicodedata
 
 from app.schemas.recognition import AIExtraction, Evidence, Indicator, IndicatorCode, IndicatorState
-from app.services.risk.scoring import LABELS, WEIGHTS
+from app.services.risk.scoring import LABELS
 
 NEGATED_REQUESTS = {
     IndicatorCode.UPFRONT_PAYMENT: re.compile(
-        r"\b(?:(?:tidak\s+(?:ada|dipungut|dikenakan|meminta|perlu\s+membayar)|tanpa)"
+        r"\b(?:(?:tidak\s+(?:ada|dipungut|memungut|dikenakan|meminta|perlu\s+membayar)|tanpa)"
         r"\s+(?:\w+\s+){0,2}(?:biaya|pungutan|pembayaran)\b"
         r"|jangan\s+(?:pernah\s+)?(?:bayar|membayar|transfer|mentransfer)\b[^.;!?]{0,60})"
     ),
     IndicatorCode.CREDENTIAL_REQUEST: re.compile(
-        r"\b(?:jangan|tidak\s+perlu)\s+(?:pernah\s+)?"
-        r"(?:bagikan|berikan|kirimkan|kirim|memberikan|membagikan)\b"
+        r"\b(?:(?:jangan|tidak\s+perlu)\s+(?:pernah\s+)?"
+        r"(?:bagikan|berikan|kirimkan|kirim|memberikan|membagikan)"
+        r"|tidak\s+(?:pernah\s+)?(?:meminta|menerima))\b"
         r"[^.;!?]{0,90}\b(?:otp|pin|password|kata\s+sandi)\b"
     ),
 }
@@ -45,7 +46,7 @@ def ground_indicators(
         sources["image"] = normalize_text(extraction.image_text)
     results = []
     rejected = False
-    for code, weight in WEIGHTS.items():
+    for code in IndicatorCode:
         observations = [item for item in extraction.indicators if item.code == code]
         evidence: list[Evidence] = []
         detected = False
@@ -69,17 +70,20 @@ def ground_indicators(
                 uncertain = True
                 evidence.extend(supported)
         unique = {(item.source, normalize_text(item.quote)): item for item in evidence}
+        uncertain = uncertain or (
+            detected and any(i.state == IndicatorState.NOT_DETECTED for i in observations)
+        )
         if not sufficient:
             state = IndicatorState.UNCERTAIN
             reason = "Materi belum cukup untuk menyimpulkan indikator ini."
-        elif detected:
+        elif detected and not any(i.state == IndicatorState.NOT_DETECTED for i in observations):
             state = IndicatorState.DETECTED
             reason = (
                 f"Ada kutipan yang mendukung indikasi {LABELS[code]}; konteks perlu diverifikasi."
             )
         elif uncertain:
             state = IndicatorState.UNCERTAIN
-            reason = "Indikasi belum didukung bukti yang cukup dan tidak menambah skor."
+            reason = "Indikasi belum didukung bukti yang cukup atau hasil ekstraksi bertentangan."
         else:
             state = IndicatorState.NOT_DETECTED
             reason = "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
@@ -87,7 +91,6 @@ def ground_indicators(
             Indicator(
                 code=code,
                 state=state,
-                weight=weight,
                 evidence=list(unique.values())[:6],
                 reason=reason,
             )

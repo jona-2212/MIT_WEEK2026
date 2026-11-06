@@ -40,9 +40,11 @@ class ValidatedImage:
     mime_type: Literal["image/jpeg", "image/png", "image/webp"]
 
 
-def validate_image(data: bytes, mime_type: str) -> ValidatedImage:
-    if len(data) > MAX_IMAGE_BYTES:
-        raise AnalysisError(413, "image_too_large", "Gambar maksimal 5 MiB.")
+def validate_image(
+    data: bytes, mime_type: str, *, max_bytes: int = MAX_IMAGE_BYTES
+) -> ValidatedImage:
+    if len(data) > max_bytes:
+        raise AnalysisError(413, "image_too_large", "Gambar melebihi batas profil upload.")
     if mime_type not in ALLOWED_FORMATS.values():
         raise AnalysisError(415, "unsupported_image_type", "Gunakan gambar JPEG, PNG, atau WebP.")
     try:
@@ -66,7 +68,7 @@ def validate_image(data: bytes, mime_type: str) -> ValidatedImage:
             output = BytesIO()
             clean.save(output, format=image_format)
             normalized = output.getvalue()
-        if len(normalized) > MAX_IMAGE_BYTES:
+        if len(normalized) > max_bytes:
             raise AnalysisError(
                 413, "normalized_image_too_large", "Sederhanakan atau perkecil gambar."
             )
@@ -82,6 +84,8 @@ def validate_image(data: bytes, mime_type: str) -> ValidatedImage:
 
 
 async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes, str] | None]:
+    max_request_bytes = request.app.state.settings.max_request_bytes
+    max_image_bytes = request.app.state.settings.max_image_bytes
     if request.headers.get("content-type", "").split(";", 1)[0].lower() != "multipart/form-data":
         raise AnalysisError(415, "multipart_required", "Gunakan multipart/form-data.")
     content_length = request.headers.get("content-length")
@@ -94,14 +98,14 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
             ) from None
         if length < 0:
             raise AnalysisError(422, "invalid_content_length", "Ukuran request tidak valid.")
-        if length > MAX_REQUEST_BYTES:
+        if length > max_request_bytes:
             raise AnalysisError(413, "request_too_large", "Payload melebihi batas upload.")
     chunks = []
     total = 0
     try:
         async for chunk in request.stream():
             total += len(chunk)
-            if total > MAX_REQUEST_BYTES:
+            if total > max_request_bytes:
                 raise AnalysisError(413, "request_too_large", "Payload melebihi batas upload.")
             chunks.append(chunk)
     except ClientDisconnect:
@@ -147,7 +151,7 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
             ) from None
         if file is None:
             return validated, None
-        data = await file.read(MAX_IMAGE_BYTES + 1)
+        data = await file.read(max_image_bytes + 1)
         return validated, (data, file.content_type or "")
     finally:
         await form.close()

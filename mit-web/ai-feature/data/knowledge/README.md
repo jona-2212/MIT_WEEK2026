@@ -1,24 +1,35 @@
-# Knowledge base lokal
+# Registry hukum dan pilot PDF
 
-Tujuan: menyimpan metadata sumber terkurasi dan memisahkan rujukan runtime dari kandidat yang belum terverifikasi. Kebijakan data: [data/README.md](../README.md). Alur pemakaian: [implementasi Recognition](../../docs/features/01-job-scam-recognition/IMPLEMENTATION.md).
+`sources.json` adalah registry kurasi, bukan korpus RAG sendiri. Runtime hanya
+mengembalikan potongan PDF dari bundle JSON yang lolos checksum, halaman/pasal,
+status/tanggal review, domain HTTPS resmi, topik, cakupan, dan pengecualian.
 
-File `sources.json` dimuat secara lokal, tanpa scraping atau LLM retrieval. `source_id`, `type`, `title`, `article`, `official_url`, `summary`, `verified_at`, `review_after`, `verification_status`, `exceptions`, dan `indicator_codes` wajib mengikuti `KnowledgeEntry`. Ringkasan ditulis ulang, bukan kutipan verbatim. Flag verified merupakan hasil kurasi manusia/agen yang terdokumentasi; domain resmi saja tidak membuktikan kebenaran sebuah ringkasan.
+Pilot owner pada 5 November 2026 adalah **satu PDF** `pdf/2024pmnaker018.pdf`.
+Checksum cocok byte-per-byte dengan [sumber JDIH](https://jdih.kemnaker.go.id/asset/data_puu/2024pmnaker018.pdf).
+[Metadata resmi](https://jdih.kemnaker.go.id/peraturan/detail/2622/peraturan-menteri-nomor-18-tahun-2024)
+menampilkan Berlaku saat diperiksa. Manifest memilih hanya Pasal 11 halaman PDF 7,
+termasuk pengecualiannya; penerapan pada kasus tetap memerlukan fakta jenis pelaksana
+dan jabatan. [Provenance](pilot_provenance.json) menyimpan hasil pemeriksaan teknis.
+PDF lain di folder developer tidak masuk manifest pilot.
 
-## Hasil verifikasi 31 Oktober 2026
+Embedding Gemini untuk pilot belum dibuat karena owner memilih menunggu izin kuota.
+ChromaDB lokal telah disiapkan untuk developer dengan koleksi resmi kosong; runtime
+Vercel tetap memakai ekspor JSON read-only. Tidak ada public upload PDF atau Chroma Cloud.
 
-| ID | Jenis dan cakupan | Bukti primer / status |
-|---|---|---|
-| `kemnaker-recruitment-warning-2024` | Panduan, bukan pasal; terkait biaya dan penyamaran perekrut | [Siaran pers Kemnaker, 10 Oktober 2024](https://www.kemnaker.go.id/news/detail/kemnaker-imbau-masyarakat-waspada-penipuan-lowongan-pekerjaan), isi halaman dibaca |
-| `permenaker-18-2024-placement-fees` | Regulasi, konteks biaya PPTKS dengan pengecualian jabatan | [PDF resmi halaman 7](https://jdih.kemnaker.go.id/asset/data_puu/2024pmnaker018.pdf#page=7), Pasal 11 ayat (1) huruf c dan ayat (2); [metadata/status JDIH](https://jdih.kemnaker.go.id/peraturan/detail/2622/peraturan-menteri-ketenagakerjaan-nomor-18-tahun-2024) menampilkan Berlaku pada tanggal pemeriksaan |
+## Status registry
 
-Referensi regulasi hanya menjelaskan ruang lingkup PPTKS serta pengecualian; jenis pelaksana dan penerapan pengecualian pada kasus pengguna tidak ditentukan aplikasi. Tidak ada putusan pelanggaran atau perubahan bobot skor berdasarkan referensi.
+- `permenaker-18-2024-placement-fees`: sumber existing verified, diperiksa ulang 5 November
+  2026; hanya bagian terkurasi pada manifest yang dapat disitasi.
+- `kemnaker-recruitment-warning-2024`: metadata panduan hasil kurasi sebelumnya, belum
+  menjadi PDF pada korpus pilot sehingga tidak otomatis diretrieval.
+- UU 13/2003, UU 27/2022 dan Perpres 57/2023 tetap pending/nonaktif; tidak diaktifkan
+  hanya karena nama dokumen atau file tersedia.
 
-Kedua entri perlu ditinjau ulang paling lambat **31 Januari 2027**. Sesudah `review_after`, loader/retriever otomatis mengecualikan entri. Pemeriksaan tidak berjalan sebagai scheduler dan tidak melakukan verifikasi online otomatis.
+Domain resmi saja tidak memvalidasi isi ringkasan. Metadata wajib menyimpan status,
+tanggal verifikasi/review, konteks, dan pengecualian. Pasal tanpa anchor yang ditinjau
+tetap null; referensi berbasis halaman masih dapat dipakai bila kurasi memadai.
+Sesudah review_after, sumber dikecualikan. Tidak ada pemeriksaan online otomatis.
 
-## Kandidat yang dikecualikan
-
-- UU 13/2003: perlu naskah/perubahan terkonsolidasi dan pengecualian terkait.
-- UU 27/2022: hasil pencarian menemukan kandidat, tetapi URL PDF yang dibuka mengalihkan ke beranda; belum dipakai sebagai rujukan runtime.
-- Perpres 57/2023: belum dilakukan kurasi pasal primer dan relevansinya terhadap indikator.
-
-Entri pending memiliki ringkasan kosong dan tidak dikembalikan ke klien. Jangan mengisi pasal dari ingatan model. Untuk menambah rujukan, baca sumber primer serta status/perubahan, tulis ringkasan berskop jelas, simpan konteks pengecualian dan tanggal pemeriksaan, lalu uji gating melalui `tests/test_knowledge.py`. File hilang/rusak harus tetap memberi fallback aman, bukan menggagalkan scoring.
+Tambah/perbarui sumber melalui proses developer pada [runbook](../../docs/engineering/LEGAL_INDEX_RUNBOOK.md).
+Checksum atau registry berubah membutuhkan rebuild dan redeploy, bukan edit JSON
+akhir manual. Jangan menandai sumber pending sebagai verified tanpa pemeriksaan.

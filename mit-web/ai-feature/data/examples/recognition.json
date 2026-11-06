@@ -3,13 +3,13 @@
     "id": "normal-synthetic",
     "kind": "normal",
     "text": "PT Contoh Fiktif membuka posisi staf administrasi untuk pencatatan stok dan surat. Syarat lulusan SMA, mampu mengoperasikan komputer. Proses tidak dipungut biaya. Jangan bagikan OTP atau password kepada perekrut. Jadwal wawancara akan diberitahukan.",
-    "evaluation_notes": "Periksa bahwa negasi dan imbauan melindungi OTP tidak ditafsirkan sebagai permintaan uang/kredensial. Skor rendah tidak menjamin keamanan."
+    "evaluation_notes": "Periksa bahwa negasi dan imbauan melindungi OTP tidak ditafsirkan sebagai permintaan uang/kredensial. Kategori low tidak berarti terverifikasi aman."
   },
   {
     "id": "suspicious-synthetic",
     "kind": "suspicious",
     "text": "Lowongan staf administrasi PT Contoh Fiktif. Transfer biaya administrasi Rp150.000 sebelum wawancara. Konfirmasi hari ini juga dan jangan menghubungi kantor untuk verifikasi.",
-    "evaluation_notes": "Permintaan pembayaran dan tekanan waktu memiliki kutipan eksplisit. Bobot adalah hipotesis aturan, bukan statistik akurasi."
+    "evaluation_notes": "Permintaan pembayaran dan tekanan waktu memiliki kutipan eksplisit. Rubrik kategori merupakan heuristik awal, bukan statistik akurasi."
   },
   {
     "id": "ambiguous-synthetic",

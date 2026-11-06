@@ -1,0 +1,102 @@
+{
+  "request_id": "66f30281-d8e3-4fb6-9dfa-e48db972f808",
+  "status": "completed",
+  "input_mode": "text",
+  "analysis_version": "recognition-v2",
+  "fraud_assessment": {
+    "risk_category": "high",
+    "summary": "Indikasi berbukti pada materi: permintaan pembayaran di muka, tekanan untuk segera bertindak. Ini belum membuktikan penipuan.",
+    "indicators": [
+      {
+        "code": "upfront_payment",
+        "state": "detected",
+        "evidence": [
+          {
+            "source": "text",
+            "quote": "Transfer biaya administrasi Rp150.000"
+          }
+        ],
+        "reason": "Ada kutipan yang mendukung indikasi permintaan pembayaran di muka; konteks perlu diverifikasi."
+      },
+      {
+        "code": "credential_request",
+        "state": "not_detected",
+        "evidence": [],
+        "reason": "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
+      },
+      {
+        "code": "premature_sensitive_data",
+        "state": "not_detected",
+        "evidence": [],
+        "reason": "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
+      },
+      {
+        "code": "urgency_pressure",
+        "state": "detected",
+        "evidence": [
+          {
+            "source": "text",
+            "quote": "Konfirmasi hari ini juga"
+          }
+        ],
+        "reason": "Ada kutipan yang mendukung indikasi tekanan untuk segera bertindak; konteks perlu diverifikasi."
+      },
+      {
+        "code": "unrealistic_offer",
+        "state": "not_detected",
+        "evidence": [],
+        "reason": "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
+      },
+      {
+        "code": "unofficial_channel",
+        "state": "not_detected",
+        "evidence": [],
+        "reason": "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
+      }
+    ],
+    "unknowns": [
+      "Identitas perekrut, perusahaan, dan keberadaan lowongan belum diverifikasi secara independen.",
+      "Materi di luar teks/gambar yang Anda kirim tidak diperiksa."
+    ],
+    "recommendations": [
+      "Jangan transfer uang sebelum identitas perekrut dan rincian biaya diverifikasi secara mandiri.",
+      "Ambil waktu untuk memeriksa tawaran; jangan membayar atau membagikan data karena desakan.",
+      "Periksa situs dan kanal resmi perusahaan secara mandiri sebelum melanjutkan."
+    ]
+  },
+  "legal_screening": {
+    "status": "needs_more_context",
+    "summary": "Rujukan relevan untuk ditinjau; relevansi tidak membuktikan pelanggaran hukum.",
+    "references": [
+      {
+        "source_id": "mock-legal-fixture",
+        "source_kind": "test_fixture",
+        "chunk_id": "5dcf1a46eb601d67df2a8416077eaf84f9a3a706c1e081882bc6dee01f8cbcb2",
+        "type": "regulation",
+        "title": "[MOCK] Fixture sintetis CC0, bukan peraturan",
+        "article": "Pasal 1",
+        "official_url": "https://fixtures.invalid/synthetic-cc0.pdf",
+        "excerpt": "Pasal 1\nDokumen latihan: permintaan transfer biaya sebelum wawancara perlu ditinjau.\nPengecualian latihan: jenis pelaksana dan konteks harus diperiksa. Bukan aturan nyata.",
+        "page_start": 1,
+        "page_end": 1,
+        "document_version": "mock-cc0-v1",
+        "verification_status": "verified",
+        "verified_at": "2026-10-30",
+        "review_after": "2027-01-31",
+        "pdf_sha256": "65b05135f1d3ae45b8438e22a17493b5aad6ea0694a38cf3ffb388a21ccab626",
+        "index_sha256": "e06f1b74679b23194f52db7317670071cdaf0a6fb96d689e559aa13413e855ea",
+        "scope": "Pengujian software saja, bukan hukum Indonesia.",
+        "exceptions": "Hanya latihan sintetis. Tidak berlaku untuk kasus hukum nyata."
+      }
+    ],
+    "missing_facts": [
+      "Konteks kasus belum diperiksa; fixture tidak memiliki otoritas hukum.",
+      "Verifikasi jenis perekrut, cakupan aturan, dan pengecualian yang berlaku."
+    ],
+    "warnings": [
+      "experimental_relevance_threshold",
+      "MOCK_FIXTURE_NOT_LEGAL_AUTHORITY"
+    ]
+  },
+  "disclaimer": "Kategori ini memakai rubrik heuristik awal, bukan probabilitas, putusan hukum, atau jaminan keamanan. Low tidak berarti terverifikasi aman. Hasil AI dapat keliru; verifikasi melalui sumber resmi secara mandiri."
+}

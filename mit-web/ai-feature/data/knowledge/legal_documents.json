@@ -1,0 +1,18 @@
+{
+  "documents": [
+    {
+      "source_id": "permenaker-18-2024-placement-fees",
+      "pdf_path": "pdf/2024pmnaker018.pdf",
+      "pdf_sha256": "0584ae9d0b210b119e52e1a30a06e51dd9b394eb941d43a1ff22a58e37b35b56",
+      "document_version": "Permenaker 18/2024, BN 2024 Nomor 1036; naskah resmi JDIH",
+      "document_date": "2024-12-30",
+      "scope": "Pilot terbatas pada Pasal 11 halaman PDF 7, mengenai PPTKS; identitas pelaksana dan penerapan pengecualian harus diverifikasi.",
+      "license_note": "Teks peraturan perundang-undangan; dasar pemeriksaan UU 28/2014 Pasal 42 huruf b, https://jdihn.go.id/files/4/2014uu028.pdf. Tidak mencakup aset desain situs JDIH.",
+      "redistribution_allowed": true,
+      "topics": ["recruitment_fees"],
+      "required_facts": ["Apakah perekrut merupakan PPTKS?", "Apakah biaya tersebut biaya penempatan dan apakah pengecualian jabatan berlaku?"],
+      "validated_articles": [{"page": 7, "article": "Pasal 11"}],
+      "include_articles": ["Pasal 11"]
+    }
+  ]
+}

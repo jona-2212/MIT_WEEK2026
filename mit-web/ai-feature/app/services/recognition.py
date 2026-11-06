@@ -2,18 +2,21 @@ from app.schemas.recognition import (
     AIExtraction,
     AnalysisResponse,
     AnalyzeInput,
+    FraudAssessment,
     IndicatorCode,
     IndicatorState,
+    LegalScreening,
 )
 from app.services.ai.gemini import GeminiProvider
-from app.services.knowledge.retrieval import KnowledgeRetriever
+from app.services.knowledge.retrieval import KnowledgeRetriever, grounded_query
 from app.services.risk.grounding import ground_indicators, has_useful_content
-from app.services.risk.scoring import LABELS, risk_level_for_score, score_indicators
+from app.services.risk.scoring import LABELS, validate_category
 from app.services.uploads import ValidatedImage
 
 DISCLAIMER = (
-    "Skor ini adalah indikator heuristik, bukan persentase peluang penipuan, putusan hukum, "
-    "atau jaminan keamanan. Hasil AI dapat keliru; verifikasi melalui sumber resmi secara mandiri."
+    "Kategori ini memakai rubrik heuristik awal, bukan probabilitas, putusan hukum, "
+    "atau jaminan keamanan. Low tidak berarti terverifikasi aman. "
+    "Hasil AI dapat keliru; verifikasi melalui sumber resmi secara mandiri."
 )
 RECOMMENDATIONS = {
     IndicatorCode.UPFRONT_PAYMENT: (
@@ -49,7 +52,12 @@ class RecognitionService:
     ) -> AnalysisResponse:
         if image is None and not has_useful_content(data.text):
             extraction = AIExtraction(
-                is_job_related=False, sufficient_content=False, image_text="", indicators=[]
+                is_job_related=False,
+                sufficient_content=False,
+                image_text="",
+                indicators=[],
+                proposed_category="insufficient_data",
+                legal_observations=[],
             )
         else:
             extraction = await self.provider.extract(data.text, image)
@@ -62,9 +70,25 @@ class RecognitionService:
         indicators, rejected = ground_indicators(
             extraction, data.text, has_image=image is not None, sufficient=sufficient
         )
-        breakdown = score_indicators(indicators, sufficient=sufficient)
+        category = validate_category(
+            extraction.proposed_category,
+            indicators,
+            sufficient=sufficient,
+            rejected_evidence=rejected,
+        )
         detected = [item.code for item in indicators if item.state == IndicatorState.DETECTED]
-        references = self.knowledge.retrieve(detected)
+        query, topics = grounded_query(
+            extraction, indicators, data.text, has_image=image is not None
+        )
+        legal = (
+            await self.knowledge.retrieve(query, topics)
+            if sufficient
+            else LegalScreening(
+                status="needs_more_context",
+                summary="Materi belum cukup untuk screening hukum.",
+                missing_facts=["Konteks rekrutmen dan materi yang terbaca dengan jelas."],
+            )
+        )
         unknowns = [
             "Identitas perekrut, perusahaan, dan keberadaan lowongan "
             "belum diverifikasi secara independen.",
@@ -80,12 +104,14 @@ class RecognitionService:
                 "sehingga tidak digunakan sebagai bukti."
             )
         if any(item.state == IndicatorState.UNCERTAIN for item in indicators):
-            unknowns.append("Ada indikator yang masih tidak pasti dan tidak dimasukkan ke skor.")
+            unknowns.append("Ada indikator yang masih tidak pasti dan perlu bukti tambahan.")
+        if category == "insufficient_data" and sufficient:
+            unknowns.append("Usulan kategori belum konsisten dengan bukti/rubrik yang tervalidasi.")
         recommendations = [RECOMMENDATIONS[code] for code in detected]
         recommendations.append(
             "Periksa situs dan kanal resmi perusahaan secara mandiri sebelum melanjutkan."
         )
-        if not sufficient:
+        if category == "insufficient_data":
             summary = (
                 "Materi belum cukup jelas atau belum memuat konteks rekrutmen "
                 "yang memadai untuk penilaian risiko."
@@ -108,18 +134,15 @@ class RecognitionService:
             )
         return AnalysisResponse(
             request_id=request_id,
-            status="completed" if sufficient else "insufficient_data",
+            status="insufficient_data" if category == "insufficient_data" else "completed",
             input_mode=data.input_mode,
-            risk_score=breakdown.final_score,
-            risk_level=risk_level_for_score(breakdown.final_score)
-            if sufficient
-            else "insufficient_data",
-            score_breakdown=breakdown,
-            summary=summary,
-            indicators=indicators,
-            unknowns=unknowns,
-            recommendations=list(dict.fromkeys(recommendations)),
-            legal_status="available" if references else "not_available",
-            legal_context=references,
+            fraud_assessment=FraudAssessment(
+                risk_category=category,
+                summary=summary,
+                indicators=indicators,
+                unknowns=unknowns,
+                recommendations=list(dict.fromkeys(recommendations)),
+            ),
+            legal_screening=legal,
             disclaimer=DISCLAIMER,
         )
