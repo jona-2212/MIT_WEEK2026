@@ -1,0 +1,23 @@
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+.env
+.env.*
+!.env.example
+*.log
+dist/
+build/
+*.egg-info/
+.DS_Store
+Thumbs.db
+# PDF resmi lokal disediakan developer; jangan masukkan dokumen tanpa izin redistribusi.
+data/knowledge/pdf/*
+!data/knowledge/pdf/README.md
+data/chroma_local/
+data/legal_staging/

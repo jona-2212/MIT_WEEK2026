@@ -5,11 +5,11 @@
 Jalankan perintah berikut dari `mit-web` untuk menyiapkan FastAPI AI.
 
 ```powershell
-cd ai-feature
+cd backend
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Isi `GEMINI_API_KEY` di `ai-feature/.env` dengan kredensial Gemini proyek, lalu jalankan FastAPI dari folder `ai-feature`.
+Isi `GEMINI_API_KEY` di `backend/.env` dengan kredensial Gemini proyek, lalu jalankan FastAPI dari folder `backend`.
 
 ```powershell
 $env:ALLOWED_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
@@ -34,12 +34,12 @@ Buat dua proyek dari repo yang sama. Tentukan domain Production masing-masing pr
 
 | Proyek | Root Directory | Preset | Variabel Production |
 | --- | --- | --- | --- |
-| API | `mit-web/ai-feature` | FastAPI | `APP_ENV=production`, `GEMINI_API_KEY`, `ALLOWED_ORIGINS=https://<domain-frontend>.vercel.app`, `LEGAL_MIN_SIMILARITY=0.70` |
+| API | `mit-web/backend` | FastAPI | `APP_ENV=production`, `GEMINI_API_KEY`, `ALLOWED_ORIGINS=https://<domain-frontend>.vercel.app`, `LEGAL_MIN_SIMILARITY=0.70` |
 | Web | `mit-web/frontend` | Vite | `VITE_AI_API_URL=https://<domain-api>.vercel.app` |
 
 Gunakan Node.js 22.x atau 24.x untuk Web. Vercel membangun Web dengan `npm run build` dan menerbitkan `dist`. Simpan `GEMINI_API_KEY` hanya di pengaturan proyek API.
 
-Sertakan `manifest.json`, `chunks.json`, dan `vectors.json` dari `ai-feature/data/legal_index` bersama kode pada branch yang akan dipakai Vercel. Build API memverifikasi bundle terhadap registry. Fungsi FastAPI membaca JSON tersebut saat startup dan memakai Gemini untuk embedding query yang relevan. Folder sampel, PDF sumber, dan Chroma lokal dikecualikan dari fungsi.
+Sertakan `manifest.json`, `chunks.json`, dan `vectors.json` dari `backend/data/legal_index` bersama kode pada branch yang akan dipakai Vercel. Build API memverifikasi bundle terhadap registry. Fungsi FastAPI membaca JSON tersebut saat startup dan memakai Gemini untuk embedding query yang relevan. Folder sampel, PDF sumber, dan Chroma lokal dikecualikan dari fungsi.
 
 Ambang `0.70` dipakai untuk demo pilot Pasal 11. Contoh permintaan biaya penempatan di bawah mendapat kemiripan sekitar `0.715` dengan potongan tersebut. Filter topik dan pemeriksaan sumber tetap berlaku.
 
@@ -47,14 +47,4 @@ Setelah deploy, cek `/api/v1/health` di domain API. Buka URL Production Web deng
 
 ```text
 Lowongan staf gudang di Jakarta dari PT Penempatan Latih Fiktif. Sebagai PPTKS, kami memungut biaya penempatan tenaga kerja kepada pencari kerja sebesar Rp150.000 yang wajib ditransfer sebelum wawancara.
-```
-
-## Backend lama
-
-Jalankan dari `mit-web` jika perlu mengakses endpoint lama seperti `GET /api/data`. Gunakan port berbeda jika FastAPI AI sedang berjalan.
-
-```powershell
-cd backend
-pip install -r requirements.txt
-py -m uvicorn main:app --reload --port 8000
 ```

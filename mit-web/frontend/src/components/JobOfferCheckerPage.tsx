@@ -175,8 +175,8 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                 <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#064B50]/20 bg-[#F7F7F0] p-5 text-center hover:border-[#087F7A]">
                   <Upload className="mb-2 h-7 w-7 text-[#087F7A]" />
                   <span className="text-sm font-bold">{lang === "ID" ? "Unggah screenshot tawaran" : "Upload an offer screenshot"}</span>
-                  <span className="mt-1 text-xs text-[#202C2B]/60">PNG, JPG, WEBP</span>
-                  <input type="file" accept="image/png,image/jpeg,image/webp" disabled={isScanning} onChange={handleImageChange} className="hidden" />
+                  <span className="mt-1 text-xs text-[#202C2B]/60">PNG atau JPG</span>
+                  <input type="file" accept="image/png,image/jpeg" disabled={isScanning} onChange={handleImageChange} className="hidden" />
                 </label>
                 {image && <img src={image.previewUrl} alt="Job offer preview" className="mt-3 max-h-48 w-full rounded-xl object-contain" />}
                 <textarea
