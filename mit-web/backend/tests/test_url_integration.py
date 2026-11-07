@@ -55,3 +55,4 @@ async def test_analyze_with_invalid_url_rejected(rag_bundle) -> None:
     assert response.status_code == 400
     data = response.json()
     assert data["error"]["code"] == "invalid_url"
+

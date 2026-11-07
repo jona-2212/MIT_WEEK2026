@@ -156,3 +156,4 @@ async def fetch_url_content(url: str, timeout: float = 12.0) -> tuple[str, str]:
             "url_fetch_failed",
             "Gagal mengambil data dari tautan. Pastikan tautan aktif dan dapat dibuka publik.",
         )
+

@@ -11,7 +11,7 @@ from app.services.risk.grounding import ground_indicators
 from app.services.uploads import ValidatedImage
 
 DISCLAIMER = (
-    "Kategori ini adalah penilaian indikatif Gemini atas materi yang dikirim. "
+    "Kategori ini adalah penilaian indikatif Jeli AI atas materi yang dikirim. "
     "Hasil AI dapat keliru. Verifikasi melalui sumber resmi secara mandiri."
 )
 

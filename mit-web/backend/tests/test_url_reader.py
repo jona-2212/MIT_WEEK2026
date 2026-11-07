@@ -26,3 +26,4 @@ async def test_unsafe_url_raises_error():
         await fetch_url_content("http://127.0.0.1:8080/admin")
     assert exc_info.value.status_code == 400
     assert exc_info.value.code == "invalid_url"
+

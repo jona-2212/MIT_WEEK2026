@@ -86,8 +86,8 @@ RESPONSES = {
         "Kirim text, url, file JPEG/PNG/WebP, atau kombinasinya. Teks maksimal 12.000 karakter; "
         "satu gambar maksimal 5 MiB lokal / 4 MiB profil Vercel dan 16 megapiksel. "
         "Jika menyertakan url, sistem akan mengekstrak konten halaman web secara otomatis. "
-        "Total multipart juga dibatasi. Input diproses pihak ketiga (Gemini). "
-        "Samarkan data pribadi. Gemini menilai risiko secara kualitatif berdasarkan konteks."
+        "Total multipart juga dibatasi. Input diproses secara aman oleh AI backend. "
+        "Samarkan data pribadi. Jeli AI menilai risiko secara kualitatif berdasarkan konteks."
     ),
     openapi_extra={
         "requestBody": {
