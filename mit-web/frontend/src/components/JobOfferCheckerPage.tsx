@@ -456,11 +456,11 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
               </p>
             )}
 
-            {/* Privacy notice: Replaced Gemini mention with Jeli AI */}
-            <p className="mt-3 text-center text-[11px] text-[#202C2B]/60">
+            {/* Privacy notice */}
+            <p className="mt-3 text-center text-[11px] font-medium text-[#202C2B]/60">
               {lang === "ID"
-                ? "Jeli AI menganalisis materi yang dikirim secara privat & aman. Samarkan data pribadi sebelum menganalisis."
-                : "Jeli AI analyzes submitted material securely. Redact personal data before analyzing."}
+                ? "Privasi terjaga. Jangan sertakan data pribadi sensitif."
+                : "Privacy protected. Do not include sensitive personal data."}
             </p>
           </section>
 
@@ -495,21 +495,9 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                       <RiskIcon className="h-4 w-4" />
                       {lang === "ID" ? "Hasil Evaluasi Jeli AI" : "Jeli AI Evaluation"}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleDownloadPdf}
-                        disabled={isDownloadingPdf}
-                        title={lang === "ID" ? "Unduh Laporan PDF" : "Download PDF Report"}
-                        className="flex items-center gap-1.5 rounded-full bg-white/20 hover:bg-white/30 px-3 py-1 text-xs font-bold text-white transition-all backdrop-blur-xs cursor-pointer shadow-xs"
-                      >
-                        <Download className={`h-3.5 w-3.5 ${isDownloadingPdf ? "animate-bounce" : ""}`} />
-                        <span>PDF</span>
-                      </button>
-                      <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-black backdrop-blur-xs">
-                        {riskLabels[risk.risk_category][lang]}
-                      </span>
-                    </div>
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-black backdrop-blur-xs">
+                      {riskLabels[risk.risk_category][lang]}
+                    </span>
                   </div>
                   <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
                     {riskLabels[risk.risk_category][lang]}
