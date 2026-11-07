@@ -178,6 +178,37 @@ async def test_threshold_is_configurable_experiment_and_top_k_is_bounded(rag_bun
     assert math.isclose(math.hypot(*(await Borderline().embed_query("x"))), 1.0)
 
 
+async def test_unique_verified_article_is_returned_as_topic_context(tmp_path) -> None:
+    documents, registry = create_fixture_files(tmp_path)
+    data = json.loads(documents.read_text())
+    data["documents"][0]["topics"] = ["recruitment_fees"]
+    data["documents"][0]["include_articles"] = ["Pasal 1"]
+    documents.write_bytes(canonical_bytes(data))
+    embeddings = MockEmbeddings()
+    index = tmp_path / "index"
+    await build_index(documents, registry, index, embeddings, purpose="test_fixture")
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        legal_index_path=index,
+        legal_registry_path=registry,
+        embedding_model=embeddings.model_id,
+    )
+    retriever = StaticKnowledgeRetriever(settings, embeddings)
+    result = await retriever.retrieve("Bayar uang pendaftaran", {"recruitment_fees"})
+    assert result.status == "needs_more_context" and result.missing_facts
+    assert [reference.article for reference in result.references] == ["Pasal 1"]
+    assert "topic_match_only" in result.warnings
+    assert "MOCK_FIXTURE_NOT_LEGAL_AUTHORITY" in result.warnings
+    assert embeddings.query_calls == 1
+
+    wrong_topic = await retriever.retrieve("Bayar uang pendaftaran", {"employment_terms"})
+    no_topic = await retriever.retrieve("Bayar uang pendaftaran", set())
+    assert wrong_topic.status == no_topic.status == "no_relevant_reference"
+    assert not wrong_topic.references and not no_topic.references
+    assert embeddings.query_calls == 1
+
+
 @pytest.mark.parametrize(
     "case", ["model", "dimension", "missing", "corrupt", "registry", "manifest"]
 )

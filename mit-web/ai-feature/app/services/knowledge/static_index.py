@@ -216,15 +216,21 @@ class StaticKnowledgeRetriever:
             return unavailable(str(error) if str(error) in safe_codes else "legal_embedding_failed")
         except TimeoutError:
             return unavailable("embedding_timeout")
-        candidates = []
+        ranked = []
         for chunk, vector in zip(self.chunks, self.vectors, strict=True):
             source = sources[chunk.source_id]
             if chunk.source_id not in active or not topics.intersection(source.topics):
                 continue
             similarity = math.fsum(a * b for a, b in zip(query_vector, vector, strict=True))
-            if similarity >= self.settings.legal_min_similarity:
-                candidates.append((similarity, chunk))
-        candidates.sort(key=lambda item: (-item[0], item[1].chunk_id))
+            ranked.append((similarity, chunk))
+        ranked.sort(key=lambda item: (-item[0], item[1].chunk_id))
+        candidates = [item for item in ranked if item[0] >= self.settings.legal_min_similarity]
+        topic_match_only = False
+        if not candidates and len(ranked) == 1:
+            _, chunk = ranked[0]
+            if chunk.article is not None and sources[chunk.source_id].type == "regulation":
+                candidates = ranked
+                topic_match_only = True
         references: list[LegalReference] = []
         missing: list[str] = []
         seen: set[tuple[str, str]] = set()
@@ -266,17 +272,21 @@ class StaticKnowledgeRetriever:
         if not references:
             return LegalScreening(
                 status="no_relevant_reference",
-                summary="Tidak ditemukan potongan terverifikasi yang memenuhi ambang eksperimen.",
+                summary="Indeks saat ini belum menemukan rujukan yang cukup cocok dengan tawaran.",
                 warnings=["experimental_relevance_threshold"],
             )
         return LegalScreening(
             status="needs_more_context" if missing else "potential_issue",
             summary=(
-                "Rujukan relevan untuk ditinjau; relevansi tidak membuktikan pelanggaran hukum."
+                "Rujukan awal ditemukan berdasarkan topik. Periksa jenis perekrut, "
+                "cakupan aturan, dan pengecualian sebelum menerapkannya pada kasus ini."
+                if topic_match_only
+                else "Rujukan relevan untuk ditinjau. Periksa cakupan aturan dan pengecualiannya."
             ),
             references=references,
             missing_facts=list(dict.fromkeys(missing)),
             warnings=["experimental_relevance_threshold"]
+            + (["topic_match_only"] if topic_match_only else [])
             + (
                 ["MOCK_FIXTURE_NOT_LEGAL_AUTHORITY"]
                 if self.manifest.purpose == "test_fixture"

@@ -2,7 +2,7 @@
 
 Backend mandiri FastAPI untuk screening indikatif rekrutmen dari teks/screenshot. Versi 0.3.0 memakai kategori `high`, `medium`, `low`, atau `insufficient_data`, bukti kutipan, serta legal screening terpisah. Rubrik merupakan heuristik awal, belum tervalidasi ilmiah; `low` tidak berarti lowongan terverifikasi aman.
 
-Acuan: [SRS v1.2](docs/features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md), [API](docs/api/recognition.md), [ADR Fase A](docs/decisions/ADR-0003-qualitative-static-rag.md), [runbook PDF/Chroma](docs/engineering/LEGAL_INDEX_RUNBOOK.md). Tidak ada integrasi React, URL fetch, public upload PDF, training, atau Chroma Cloud.
+Acuan: [SRS v1.2](docs/features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md), [API](docs/api/recognition.md), [ADR Fase A](docs/decisions/ADR-0003-qualitative-static-rag.md), [runbook PDF/Chroma](docs/engineering/LEGAL_INDEX_RUNBOOK.md), dan [panduan React serta Vercel](../README.md).
 
 ## Menjalankan demo sekarang — MODE UJI MOCK
 
@@ -40,7 +40,7 @@ Startup/health/demo tidak memanggil API AI. Analisis bermateri cukup memakai Gem
 
 PDF pilot owner: `data/knowledge/pdf/2024pmnaker018.pdf`. Manifest memilih **Pasal 11, halaman PDF 7** dari dokumen 74 halaman, termasuk pengecualiannya. PDF lain tidak masuk manifest pilot. Checksum berkas owner cocok dengan PDF resmi JDIH; [catatan provenance](data/knowledge/pilot_provenance.json) dan [runbook](docs/engineering/LEGAL_INDEX_RUNBOOK.md) menjelaskan batas kurasi.
 
-ChromaDB hanya tooling developer/offline di `data/chroma_local/`; aplikasi Vercel tetap membaca tiga file JSON dari `data/legal_index/`. Chroma/pypdf berada di dependency dev dan tidak diimpor application factory. Koleksi resmi menunggu izin embedding Gemini, sehingga belum berisi vektor PDF resmi.
+ChromaDB dipakai oleh tooling developer di `data/chroma_local/`. Runtime Vercel membaca tiga file JSON dari `data/legal_index/`. Bundle pilot resmi dibangun dengan satu embedding dokumen Gemini dan diekspor dari Chroma. Chroma dan pypdf berada di dependency dev.
 
 ```powershell
 # Aman tanpa API AI: validasi PDF, seleksi pasal, dan estimasi request embedding
@@ -49,7 +49,7 @@ uv run --locked python scripts/build_legal_index.py --plan --manifest data/knowl
 uv run --locked python scripts/manage_legal_chroma.py init
 ```
 
-**Embedding live dan analisis live belum diuji dalam pekerjaan ini. Owner memilih menunggu persetujuan kuota terpisah.** Jangan menjalankan flag `--allow-embedding-api` sampai disetujui. Biaya hosting vector DB cloud tidak ada pada alur lokal ini; Gemini/embedding dan hosting aplikasi tetap mungkin memakai kuota/biaya.
+Jalankan `--allow-embedding-api` untuk build berikutnya setelah mendapat persetujuan kuota. Ikuti [runbook PDF/Chroma](docs/engineering/LEGAL_INDEX_RUNBOOK.md) untuk validasi dan ekspor ulang.
 
 ## Konfigurasi
 
@@ -90,7 +90,7 @@ Tes default memblokir transport API eksternal dan memakai fixture sintetis. Tes 
 
 ## Persiapan Vercel
 
-`index.py` mengekspor factory yang sama dengan profil upload Vercel. `vercel.json` mengecualikan PDF sumber, Chroma lokal, fixture, scripts, dokumen, cache, dan `.env`; demo, prompt, registry, serta indeks JSON harus ikut bundle. Root project hosting adalah folder layanan ini. Instalasi runtime tidak memerlukan dependency dev (`uv sync --locked --no-dev`).
+`index.py` mengekspor factory dengan profil upload Vercel. Konfigurasi build memverifikasi indeks JSON resmi sebelum Vercel memaketkan fungsi. `vercel.json` mengecualikan PDF sumber, sampel, Chroma lokal, fixture, scripts, dokumen, cache, dan `.env`. Demo, prompt, registry, dan indeks JSON masuk ke bundle. Instalasi runtime memakai `uv sync --locked --no-dev`.
 
 Tidak ada write persisten saat startup/request. Build indeks dilakukan offline dan perubahan PDF/registry/model memerlukan rebuild + redeploy. Entry point diuji lokal; build/deployment Vercel dan ukuran bundle akhirnya belum diuji. Tidak ada deployment, commit, atau push otomatis.
 

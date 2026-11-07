@@ -13,7 +13,7 @@ from app.schemas.recognition import AIExtraction
 from app.services.uploads import ValidatedImage
 
 logger = logging.getLogger("job_scam_guardian.ai")
-PROMPT_VERSION = "recognition-v2"
+PROMPT_VERSION = "recognition-v2.1"
 MAX_PROVIDER_BYTES = 256 * 1024
 SYSTEM_PROMPT = (PROJECT_ROOT / "app/services/ai/prompts/recognition-v2.txt").read_text(
     encoding="utf-8"
@@ -26,6 +26,12 @@ class GeminiProvider:
         self.client = client
 
     def build_payload(self, text: str, image: ValidatedImage | None) -> dict:
+        schema = AIExtraction.model_json_schema()
+        # Gemini rejects maxItems in this schema. Pydantic still validates the response limits.
+        for definition in (schema, *schema.get("$defs", {}).values()):
+            for field in definition.get("properties", {}).values():
+                field.pop("maxItems", None)
+
         parts: list[dict] = [{"text": json.dumps({"job_text": text}, ensure_ascii=False)}]
         if image is not None:
             parts.append(
@@ -44,7 +50,7 @@ class GeminiProvider:
                 "responseFormat": {
                     "text": {
                         "mimeType": "APPLICATION_JSON",
-                        "schema": AIExtraction.model_json_schema(),
+                        "schema": schema,
                     }
                 },
             },

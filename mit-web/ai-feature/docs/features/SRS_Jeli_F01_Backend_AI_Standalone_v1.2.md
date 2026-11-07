@@ -130,7 +130,7 @@ Demo HTML: tampilkan hasil atau error dengan jujur
 
 **FR-03 — Evidence grounding.** Indikator berstatus `detected` wajib disertai kutipan yang benar-benar ada di teks atau transkripsi screenshot. Backend menolak/mendegradasi indikator tanpa bukti yang cocok, membedakan `not_detected` dan `uncertain`, serta menguji kalimat negasi dan contoh edukatif. Untuk screenshot, akui bahwa pembacaan menggunakan vision model dan belum diverifikasi melalui OCR independen.
 
-**FR-04 — Fraud category kualitatif.** Kategori hanya `high`, `medium`, `low`, atau `insufficient_data`. **Tidak ada `risk_score`, `score_breakdown`, persentase, atau label `verified safe` pada output MVP publik.** Model mengusulkan kategori; backend mengecek bahwa kategori didukung indikator/bukti atau mengembalikan status tidak cukup data. Rubrik draf di §6; finalisasi detailnya masih OPEN-01.
+**FR-04 — Fraud category kualitatif.** Kategori hanya `high`, `medium`, `low`, atau `insufficient_data`. Gemini menentukan kategori berdasarkan konteks. FastAPI memvalidasi skema dan kutipan indikator. [ADR-0004](../decisions/ADR-0004-contextual-gemini.md) memperbarui keputusan penilaian pada §6.
 
 **FR-05 — Explanation dan safe action.** Kembalikan ringkasan Bahasa Indonesia, daftar indikator, bukti, fakta yang belum diketahui (`unknowns`), rekomendasi praktis, dan disclaimer. Jangan menyarankan transfer uang, membagikan OTP, atau menghubungi perekrut melalui kontak yang belum diverifikasi sebagai jalan utama pengecekan.
 
@@ -171,6 +171,8 @@ Demo HTML: tampilkan hasil atau error dengan jujur
 - **OPEN-09:** ambang relevansi/top-k dan strategi fallback saat kualitas retrieval rendah. Perlu uji pada pertanyaan yang relevan, tidak relevan, dan dokumen dengan pengecualian.
 
 ## 6. Metodologi dan rubrik kategori (USULAN — perlu persetujuan)
+
+Bagian ini mencatat rancangan awal. Implementasi saat ini mengikuti [ADR-0004](../decisions/ADR-0004-contextual-gemini.md).
 
 Literatur deteksi penipuan rekrutmen mendukung penggunaan fitur linguistik dan indikator berbasis pengetahuan; **literatur tidak otomatis memvalidasi aturan kategori Jeli**. Karena tidak ada training maupun data kalibrasi dalam MVP, kategori adalah *qualitative screening judgement*, **bukan estimasi probabilitas penipuan**.
 

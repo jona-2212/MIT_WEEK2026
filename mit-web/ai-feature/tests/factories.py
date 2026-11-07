@@ -2,6 +2,7 @@ import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from io import BytesIO
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
@@ -40,6 +41,8 @@ def extraction(
     sufficient: bool = True,
     related: bool = True,
     category: str | None = None,
+    summary: str = "Ringkasan analisis dari respons fixture.",
+    recommendations: list[str] | None = None,
     legal_observations: list[dict] | None = None,
 ) -> dict:
     codes = {item["code"] for item in observations}
@@ -47,7 +50,7 @@ def extraction(
         "is_job_related": related,
         "sufficient_content": sufficient,
         "image_text": image_text,
-        "proposed_category": category
+        "risk_category": category
         or (
             "insufficient_data"
             if not sufficient or not related
@@ -58,6 +61,8 @@ def extraction(
             )
             else "low"
         ),
+        "summary": summary,
+        "recommendations": recommendations or ["Verifikasi tawaran melalui kanal resmi."],
         "legal_observations": legal_observations or [],
         "indicators": list(observations)
         + [
@@ -104,7 +109,11 @@ def build_test_app(
             return handler(request)
         return httpx.Response(200, json=envelope(content if content is not None else extraction()))
 
-    settings = settings or Settings(_env_file=None, gemini_api_key="synthetic-test-key")
+    settings = settings or Settings(
+        _env_file=None,
+        gemini_api_key="synthetic-test-key",
+        legal_index_path=Path(__file__).parent / "fixtures/missing_legal_index",
+    )
     return create_app(
         settings,
         provider_transport=httpx.MockTransport(handle),

@@ -1,6 +1,6 @@
 from datetime import date
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
@@ -66,7 +66,11 @@ class AIExtraction(StrictModel):
     sufficient_content: StrictBool
     image_text: str = Field(max_length=16_000, repr=False)
     indicators: list[ExtractedIndicator] = Field(max_length=12)
-    proposed_category: RiskCategory
+    risk_category: RiskCategory
+    summary: str = Field(min_length=1, max_length=800, repr=False)
+    recommendations: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(
+        min_length=1, max_length=5, repr=False
+    )
     legal_observations: list[LegalObservation] = Field(max_length=6)
 
 

@@ -37,18 +37,20 @@ Browser memakai FormData tanpa menetapkan Content-Type multipart manual. Input d
 
 Tidak ada risk_score, score_breakdown, scoring_version, atau bobot indikator. Masing-masing indikator berisi code, state detected/uncertain/not_detected, evidence source=text/image dan quote, serta reason.
 
-Gemini mengusulkan kategori. Backend menolak bukti yang tidak cocok dan memvalidasi rubrik: high untuk permintaan berbahaya eksplisit berbukti; medium memerlukan dua indikator pendukung independen; low memerlukan materi cukup tanpa ketidakpastian material. Konflik/usulan tanpa dukungan menjadi insufficient_data. Kutipan sama dari dua modalitas tidak menjadi dua indikator independen. Ini heuristik awal, bukan hasil kalibrasi ilmiah.
+Gemini menentukan kategori, ringkasan, dan rekomendasi dari konteks materi, termasuk pesan singkat yang lolos validasi input. FastAPI menyalin kategori dari hasil tervalidasi, menyaring kutipan indikator yang tidak cocok dengan sumber, dan mencari rujukan hukum secara terpisah. Lihat [ADR-0004](../decisions/ADR-0004-contextual-gemini.md).
 
 | Status legal | Makna |
 |---|---|
 | `potential_issue` | Rujukan mendukung potensi isu untuk ditinjau; bukan vonis |
 | `needs_more_context` | Fakta cakupan/pengecualian belum memadai |
-| `no_relevant_reference` | Tidak ada rujukan aktif yang memenuhi topik/ambang |
+| `no_relevant_reference` | Indeks belum memberi rujukan yang cocok melalui pencarian semantik atau pencocokan topik |
 | `reference_unavailable` | Indeks/registry/embedding tidak tersedia atau tidak valid |
 
 Setiap reference berasal dari chunk tersimpan: source_id, source_kind, chunk_id, title/type, article (nullable), official_url, excerpt, page_start/page_end, document_version, verification_status, verified_at/review_after, pdf_sha256/index_sha256, scope, exceptions. source_kind=test_fixture hanya pada mode tes dan bukan otoritas hukum. Pasal yang belum divalidasi tidak ditebak. Similarity tidak dipublikasikan sebagai probabilitas atau bukti pelanggaran.
 
 Regulasi pada MVP selalu memerlukan pemeriksaan manusia atas jenis pelaksana/cakupan/pengecualian; fakta tersebut tidak diputus dari klaim model. Kegagalan RAG mempertahankan response fraud yang valid dan mengisi status reference_unavailable dengan warning aman. Ketidakcukupan materi fraud memberi HTTP 200 insufficient_data; input kosong/format invalid tetap error.
+
+Jika skor semantik berada di bawah ambang dan topik berbukti hanya cocok dengan satu potongan regulasi berpasal terverifikasi, potongan itu dapat tampil sebagai rujukan awal. Respons memakai `needs_more_context` dan warning `topic_match_only`.
 
 Contoh response lengkap berlabel **MOCK**: [recognition-mock.json](../examples/recognition-mock.json). Contoh OpenAPI juga sintetis dan tervalidasi, bukan hasil inferensi live.
 

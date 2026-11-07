@@ -92,26 +92,47 @@ async def test_combined_input_is_one_request_and_no_double_scoring() -> None:
 
 
 async def test_normal_offer_does_not_claim_verified_safety() -> None:
-    app, _ = build_test_app()
+    summary = "Materi terlihat wajar. Identitas perekrut tetap perlu diverifikasi."
+    app, _ = build_test_app(extraction(summary=summary))
     async with open_test_client(app) as client:
         response = await client.post("/api/v1/analyze", files=form_parts(NORMAL_TEXT))
     data = response.json()
     assert response.status_code == 200
     assert data["fraud_assessment"]["risk_category"] == "low"
-    assert "tidak dinyatakan aman" in data["fraud_assessment"]["summary"]
-    assert "bukan" in data["disclaimer"]
+    assert data["fraud_assessment"]["summary"] == summary
+    assert "penilaian indikatif Gemini" in data["disclaimer"]
     assert data["legal_screening"]["status"] == "reference_unavailable"
 
 
-async def test_tiny_text_is_insufficient_without_calling_ai() -> None:
-    app, calls = build_test_app(settings=Settings(_env_file=None))
+@pytest.mark.parametrize(
+    "text,content,category,status",
+    [
+        (
+            "halo",
+            extraction(related=False, sufficient=False),
+            "insufficient_data",
+            "insufficient_data",
+        ),
+        (
+            "Lamar kerja? Kirim OTP dulu.",
+            extraction(observation("credential_request", "Kirim OTP dulu")),
+            "high",
+            "completed",
+        ),
+    ],
+)
+async def test_short_text_is_sent_to_gemini(text, content, category, status) -> None:
+    app, calls = build_test_app(content)
     async with open_test_client(app) as client:
-        response = await client.post("/api/v1/analyze", files=form_parts("halo"))
+        response = await client.post("/api/v1/analyze", files=form_parts(text))
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == data["fraud_assessment"]["risk_category"] == "insufficient_data"
+    assert data["status"] == status
+    assert data["fraud_assessment"]["risk_category"] == category
     assert "risk_score" not in response.text and "score_breakdown" not in response.text
-    assert calls == []
+    assert len(calls) == 1
+    sent = json.loads(calls[0].content)["contents"][0]["parts"][0]["text"]
+    assert json.loads(sent)["job_text"] == text
 
 
 @pytest.mark.parametrize(
@@ -119,7 +140,7 @@ async def test_tiny_text_is_insufficient_without_calling_ai() -> None:
     [
         extraction(sufficient=False),
         extraction(related=False),
-        extraction(image_text="buram", sufficient=True),
+        extraction(image_text="buram", sufficient=False),
     ],
 )
 async def test_unreadable_image_is_insufficient(content: dict) -> None:
@@ -130,14 +151,16 @@ async def test_unreadable_image_is_insufficient(content: dict) -> None:
     assert response.json()["fraud_assessment"]["risk_category"] == "insufficient_data"
 
 
-async def test_unsupported_evidence_is_removed_from_final_score() -> None:
+async def test_unsupported_evidence_is_removed_without_overriding_category() -> None:
     content = extraction(observation("upfront_payment", "minta biaya seribu juta"))
     app, _ = build_test_app(content)
     async with open_test_client(app) as client:
         response = await client.post("/api/v1/analyze", files=form_parts(NORMAL_TEXT))
     assert response.status_code == 200
-    assert response.json()["fraud_assessment"]["risk_category"] == "insufficient_data"
-    assert response.json()["fraud_assessment"]["indicators"][0]["state"] == "uncertain"
+    assessment = response.json()["fraud_assessment"]
+    assert assessment["risk_category"] == "high"
+    assert assessment["indicators"][0]["state"] == "uncertain"
+    assert "dikeluarkan dari bukti" in assessment["summary"]
     assert "minta biaya seribu juta" not in response.text
 
 
@@ -398,11 +421,11 @@ async def test_vercel_total_multipart_limit_is_enforced(chunked: bool) -> None:
     assert "Maksimal 4 MiB" in demo.text and "__MAX_IMAGE_BYTES__" not in demo.text
 
 
-async def test_model_category_conflict_and_forged_legal_quotes_are_safe(rag_bundle) -> None:
+async def test_model_category_and_legal_grounding_are_independent(rag_bundle) -> None:
     settings, embeddings = rag_bundle
     content = extraction(
         observation("upfront_payment", "Transfer biaya administrasi Rp150.000"),
-        category="low",
+        category="medium",
         legal_observations=[
             {
                 "topic": "personal_data",
@@ -418,7 +441,8 @@ async def test_model_category_conflict_and_forged_legal_quotes_are_safe(rag_bund
     app, calls = build_test_app(content, settings=settings, embedding_provider=embeddings)
     async with open_test_client(app) as client:
         result = (await client.post("/api/v1/analyze", files=form_parts(SUSPICIOUS_TEXT))).json()
-    assert result["fraud_assessment"]["risk_category"] == result["status"] == "insufficient_data"
+    assert result["fraud_assessment"]["risk_category"] == "medium"
+    assert result["status"] == "completed"
     assert len(calls) == embeddings.query_calls == 1
     assert all(ref["page_start"] == 1 for ref in result["legal_screening"]["references"])
 
@@ -488,16 +512,21 @@ async def test_mock_demo_exercises_real_api_and_labels_all_fixture_outputs() -> 
 
 
 @pytest.mark.parametrize(
-    "code,quote",
+    "code,quote,category",
     [
-        ("unrealistic_offer", "Gaji bulanan Rp100.000.000"),
-        ("unofficial_channel", "Hubungi alamat Gmail perekrut"),
+        ("urgency_pressure", "Konfirmasi hari ini dan jangan hubungi kantor", "medium"),
+        ("unofficial_channel", "Pasang APK dari chat untuk melanjutkan seleksi", "high"),
     ],
 )
-async def test_salary_or_channel_alone_never_supports_high(code, quote) -> None:
+async def test_contextual_assessment_is_used_with_one_indicator(code, quote, category) -> None:
     text = f"Lowongan staf administrasi PT Contoh Fiktif. {quote}. Rincian proses belum tersedia."
-    app, _ = build_test_app(extraction(observation(code, quote), category="high"))
+    recommendations = ["Hubungi perusahaan melalui kanal resmi yang Anda temukan sendiri."]
+    app, _ = build_test_app(
+        extraction(observation(code, quote), category=category, recommendations=recommendations)
+    )
     async with open_test_client(app) as client:
         response = await client.post("/api/v1/analyze", files=form_parts(text))
     assert response.status_code == 200
-    assert response.json()["fraud_assessment"]["risk_category"] == "insufficient_data"
+    assessment = response.json()["fraud_assessment"]
+    assert assessment["risk_category"] == category
+    assert assessment["recommendations"] == recommendations

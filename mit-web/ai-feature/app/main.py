@@ -65,7 +65,7 @@ def create_app(
         version=__version__,
         description=(
             "Analisis indikasi risiko rekrutmen berbasis Gemini "
-            "dan RAG hukum JSON statis read-only. Rubrik risiko kualitatif bersifat heuristik awal."
+            "dan RAG hukum JSON statis read-only. Gemini menentukan kategori risiko dari konteks."
         ),
         # DEBUG hanya mengatur level log; traceback HTTP selalu dinonaktifkan.
         debug=False,

@@ -50,5 +50,10 @@ dependency dev saja. RAG dapat diuji tanpa API memakai fixture CC0 yang diberi l
 tetapi mock passing tidak membuktikan kualitas Gemini, embedding semantik, atau ambang.
 Pergantian PDF/registry/model memerlukan rebuild, verifikasi, dan redeploy.
 
+Pada 7 November 2026, pilot mendapat jalur pencocokan topik saat skor semantik di bawah
+ambang. Jalur ini memerlukan tepat satu potongan regulasi berpasal terverifikasi yang
+cocok dengan topik berbukti. Respons menyertakan `topic_match_only` dan
+`needs_more_context` agar cakupan dan pengecualian diperiksa.
+
 Inferensi live, embedding live, kalibrasi rubrik/relevance, build/deployment Vercel,
 rate limiting publik, dan OCR independen tetap belum terverifikasi.

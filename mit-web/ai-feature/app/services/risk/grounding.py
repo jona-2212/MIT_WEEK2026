@@ -2,7 +2,15 @@ import re
 import unicodedata
 
 from app.schemas.recognition import AIExtraction, Evidence, Indicator, IndicatorCode, IndicatorState
-from app.services.risk.scoring import LABELS
+
+LABELS = {
+    IndicatorCode.UPFRONT_PAYMENT: "permintaan pembayaran di muka",
+    IndicatorCode.CREDENTIAL_REQUEST: "permintaan OTP, PIN, atau password",
+    IndicatorCode.PREMATURE_SENSITIVE_DATA: "permintaan data sensitif terlalu dini",
+    IndicatorCode.URGENCY_PRESSURE: "tekanan untuk segera bertindak",
+    IndicatorCode.UNREALISTIC_OFFER: "tawaran yang tidak wajar dalam konteks pekerjaan",
+    IndicatorCode.UNOFFICIAL_CHANNEL: "kanal perekrut yang meragukan dengan indikasi pendukung",
+}
 
 NEGATED_REQUESTS = {
     IndicatorCode.UPFRONT_PAYMENT: re.compile(
@@ -21,10 +29,6 @@ NEGATED_REQUESTS = {
 
 def normalize_text(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text).casefold().split())
-
-
-def has_useful_content(text: str) -> bool:
-    return len(text.strip()) >= 40 and len(re.findall(r"\w+", text)) >= 6
 
 
 def supported_quote(code: IndicatorCode, quote: str, source: str) -> bool:

@@ -10,7 +10,8 @@ Tujuan: menyediakan titik masuk dokumentasi produk dan engineering tanpa menggan
 | [Document router](engineering/DOCUMENT_ROUTER.md) | Kebijakan memilih dokumen yang dibaca/diperbarui |
 | [System overview](architecture/SYSTEM_OVERVIEW.md) | Arsitektur fondasi yang benar-benar diimplementasikan |
 | [SRS Fitur 01 v1.2](features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md) | Kebutuhan backend mandiri, kategori kualitatif dan RAG hukum |
-| [ADR-0003](decisions/ADR-0003-qualitative-static-rag.md) | Keputusan implementasi terbaru dan perluasan Chroma offline/pilot |
+| [ADR-0004](decisions/ADR-0004-contextual-gemini.md) | Penilaian risiko kontekstual melalui Gemini |
+| [ADR-0003](decisions/ADR-0003-qualitative-static-rag.md) | RAG statis, Chroma offline, dan pilot |
 | [Runbook PDF/Chroma](engineering/LEGAL_INDEX_RUNBOOK.md) | Provenance, biaya/kuota, format indeks, build/verify/redeploy |
 | [Recognition — API](api/recognition.md) | Multipart, ketiga contoh curl, response/error, dan integrasi frontend |
 | [Laporan Fase A](reports/F01_PHASE_A_MOCK.md) | Bukti tes, smoke, mock vs live dan keterbatasan |

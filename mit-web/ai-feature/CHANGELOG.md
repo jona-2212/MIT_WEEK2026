@@ -2,6 +2,13 @@
 
 Tujuan: merangkum perubahan proyek yang penting bagi pengembang dan integrator. Gunakan versi `MAJOR.MINOR.PATCH`; rilis awal ini belum menyatakan stabilitas API produk. Detail pekerjaan dan verifikasi ada di [worklog](docs/logs/WORKLOG.md).
 
+## [Unreleased]
+
+- Pencarian hukum dapat menampilkan satu pasal terverifikasi sebagai rujukan awal berdasarkan topik ketika kemiripan semantik di bawah ambang.
+- Gemini menentukan kategori risiko, ringkasan, dan rekomendasi berdasarkan konteks, termasuk pada pesan singkat.
+- Bundle RAG resmi pilot Pasal 11 berhasil mengembalikan tautan dan kutipan JDIH pada demo React.
+- Build FastAPI di Vercel memverifikasi bundle RAG dan memaketkan file yang dibutuhkan saat runtime.
+
 ## [0.3.0] — 2026-11-05
 
 - Breaking response: recognition-v2 memisahkan fraud_assessment dan legal_screening,

@@ -1,10 +1,10 @@
 # System overview — Fitur 01 versi 0.3.0
 
-Kebutuhan: [SRS v1.2](../features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md). Keputusan terbaru: [ADR-0003](../decisions/ADR-0003-qualitative-static-rag.md), menggantikan bagian skor/KB indikator pada ADR-0002.
+Kebutuhan ada di [SRS v1.2](../features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md). Penilaian risiko mengikuti [ADR-0004](../decisions/ADR-0004-contextual-gemini.md), dan RAG mengikuti [ADR-0003](../decisions/ADR-0003-qualitative-static-rag.md).
 
 ## Alur runtime
 
-Demo HTML → POST multipart → validasi teks/gambar dalam memori → Gemini satu ekstraksi terstruktur dan usulan kategori → Pydantic/grounding/negasi → validator kategori kualitatif.
+React atau demo HTML → POST multipart → validasi input → penilaian terstruktur Gemini → validasi skema dan kutipan oleh FastAPI.
 
 Fraud dan legal adalah keluaran terpisah. Query hukum hanya memakai kutipan/observasi yang cocok dengan sumber. Jika ada korpus/topik aktif, satu query embedding kompatibel → cosine top-k pada JSON read-only → gating sumber, checksum, tanggal, halaman/pasal, cakupan dan pengecualian → legal screening. Tidak ada generasi hukum bebas atau panggilan generatif kedua.
 
@@ -14,7 +14,7 @@ Indeks/embedding gagal: legal reference_unavailable tanpa sitasi, fraud tetap di
 
 PDF resmi + registry + manifest → parser pypdf → chunk halaman/batas pasal yang ditinjau → embedding dokumen setelah izin kuota → bundle JSON. Opsi tooling owner: simpan vektor yang sudah dibuat ke ChromaDB lokal lalu ekspor kembali sebagai JSON read-only. Chroma tidak membuat embedding default.
 
-Pilot hanya Permenaker 18/2024, Pasal 11 halaman PDF 7; PDF dan checksum resmi diperiksa. Koleksi resmi belum berisi embedding karena owner meminta menunggu izin kuota. Fixture mock terpisah memiliki penanda test_fixture dan ditolak runtime non-test.
+Bundle pilot resmi memuat Permenaker 18/2024 Pasal 11 halaman PDF 7. Verifier memeriksa integritas bundle dan registry. Fixture pengujian memiliki penanda `test_fixture` yang dibatasi ke mode tes.
 
 ## Batas modul
 
@@ -25,7 +25,6 @@ Pilot hanya Permenaker 18/2024, Pasal 11 halaman PDF 7; PDF dan checksum resmi d
 | app/services/ai/gemini.py | REST generateContent, timeout, schema, error aman |
 | app/services/ai/embeddings.py | Protocol embedding dan REST embedContent, normalisasi/dimensi |
 | app/services/risk/grounding.py | Kutipan/negasi, deduplikasi, uncertainty |
-| app/services/risk/scoring.py | Nama historis; kini validator kategori, tanpa angka |
 | app/services/recognition.py | Orkestrasi fraud dan legal terpisah |
 | app/services/knowledge/retrieval.py | Protocol retriever, registry/gating dan query grounded |
 | app/services/knowledge/static_index.py | Verifier/loader JSON dan retrieval; tidak memiliki jalur write |
@@ -44,4 +43,4 @@ Upload tidak rollover ke disk. Teks/gambar/transkripsi tidak disimpan persisten.
 
 Runtime hanya memerlukan dependency produksi. Parser dan Chroma adalah dependency dev, PDF sumber/database lokal dikecualikan dari bundle Vercel. JSON, registry, prompt, dan demo harus disertakan. Perubahan sumber/registry/model memerlukan rebuild dan redeploy. Validasi upload Vercel menghitung seluruh multipart di bawah batas platform.
 
-Tidak ada public PDF ingestion, Chroma Cloud, React integration, persistent runtime DB, histori pengguna, URL fetch, training, atau autentikasi. Deployment/build Vercel aktual dan inferensi live belum diverifikasi. [Runbook](../engineering/LEGAL_INDEX_RUNBOOK.md) menjelaskan batas bukti pengujian.
+[Runbook](../engineering/LEGAL_INDEX_RUNBOOK.md) menjelaskan batas pilot RAG. [README proyek](../../../README.md) memuat pengaturan React dan deployment Vercel.

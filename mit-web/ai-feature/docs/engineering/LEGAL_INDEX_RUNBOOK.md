@@ -16,8 +16,9 @@ Keputusan: [ADR-0003](../decisions/ADR-0003-qualitative-static-rag.md).
   tetap harus diverifikasi. Bagian PDF lain tidak di-embed pada pilot ini.
 - Dasar pemeriksaan penggunaan teks norma: [UU 28/2014 Pasal 42 huruf b](https://jdihn.go.id/files/4/2014uu028.pdf).
   Tidak mencakup aset desain situs penerbit. Lihat catatan provenance dan manifest.
-- Plan: 1 sumber, 1 chunk, 768 dimensi. **Belum ada embedding Gemini**, sesuai pilihan
-  owner menunggu izin kuota. Chroma `jeli-legal-official` masih 0 record.
+- Bundle pilot 7 November 2026 berisi 1 sumber, 1 chunk, dan vektor Gemini 768 dimensi.
+  Build live memakai satu embedding dokumen dan ekspor dari koleksi Chroma
+  `jeli-legal-f638276aee931cce`. Verifier mengembalikan `verified_integrity`.
 
 ## File yang perlu disediakan/diperbarui
 
@@ -111,11 +112,12 @@ halaman/pasal/seleksi, chunk ID/teks, jumlah, normalisasi, dan dimensi. Registry
 memerlukan rebuild; jangan mengedit JSON final manual. Checksum membuktikan integritas
 artefak, bukan keaslian hukum tanpa proses provenance/kurasi.
 
-Runtime memeriksa tanggal review lagi saat retrieval. Missing/corrupt/mismatch/expired
-atau embedding gagal menghasilkan reference_unavailable tanpa sitasi. Topik/ambang
-yang tidak cocok menghasilkan no_relevant_reference. Similarity tinggi tetap bukan
-putusan pelanggaran; jenis perekrut dan pengecualian yang belum diketahui menghasilkan
-needs_more_context.
+Runtime memeriksa tanggal review lagi saat retrieval. Indeks yang gagal diperiksa atau
+embedding yang gagal menghasilkan `reference_unavailable`. Jika skor semantik di bawah
+ambang dan hanya ada satu potongan regulasi berpasal terverifikasi yang cocok dengan
+topik berbukti, runtime menampilkannya sebagai rujukan awal dengan `needs_more_context`
+dan warning `topic_match_only`. Cakupan dan pengecualian perlu diperiksa sebelum
+menerapkan rujukan pada kasus tertentu.
 
 ## Rebuild dan Vercel
 

@@ -25,6 +25,12 @@ dev = [
 [tool.uv]
 package = false
 
+[tool.vercel]
+entrypoint = "index:app"
+
+[tool.vercel.scripts]
+build = "python scripts/verify_legal_index.py --index data/legal_index"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
