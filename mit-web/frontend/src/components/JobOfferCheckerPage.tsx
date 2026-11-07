@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Download,
   ExternalLink,
   Globe,
   HelpCircle,
@@ -34,6 +35,7 @@ import {
   type JobAnalysisResponse,
   type RiskCategory,
 } from "../services/api"
+import { generatePdfReport } from "../utils/generatePdfReport"
 
 interface JobOfferCheckerPageProps {
   onBackToHome: () => void
@@ -107,6 +109,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
   const [result, setResult] = useState<JobAnalysisResponse | null>(null)
   const [error, setError] = useState("")
   const [copied, setCopied] = useState(false)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
   useEffect(() => {
     if (image) return () => URL.revokeObjectURL(image.previewUrl)
@@ -151,6 +154,22 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
     await navigator.clipboard.writeText(reply)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDownloadPdf = () => {
+    if (!result) return
+    setIsDownloadingPdf(true)
+    try {
+      generatePdfReport({
+        result,
+        targetUrl: mode === "url" ? url.trim() : undefined,
+        lang,
+      })
+    } catch (err) {
+      console.error("Gagal membuat PDF:", err)
+    } finally {
+      setTimeout(() => setIsDownloadingPdf(false), 800)
+    }
   }
 
   const risk = result?.fraud_assessment
@@ -476,9 +495,21 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                       <RiskIcon className="h-4 w-4" />
                       {lang === "ID" ? "Hasil Evaluasi Jeli AI" : "Jeli AI Evaluation"}
                     </span>
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-black backdrop-blur-xs">
-                      {riskLabels[risk.risk_category][lang]}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadPdf}
+                        disabled={isDownloadingPdf}
+                        title={lang === "ID" ? "Unduh Laporan PDF" : "Download PDF Report"}
+                        className="flex items-center gap-1.5 rounded-full bg-white/20 hover:bg-white/30 px-3 py-1 text-xs font-bold text-white transition-all backdrop-blur-xs cursor-pointer shadow-xs"
+                      >
+                        <Download className={`h-3.5 w-3.5 ${isDownloadingPdf ? "animate-bounce" : ""}`} />
+                        <span>PDF</span>
+                      </button>
+                      <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-black backdrop-blur-xs">
+                        {riskLabels[risk.risk_category][lang]}
+                      </span>
+                    </div>
                   </div>
                   <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
                     {riskLabels[risk.risk_category][lang]}
@@ -624,13 +655,27 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                   )}
 
                   {/* Footer Actions & Attributions */}
-                  <div className="space-y-3 border-t border-[#064B50]/10 pt-4">
+                  <div className="space-y-2.5 border-t border-[#064B50]/10 pt-4">
+                    {/* Primary Action: Download Official PDF Report */}
+                    <button
+                      onClick={handleDownloadPdf}
+                      disabled={isDownloadingPdf}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#064B50] px-4 py-3 text-xs font-extrabold text-white transition-all hover:bg-[#087F7A] shadow-xs cursor-pointer"
+                    >
+                      <Download className={`h-4 w-4 ${isDownloadingPdf ? "animate-bounce text-[#B8F000]" : "text-[#B8F000]"}`} />
+                      <span>
+                        {isDownloadingPdf
+                          ? (lang === "ID" ? "Membuat Dokumen PDF..." : "Generating PDF Report...")
+                          : (lang === "ID" ? "Unduh Hasil Analisis (PDF)" : "Download Analysis Report (PDF)")}
+                      </span>
+                    </button>
+
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={handleCopyReply}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#064B50] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#087F7A] shadow-xs"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#064B50]/20 bg-[#F7F7F0] px-4 py-2.5 text-xs font-bold text-[#064B50] transition-colors hover:bg-white cursor-pointer"
                       >
-                        {copied ? <Check className="h-4 w-4 text-[#B8F000]" /> : <Copy className="h-4 w-4" />}
+                        {copied ? <Check className="h-4 w-4 text-[#087F7A]" /> : <Copy className="h-4 w-4" />}
                         {copied
                           ? t(lang, "copied")
                           : (lang === "ID" ? "Salin Draf Balasan Aman" : "Copy Safe Reply")}

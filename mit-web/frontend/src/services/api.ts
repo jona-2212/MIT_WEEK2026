@@ -8,6 +8,9 @@ export type IndicatorCode =
   | "unofficial_channel"
 
 export interface JobAnalysisResponse {
+  request_id?: string
+  status?: "completed" | "insufficient_data"
+  input_mode?: "text" | "image" | "both" | "url"
   analysis_version: "recognition-v2"
   fraud_assessment: {
     risk_category: RiskCategory
