@@ -323,7 +323,7 @@ async def test_demo_and_openapi_expose_unified_contract() -> None:
     schema = api["paths"]["/api/v1/analyze"]["post"]["requestBody"]["content"][
         "multipart/form-data"
     ]["schema"]
-    assert set(schema["properties"]) == {"text", "file"}
+    assert set(schema["properties"]) == {"text", "file", "url"}
     assert schema["properties"]["file"]["format"] == "binary"
     assert preflight.status_code == 400  # Origin belum dikonfigurasi pada test app ini.
 

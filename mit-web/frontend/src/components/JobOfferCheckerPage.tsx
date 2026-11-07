@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Check,
   Copy,
+  Globe,
   Image as ImageIcon,
   RefreshCw,
   Scan,
@@ -21,7 +22,7 @@ interface JobOfferCheckerPageProps {
   lang: "ID" | "EN"
 }
 
-type InputMode = "text" | "image"
+type InputMode = "text" | "url" | "image"
 
 const levelStyles: Record<RiskCategory, string> = {
   low: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -53,6 +54,8 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
 }) => {
   const [mode, setMode] = useState<InputMode>("text")
   const [text, setText] = useState("")
+  const [url, setUrl] = useState("")
+  const [urlNote, setUrlNote] = useState("")
   const [image, setImage] = useState<{ file: File; previewUrl: string } | null>(null)
   const [imageDescription, setImageDescription] = useState("")
   const [isScanning, setIsScanning] = useState(false)
@@ -64,9 +67,10 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
     if (image) return () => URL.revokeObjectURL(image.previewUrl)
   }, [image])
 
-  const inputText = (mode === "image" ? imageDescription : text).trim()
+  const inputText = mode === "image" ? imageDescription.trim() : (mode === "url" ? urlNote.trim() : text.trim())
+  const targetUrl = mode === "url" ? url.trim() : undefined
   const file = mode === "image" ? image?.file : undefined
-  const hasInput = Boolean(inputText || file)
+  const hasInput = Boolean(inputText || file || targetUrl)
 
   const handleAnalyze = async () => {
     if (isScanning || !hasInput) return
@@ -75,7 +79,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
     setResult(null)
     setIsScanning(true)
     try {
-      setResult(await analyzeJob({ text: inputText, file }))
+      setResult(await analyzeJob({ text: inputText, file, url: targetUrl }))
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : (lang === "ID" ? "Analisis gagal." : "Analysis failed."))
     } finally {
@@ -130,9 +134,10 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
 
         <div className="grid items-start gap-6 lg:grid-cols-12">
           <section className="rounded-3xl border border-[#064B50]/15 bg-white p-5 shadow-sm sm:p-6 lg:col-span-7">
-            <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F7F7F0] p-1">
+            <div className="mb-5 grid grid-cols-3 gap-2 rounded-2xl bg-[#F7F7F0] p-1">
               {([
                 ["text", lang === "ID" ? "Teks" : "Text", Search],
+                ["url", lang === "ID" ? "Tautan / URL" : "Link / URL", Globe],
                 ["image", lang === "ID" ? "Gambar" : "Image", ImageIcon],
               ] as const).map(([value, label, Icon]) => (
                 <button
@@ -153,23 +158,88 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
             </div>
 
             {mode === "text" && (
-              <textarea
-                rows={10}
-                value={text}
-                disabled={isScanning}
-                onChange={(event) => {
-                  setText(event.target.value)
-                  setResult(null)
-                  setError("")
-                }}
-                placeholder={
-                  lang === "ID"
-                    ? "Tempelkan tawaran kerja atau pesan recruiter secara lengkap di sini..."
-                    : "Paste the complete job offer or recruiter message here..."
-                }
-                className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-4 text-sm leading-relaxed outline-none focus:border-[#064B50]"
-              />
+              <div>
+                <textarea
+                  rows={10}
+                  value={text}
+                  disabled={isScanning}
+                  onChange={(event) => {
+                    setText(event.target.value)
+                    setResult(null)
+                    setError("")
+                  }}
+                  placeholder={
+                    lang === "ID"
+                      ? "Tempelkan tawaran kerja, pesan recruiter, atau tautan URL lowongan di sini..."
+                      : "Paste the complete job offer, recruiter message, or job URL here..."
+                  }
+                  className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-4 text-sm leading-relaxed outline-none focus:border-[#064B50]"
+                />
+                {text.trim().startsWith("http") && (
+                  <div className="mt-2 flex items-center gap-2 rounded-xl border border-[#064B50]/15 bg-[#064B50]/5 p-2.5 text-xs text-[#064B50]">
+                    <Globe className="h-4 w-4 shrink-0 text-[#087F7A]" />
+                    <span>
+                      {lang === "ID"
+                        ? "Tautan terdeteksi: AI akan mengekstrak dan membaca isi halaman lowongan tersebut secara otomatis."
+                        : "Link detected: AI will automatically fetch and read the job offer details from this URL."}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
+
+            {mode === "url" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-[#064B50]">
+                    {lang === "ID" ? "Tautan / URL Lowongan Kerja" : "Job Offer Link / URL"}
+                  </label>
+                  <div className="relative flex items-center">
+                    <Globe className="absolute left-3.5 h-4 w-4 text-[#064B50]/50" />
+                    <input
+                      type="url"
+                      value={url}
+                      disabled={isScanning}
+                      onChange={(event) => {
+                        setUrl(event.target.value)
+                        setResult(null)
+                        setError("")
+                      }}
+                      placeholder="https://glints.com/... atau tautan lowongan kerja lainnya"
+                      className="w-full rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] py-3.5 pl-10 pr-4 text-sm outline-none focus:border-[#064B50]"
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-[#202C2B]/60">
+                    {lang === "ID"
+                      ? "Mendukung portal karir (Glints, Jobstreet, LinkedIn, Kalibrr, dll.) maupun website perusahaan."
+                      : "Supports job portals (Glints, Jobstreet, LinkedIn, Kalibrr, etc.) or company career sites."}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-[#064B50]">
+                    {lang === "ID" ? "Catatan Tambahan (Opsional)" : "Additional Notes (Optional)"}
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={urlNote}
+                    disabled={isScanning}
+                    onChange={(event) => {
+                      setUrlNote(event.target.value)
+                      setResult(null)
+                      setError("")
+                    }}
+                    placeholder={
+                      lang === "ID"
+                        ? "Contoh: pesan dari recruiter yang membagikan tautan, nomor kontak pengirim, atau petunjuk seleksi..."
+                        : "Example: message from recruiter who sent the link, sender contact number, or selection instructions..."
+                    }
+                    className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-3 text-xs leading-relaxed outline-none focus:border-[#064B50]"
+                  />
+                </div>
+              </div>
+            )}
+
             {mode === "image" && (
               <div>
                 <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#064B50]/20 bg-[#F7F7F0] p-5 text-center hover:border-[#087F7A]">
@@ -200,7 +270,11 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#064B50] px-5 py-3 font-extrabold text-white transition-colors hover:bg-[#087F7A] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 text-[#B8F000] ${isScanning ? "animate-spin" : ""}`} />
-              {isScanning ? (lang === "ID" ? "Menganalisis..." : "Analyzing...") : (lang === "ID" ? "Analisis Tawaran" : "Analyze Offer")}
+              {isScanning
+                ? (lang === "ID"
+                    ? (mode === "url" ? "Membaca URL & Menganalisis..." : "Menganalisis...")
+                    : (mode === "url" ? "Reading URL & Analyzing..." : "Analyzing..."))
+                : (lang === "ID" ? "Analisis Tawaran" : "Analyze Offer")}
             </button>
             {error && <p role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-700">{error}</p>}
             <p className="mt-3 text-center text-[11px] text-[#202C2B]/55">

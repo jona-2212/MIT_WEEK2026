@@ -38,12 +38,21 @@ const apiUrl = import.meta.env.VITE_AI_API_URL?.trim().replace(/\/+$/, "")
   || (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")
 export const AHU_COMPANY_SEARCH_URL = "https://ahu.go.id/pencarian/profil-pt/"
 
-export async function analyzeJob({ text, file }: { text?: string; file?: File }): Promise<JobAnalysisResponse> {
+export async function analyzeJob({
+  text,
+  file,
+  url,
+}: {
+  text?: string
+  file?: File
+  url?: string
+}): Promise<JobAnalysisResponse> {
   if (!apiUrl) throw new Error("Alamat backend AI belum dikonfigurasi. Atur VITE_AI_API_URL.")
 
   const body = new FormData()
   if (text) body.append("text", text)
   if (file) body.append("file", file)
+  if (url) body.append("url", url)
 
   const response = await fetch(`${apiUrl}/api/v1/analyze`, {
     method: "POST",

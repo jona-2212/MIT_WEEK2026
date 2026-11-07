@@ -10,6 +10,7 @@ from starlette.requests import ClientDisconnect, Request
 
 from app.core.errors import AnalysisError
 from app.schemas.recognition import AnalyzeInput
+from app.services.url_reader import extract_first_url, fetch_url_content
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_REQUEST_BYTES = MAX_IMAGE_BYTES + 64 * 1024
@@ -118,33 +119,51 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
             yield chunk
 
     parser = MemoryMultipartParser(
-        request.headers, stream(), max_files=1, max_fields=2, max_part_size=48_000
+        request.headers, stream(), max_files=1, max_fields=3, max_part_size=48_000
     )
     # Seluruh request sudah dibatasi. Tidak ada rollover file upload ke disk.
     try:
         form = await parser.parse()
     except (MultiPartException, UnicodeError, ValueError):
         raise AnalysisError(
-            422, "invalid_multipart", "Form tidak valid; kirim satu teks dan satu gambar."
+            422, "invalid_multipart", "Form tidak valid; kirim teks, tautan url, atau gambar."
         ) from None
     try:
         items = form.multi_items()
-        if any(key not in {"text", "file"} for key, _ in items):
+        if any(key not in {"text", "file", "url"} for key, _ in items):
             raise AnalysisError(
-                422, "unknown_form_field", "Field yang diizinkan hanya text dan file."
+                422, "unknown_form_field", "Field yang diizinkan hanya text, file, dan url."
             )
-        if len(form.getlist("text")) > 1 or len(form.getlist("file")) > 1:
+        if len(form.getlist("text")) > 1 or len(form.getlist("file")) > 1 or len(form.getlist("url")) > 1:
             raise AnalysisError(
                 422, "duplicate_form_field", "Setiap field hanya boleh dikirim sekali."
             )
         text = form.get("text", "")
+        raw_url = form.get("url", "")
         file = form.get("file")
-        if not isinstance(text, str) or (file is not None and not isinstance(file, UploadFile)):
-            raise AnalysisError(422, "invalid_form_field", "Tipe field text atau file tidak valid.")
-        if not text.strip() and file is None:
-            raise AnalysisError(400, "empty_input", "Isi teks lowongan atau pilih satu gambar.")
+        if not isinstance(text, str) or not isinstance(raw_url, str) or (file is not None and not isinstance(file, UploadFile)):
+            raise AnalysisError(422, "invalid_form_field", "Tipe field text, url, atau file tidak valid.")
+
+        target_url = raw_url.strip() or None
+        if not target_url and text.strip():
+            detected = extract_first_url(text)
+            if detected and (text.strip() == detected or text.strip().startswith(("http://", "https://"))):
+                target_url = detected
+
+        if target_url:
+            title, web_content = await fetch_url_content(target_url)
+            url_block = f"[Sumber URL: {target_url}]\n[Judul Lowongan: {title}]\n\n{web_content}"
+            if text.strip() and text.strip() != target_url:
+                processed_text = f"Catatan Pengguna:\n{text.strip()}\n\n{url_block}"
+            else:
+                processed_text = url_block
+        else:
+            processed_text = text
+
+        if not processed_text.strip() and file is None:
+            raise AnalysisError(400, "empty_input", "Isi teks lowongan, tautan URL, atau pilih satu gambar.")
         try:
-            validated = AnalyzeInput(text=text, has_image=file is not None)
+            validated = AnalyzeInput(text=processed_text, has_image=file is not None, url=target_url)
         except ValidationError:
             raise AnalysisError(
                 422, "invalid_text", "Teks maksimal 12.000 karakter setelah dirapikan."

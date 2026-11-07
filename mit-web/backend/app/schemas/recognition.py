@@ -27,15 +27,18 @@ class IndicatorState(StrEnum):
 class AnalyzeInput(StrictModel):
     text: str = Field(default="", max_length=12_000, repr=False)
     has_image: bool = False
+    url: str | None = Field(default=None, max_length=2_048)
 
     @model_validator(mode="after")
     def require_content(self) -> "AnalyzeInput":
-        if not self.text and not self.has_image:
-            raise ValueError("Teks atau gambar diperlukan.")
+        if not self.text and not self.has_image and not self.url:
+            raise ValueError("Teks, gambar, atau tautan diperlukan.")
         return self
 
     @property
-    def input_mode(self) -> Literal["text", "image", "both"]:
+    def input_mode(self) -> Literal["text", "image", "both", "url"]:
+        if self.url:
+            return "url"
         if self.text and self.has_image:
             return "both"
         return "image" if self.has_image else "text"
@@ -130,7 +133,7 @@ class LegalScreening(StrictModel):
 class AnalysisResponse(StrictModel):
     request_id: str
     status: Literal["completed", "insufficient_data"]
-    input_mode: Literal["text", "image", "both"]
+    input_mode: Literal["text", "image", "both", "url"]
     analysis_version: Literal["recognition-v2"] = "recognition-v2"
     fraud_assessment: FraudAssessment
     legal_screening: LegalScreening

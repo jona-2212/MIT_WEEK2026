@@ -83,8 +83,9 @@ RESPONSES = {
     responses=RESPONSES,
     summary="Analisis indikasi risiko satu kasus rekrutmen",
     description=(
-        "Kirim text, file JPEG/PNG/WebP, atau keduanya. Teks maksimal 12.000 karakter; "
+        "Kirim text, url, file JPEG/PNG/WebP, atau kombinasinya. Teks maksimal 12.000 karakter; "
         "satu gambar maksimal 5 MiB lokal / 4 MiB profil Vercel dan 16 megapiksel. "
+        "Jika menyertakan url, sistem akan mengekstrak konten halaman web secara otomatis. "
         "Total multipart juga dibatasi. Input diproses pihak ketiga (Gemini). "
         "Samarkan data pribadi. Gemini menilai risiko secara kualitatif berdasarkan konteks."
     ),
@@ -100,7 +101,12 @@ RESPONSES = {
                             "text": {
                                 "type": "string",
                                 "maxLength": 12000,
-                                "description": "Teks lowongan; dapat dikosongkan bila ada file.",
+                                "description": "Teks lowongan atau catatan tambahan.",
+                            },
+                            "url": {
+                                "type": "string",
+                                "maxLength": 2048,
+                                "description": "Tautan URL publik lowongan kerja yang akan diekstrak.",
                             },
                             "file": {
                                 "type": "string",

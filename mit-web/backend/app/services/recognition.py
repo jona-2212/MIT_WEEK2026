@@ -45,8 +45,12 @@ class RecognitionService:
         unknowns = [
             "Identitas perekrut, perusahaan, dan keberadaan lowongan "
             "belum diverifikasi secara independen.",
-            "Materi di luar teks/gambar yang Anda kirim tidak diperiksa.",
+            "Materi di luar teks/gambar/tautan yang Anda kirim tidak diperiksa.",
         ]
+        if data.url is not None:
+            unknowns.append(
+                "Teks lowongan diperoleh dari ekstraksi otomatis halaman web publik."
+            )
         if image is not None:
             unknowns.append(
                 "Pembacaan gambar berasal dari AI dan belum diverifikasi oleh OCR independen."
