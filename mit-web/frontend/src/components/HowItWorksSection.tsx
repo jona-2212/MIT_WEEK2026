@@ -199,15 +199,42 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
   ]
 
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-      if (visible) {
-        const index = Number((visible.target as HTMLElement).dataset.storyIndex)
-        if (!Number.isNaN(index)) setActiveStep(index)
+      let frameId = 0
+
+      const updateActiveStep = () => {
+        frameId = 0
+        const viewportCenter = window.innerHeight / 2
+        let closestIndex = 0
+        let closestDistance = Number.POSITIVE_INFINITY
+
+        chapterRefs.current.forEach((chapter, index) => {
+          if (!chapter) return
+
+          const bounds = chapter.getBoundingClientRect()
+          const chapterCenter = Math.min(Math.max(viewportCenter, bounds.top), bounds.bottom)
+          const distance = Math.abs(viewportCenter - chapterCenter)
+          if (distance < closestDistance) {
+            closestDistance = distance
+            closestIndex = index
+          }
+        })
+
+        setActiveStep((current) => current === closestIndex ? current : closestIndex)
       }
-    }, { threshold: [0.35, 0.6, 0.8], rootMargin: "-12% 0px -28% 0px" })
-    chapterRefs.current.forEach((chapter) => chapter && observer.observe(chapter))
-    return () => observer.disconnect()
+
+      const handleScroll = () => {
+        if (frameId === 0) frameId = window.requestAnimationFrame(updateActiveStep)
+      }
+
+      updateActiveStep()
+      window.addEventListener("scroll", handleScroll, { passive: true })
+      window.addEventListener("resize", handleScroll)
+
+      return () => {
+        window.removeEventListener("scroll", handleScroll)
+        window.removeEventListener("resize", handleScroll)
+        if (frameId !== 0) window.cancelAnimationFrame(frameId)
+      }
   }, [])
 
   useEffect(() => {
@@ -240,7 +267,7 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
         </div>
 
         <div className="mb-8 lg:hidden">
-          <div className="story-scene-shell min-h-[590px] w-full">
+          <div className={`story-scene-shell story-shell-${current.visualType} mx-auto w-full max-w-[520px]`}>
             <div className="story-scene-backdrop" />
             <div className="absolute right-4 top-4 z-20 rounded-full border border-[#064B50]/15 bg-white/90 px-3 py-1.5 text-[10px] font-black tracking-wider text-[#064B50]">{current.number} / 04 • {current.tag}</div>
             <div key={`mobile-${current.visualType}`} className={`story-scene-animated story-scene-${current.visualType}`}>{renderVisual(current.visualType)}</div>
@@ -284,12 +311,12 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
           </div>
 
           <div className="hidden lg:col-span-6 lg:block">
-            <div className="sticky top-28 flex min-h-[680px] items-center">
-              <div className="story-scene-shell w-full">
+            <div className="sticky top-28 self-start">
+              <div className={`story-scene-shell story-shell-${current.visualType} w-full`}>
                 <div className="story-scene-backdrop" />
                 <div className="absolute right-6 top-5 z-20 rounded-full border border-[#064B50]/15 bg-white/90 px-3 py-1.5 text-[10px] font-black tracking-wider text-[#064B50] shadow-sm">{current.number} / 04 • {current.tag}</div>
                 <div key={current.visualType} className={`story-scene-animated story-scene-${current.visualType}`}>{renderVisual(current.visualType)}</div>
-                <div className="absolute bottom-5 left-5 right-5 z-20 flex items-center justify-between rounded-2xl border border-white/70 bg-white/85 p-2.5 shadow-sm backdrop-blur">
+                <div className="story-scene-controls z-20 flex items-center justify-between border-t border-[#064B50]/10 bg-white/85 p-2.5 shadow-sm backdrop-blur">
                   <div className="flex items-center gap-1.5">
                     <button onClick={() => selectStep(activeStep === 0 ? steps.length - 1 : activeStep - 1)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronLeft className="h-4 w-4" /></button>
                     <button onClick={() => selectStep((activeStep + 1) % steps.length)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronRight className="h-4 w-4" /></button>
