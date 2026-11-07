@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light">
+  <title>Job Scam Guardian AI · Recognition Demo</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#19383b;background:#f4f7f6;line-height:1.6}
+    *{box-sizing:border-box}body{margin:0}main{width:min(1020px,100% - 32px);margin:38px auto}
+    h1{font-size:clamp(1.8rem,4vw,2.7rem);letter-spacing:-.04em;margin:8px 0}h2{font-size:1.2rem;margin:0 0 14px}h3{font-size:1rem}
+    p{margin:10px 0}.muted{color:#53686c}.eyebrow{font-size:.75rem;font-weight:750;letter-spacing:.13em;color:#367266}
+    .notice{padding:14px 18px;background:#e6f1ed;border-left:3px solid #508d7c;border-radius:3px}
+    .panel{background:#fff;border:1px solid #d6e2de;border-radius:14px;padding:24px;margin-top:22px}
+    label{display:block;font-weight:650;margin-bottom:8px}textarea{resize:vertical;width:100%;min-height:180px;border:1px solid #a9beb8;border-radius:8px;font:inherit;padding:12px;color:inherit}
+    input[type=file]{max-width:100%;font:inherit}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:18px}
+    button{font:inherit;font-weight:650;border:0;border-radius:8px;padding:11px 18px;cursor:pointer;background:#1e5149;color:#fff}button:hover{background:#30685d}button:disabled{opacity:.6;cursor:wait}
+    .secondary{background:#e8eeeb;color:#254c45}.secondary:hover{background:#d9e5df}a{color:#256553;text-underline-offset:4px}
+    button:focus-visible,textarea:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #d4a442;outline-offset:3px}
+    #preview{max-width:100%;max-height:200px;border-radius:8px;display:block;margin:12px 0}#preview[hidden]{display:none}
+    #filename{overflow-wrap:anywhere}.small{font-size:.82rem}.error{background:#fff0ed;border-left:3px solid #b33e32;padding:16px;color:#8b2c24;white-space:pre-wrap}
+    .assessment-header{display:flex;flex-wrap:wrap;align-items:center;gap:18px}.pill{border-radius:30px;background:#e8efec;padding:5px 12px;font-size:.8rem;display:inline-block}
+    [data-level=high]{color:#9c302b;background:#fff0ed}[data-level=medium]{color:#805609;background:#fff4d8}[data-level=low]{color:#245d4a;background:#e9f4ed}
+    table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #e1e8e5}th:last-child,td:last-child{text-align:right}
+    .table-wrap{overflow:auto}.indicator{border-top:1px solid #e0e8e4;padding:14px 0}.indicator h3{margin:0 0 6px}.indicator p{margin:6px 0}
+    blockquote{margin:10px 0;padding:10px 14px;border-left:3px solid #91b0a3;background:#f5f8f6;white-space:pre-wrap;overflow-wrap:anywhere}
+    li{margin:8px 0}.request-id{font-family:monospace;overflow-wrap:anywhere}.reference{background:#f4f8f5;border-radius:8px;padding:14px;margin:12px 0}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7f5;padding:14px;border-radius:8px;font-size:.8rem;max-height:400px;overflow:auto}
+    footer{margin:24px 0;color:#53686c;font-size:.8rem}[hidden]{display:none!important}
+    @media(max-width:700px){.grid{grid-template-columns:1fr}.panel{padding:18px}main{margin:22px auto}th,td{padding:9px 5px}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">MIT-WEEK 2026 / DEMO AI ENGINEER</div>
+    <h1>Periksa tawaran kerja yang meragukan.</h1>
+    <p class="muted">Job Scam Guardian AI · Baca indikasinya, telusuri buktinya, dan tentukan langkah verifikasi berikutnya.</p>
+    <p class="notice">Kategori memakai rubrik heuristik awal, belum tervalidasi ilmiah. Kategori rendah tidak berarti lowongan terverifikasi aman. Screening hukum terpisah dan bukan putusan hukum. Demo ini menampilkan hasil backend atau error yang sebenarnya.</p>
+  </header>
+  <section class="panel" aria-labelledby="form-title">
+    <h2 id="form-title">01 · Masukkan informasi lowongan</h2>
+    <p class="small muted" id="privacy-notice">Sebelum mengirim, samarkan KTP, rekening, nomor telepon, alamat, OTP, password, dan data pribadi lain. Teks dan gambar akan dikirim ke penyedia AI pihak ketiga (Google Gemini). Backend tidak menyimpan input mentah secara default; pemrosesan provider mengikuti kebijakannya.</p>
+    <form id="analyze-form" aria-describedby="privacy-notice">
+      <div class="grid">
+        <div>
+          <label for="text">Teks lowongan / percakapan perekrut</label>
+          <textarea id="text" name="text" maxlength="12000" placeholder="Tempel teks lowongan di sini. Anda juga boleh mengirim gambar saja."></textarea>
+          <div class="small muted">Maksimal 12.000 karakter setelah dirapikan.</div>
+        </div>
+        <div>
+          <label for="file">Satu screenshot lowongan</label>
+          <input type="file" id="file" name="file" accept="image/jpeg,image/png,image/webp">
+          <p class="small muted">JPEG, PNG, atau WebP · Maksimal __UPLOAD_MIB__ MiB · Gambar statis, maksimal 16 megapiksel. Total multipart termasuk teks dan boundary juga dibatasi server.</p>
+          <p class="small" id="filename">Belum ada gambar.</p>
+          <img id="preview" alt="Pratinjau screenshot yang dipilih" hidden>
+          <button id="clear-image" class="secondary" type="button" hidden>Hapus gambar</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="analyze" type="submit">Analisis Lowongan</button>
+        <button id="clear-form" type="button" class="secondary">Bersihkan input</button>
+        <a href="/docs" target="_blank" rel="noopener">Swagger ↗</a>
+        <span class="small" id="analysis-status" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+    <p id="analysis-error" class="error" role="alert" hidden></p>
+    <details id="error-details" hidden><summary>Lihat JSON error</summary><pre id="error-json"></pre></details>
+    <p class="small muted">Request ID: <span id="request-id" class="request-id">—</span></p>
+  </section>
+
+  <section class="panel" id="results" aria-labelledby="result-title" aria-live="polite" hidden>
+    <h2 id="result-title">02 · Hasil analisis</h2>
+    <h3>Fraud screening</h3>
+    <div class="assessment-header">
+      <div><span class="pill" id="risk-level"></span><p class="small muted" id="versions"></p></div>
+    </div>
+    <p id="summary"></p>
+    <h3>Indikator, bukti, dan penjelasan</h3>
+    <div id="indicators"></div>
+    <div class="grid">
+      <div><h3>Yang belum diketahui</h3><ul id="unknowns"></ul></div>
+      <div><h3>Langkah berikutnya</h3><ul id="recommendations"></ul></div>
+    </div>
+    <h3>Legal screening / panduan resmi</h3>
+    <p id="legal-status"></p><p id="legal-summary"></p>
+    <ul id="missing-facts"></ul><p id="legal-warnings" class="small muted"></p>
+    <div id="legal-context"></div>
+    <p id="disclaimer" class="notice"></p>
+    <details><summary>Lihat respons JSON</summary><pre id="result-json"></pre></details>
+  </section>
+
+  <section class="panel" aria-labelledby="health-title">
+    <h2 id="health-title">Koneksi backend</h2>
+    <p class="small muted">Health hanya memeriksa proses aplikasi, bukan kuota atau koneksi Gemini.</p>
+    <button id="health-check" class="secondary" type="button">Periksa backend</button>
+    <pre id="health-response">Belum diperiksa.</pre>
+  </section>
+  <footer>Input teks dan gambar diproses sebagai satu kasus. PDF hukum dikelola developer secara offline; bukan input pengguna. Verifikasi hasil secara mandiri.</footer>
+</main>
+<script>
+  const el = (id) => document.getElementById(id);
+  const MAX_IMAGE_BYTES = __MAX_IMAGE_BYTES__;
+  const MAX_REQUEST_BYTES = __MAX_REQUEST_BYTES__;
+  const form = el("analyze-form");
+  const fileInput = el("file");
+  const textInput = el("text");
+  const submit = el("analyze");
+  const labels = {
+    upfront_payment: "Pembayaran di muka",
+    credential_request: "Permintaan OTP, PIN, atau password",
+    premature_sensitive_data: "Data sensitif terlalu dini",
+    urgency_pressure: "Tekanan untuk segera bertindak",
+    unrealistic_offer: "Tawaran tidak wajar dalam konteks",
+    unofficial_channel: "Kanal perekrut meragukan dengan bukti pendukung"
+  };
+  const states = {detected: "Teramati", uncertain: "Belum pasti", not_detected: "Tidak teramati"};
+  const levels = {low: "Indikasi rendah", medium: "Perlu perhatian", high: "Indikasi tinggi", insufficient_data: "Data belum cukup"};
+  const legalStates = {potential_issue: "Potensi isu untuk ditinjau", needs_more_context: "Perlu konteks tambahan", no_relevant_reference: "Tidak ada rujukan relevan", reference_unavailable: "Rujukan belum tersedia"};
+  let previewUrl = null;
+
+  function invalidateResult() {
+    el("results").hidden = true;
+    el("analysis-error").hidden = true;
+    el("error-details").hidden = true;
+    el("analysis-status").textContent = "";
+    el("request-id").textContent = "—";
+  }
+  textInput.addEventListener("input", invalidateResult);
+
+  function clearPreview() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+    el("preview").removeAttribute("src");
+    el("preview").hidden = true;
+    el("filename").textContent = "Belum ada gambar.";
+    el("clear-image").hidden = true;
+  }
+  fileInput.addEventListener("change", () => {
+    invalidateResult();
+    clearPreview();
+    const file = fileInput.files[0];
+    if (!file) return;
+    el("filename").textContent = file.name;
+    el("clear-image").hidden = false;
+    if (["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= MAX_IMAGE_BYTES) {
+      previewUrl = URL.createObjectURL(file);
+      el("preview").src = previewUrl;
+      el("preview").hidden = false;
+    }
+  });
+  el("clear-image").addEventListener("click", () => {fileInput.value = ""; clearPreview(); invalidateResult();});
+  el("clear-form").addEventListener("click", () => {
+    form.reset(); clearPreview();
+    el("results").hidden = true;
+    el("analysis-error").hidden = true;
+    el("error-details").hidden = true;
+    el("analysis-status").textContent = "";
+    el("request-id").textContent = "—";
+  });
+
+  function node(tag, text, className) {
+    const element = document.createElement(tag);
+    if (text !== undefined) element.textContent = text;
+    if (className) element.className = className;
+    return element;
+  }
+  function renderList(id, items) {
+    el(id).replaceChildren(...items.map((text) => node("li", text)));
+  }
+  function renderResult(data) {
+    const fraud = data.fraud_assessment;
+    const legal = data.legal_screening;
+    el("risk-level").textContent = levels[fraud.risk_category] || fraud.risk_category;
+    el("risk-level").dataset.level = fraud.risk_category;
+    el("versions").textContent = data.analysis_version + " · " + data.input_mode;
+    el("summary").textContent = fraud.summary;
+    el("indicators").replaceChildren(...fraud.indicators.map((item) => {
+      const card = node("article", undefined, "indicator");
+      card.append(node("h3", labels[item.code] || item.code), node("span", states[item.state] || item.state, "pill"), node("p", item.reason));
+      item.evidence.forEach((evidence) => {
+        const quote = node("blockquote", evidence.quote);
+        quote.append(node("div", evidence.source === "image" ? "Sumber: pembacaan gambar oleh AI" : "Sumber: teks yang dikirim", "small muted"));
+        card.append(quote);
+      });
+      return card;
+    }));
+    renderList("unknowns", fraud.unknowns);
+    renderList("recommendations", fraud.recommendations);
+    el("legal-status").textContent = legalStates[legal.status] || legal.status;
+    el("legal-summary").textContent = legal.summary;
+    renderList("missing-facts", legal.missing_facts);
+    el("legal-warnings").textContent = legal.warnings.join(" · ");
+    el("legal-context").replaceChildren();
+    if (!legal.references.length) {
+      el("legal-context").append(node("p", "Belum ada rujukan terverifikasi yang relevan untuk hasil ini. Tidak ada pasal yang dibuat-buat.", "muted"));
+    }
+    legal.references.forEach((reference) => {
+      const card = node("article", undefined, "reference");
+      card.append(node("strong", reference.title));
+      card.append(node("p", (reference.type === "official_guidance" ? "Panduan resmi" : "Regulasi") + " · " + (reference.article || "Tanpa nomor pasal")));
+      card.append(node("blockquote", reference.excerpt), node("p", "Cakupan: " + reference.scope), node("p", reference.exceptions, "small muted"));
+      card.append(node("p", "Halaman PDF " + reference.page_start + "–" + reference.page_end + " · Versi " + reference.document_version, "small muted"));
+      if (reference.source_kind === "test_fixture") card.append(node("strong", "MOCK — fixture sintetis, bukan dasar hukum."));
+      try {
+        const url = new URL(reference.official_url);
+        if (url.protocol === "https:" && url.hostname.endsWith(".go.id")) {
+          const link = node("a", "Baca sumber resmi ↗");
+          link.href = url.href; link.target = "_blank"; link.rel = "noopener noreferrer";
+          card.append(link);
+        }
+      } catch {}
+      card.append(node("p", reference.source_id + " · " + reference.verification_status + " · Ditinjau " + reference.verified_at + " · Review berikutnya " + reference.review_after, "small muted"));
+      const provenance = node("details");
+      provenance.append(node("summary", "Provenance / checksum"), node("pre", "Chunk: " + reference.chunk_id + "\nPDF SHA-256: " + reference.pdf_sha256 + "\nIndex SHA-256: " + reference.index_sha256));
+      card.append(provenance);
+      el("legal-context").append(card);
+    });
+    el("disclaimer").textContent = data.disclaimer;
+    el("result-json").textContent = JSON.stringify(data, null, 2);
+    el("results").hidden = false;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    el("analysis-error").hidden = true;
+    el("error-details").hidden = true;
+    el("results").hidden = true;
+    el("request-id").textContent = "—";
+    const text = textInput.value.trim();
+    const file = fileInput.files[0];
+    let validation = "";
+    if (!text && !file) validation = "Isi teks lowongan atau pilih satu gambar.";
+    else if (text.length > 12000) validation = "Teks maksimal 12.000 karakter.";
+    else if (file && file.size > MAX_IMAGE_BYTES) validation = "Gambar melebihi batas profil upload (__UPLOAD_MIB__ MiB).";
+    else if (new TextEncoder().encode(text).length + (file?.size || 0) > MAX_REQUEST_BYTES) validation = "Materi melebihi batas total request. Kurangi teks atau ukuran gambar.";
+    else if (file && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) validation = "Gunakan gambar JPEG, PNG, atau WebP.";
+    if (validation) {
+      el("analysis-error").textContent = validation; el("analysis-error").hidden = false; return;
+    }
+    const body = new FormData();
+    if (text) body.append("text", text);
+    if (file) body.append("file", file);
+    submit.disabled = true;
+    fileInput.disabled = textInput.disabled = el("clear-image").disabled = true;
+    el("clear-form").disabled = true;
+    el("analysis-status").textContent = "AI sedang membaca materi…";
+    form.setAttribute("aria-busy", "true");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 135000);
+    try {
+      const headers = {Accept: "application/json"};
+      if (globalThis.crypto?.randomUUID) headers["X-Request-ID"] = crypto.randomUUID();
+      const response = await fetch("/api/v1/analyze", {method: "POST", body, headers, signal: controller.signal, credentials: "omit", cache: "no-store"});
+      let data;
+      try {data = await response.json();}
+      catch {throw new Error("Backend mengembalikan respons yang bukan JSON. Periksa koneksi server.");}
+      el("request-id").textContent = response.headers.get("X-Request-ID") || data.request_id || data.error?.request_id || "Tidak tersedia";
+      if (!response.ok) {
+        el("error-json").textContent = JSON.stringify(data, null, 2);
+        el("error-details").hidden = false;
+        throw new Error("HTTP " + response.status + " · " + (data.error?.code || "error") + " · " + (data.error?.message || "Analisis gagal."));
+      }
+      renderResult(data);
+      el("analysis-status").textContent = data.status === "completed" ? "Analisis selesai." : "Perbaiki materi lalu analisis ulang.";
+    } catch (error) {
+      el("analysis-status").textContent = "Analisis belum berhasil.";
+      el("analysis-error").textContent = error.name === "AbortError"
+        ? "Batas waktu terlampaui. Periksa server lalu coba kembali."
+        : error instanceof TypeError ? "Tidak dapat menghubungi backend. Pastikan server masih berjalan." : error.message;
+      el("analysis-error").hidden = false;
+    } finally {
+      clearTimeout(timeout); submit.disabled = false;
+      fileInput.disabled = textInput.disabled = el("clear-image").disabled = false;
+      el("clear-form").disabled = false; form.setAttribute("aria-busy", "false");
+    }
+  });
+
+  el("health-check").addEventListener("click", async () => {
+    el("health-check").disabled = true;
+    try {
+      const response = await fetch("/api/v1/health", {cache: "no-store"});
+      const data = await response.json();
+      el("health-response").textContent = JSON.stringify(data, null, 2) + "\nRequest ID: " + (response.headers.get("X-Request-ID") || "Tidak tersedia");
+    } catch {el("health-response").textContent = "Backend tidak dapat dihubungi. Periksa server FastAPI.";}
+    finally {el("health-check").disabled = false;}
+  });
+</script>
+</body>
+</html>
