@@ -1,0 +1,26 @@
+Deskripsi pekerjaan
+PT Nusa Kreasi Digital membuka kesempatan bagi mahasiswa tingkat akhir dan fresh graduate yang tertarik
+mengembangkan kemampuan software engineering dalam lingkungan kerja berbasis teknologi. Peserta
+internship akan terlibat dalam pengembangan aplikasi web internal dan berkolaborasi dengan tim
+engineering.
+Kualifikasi
+• Mahasiswa minimal semester 5 atau fresh graduate.
+• Memahami JavaScript atau TypeScript.
+• Familiar dengan Git dan GitHub.
+• Memiliki minimal satu proyek pengembangan aplikasi.
+• Mampu bekerja secara mandiri maupun tim.
+Benefit
+• Monthly allowance.
+• Sertifikat internship.
+• Mentorship dari senior developer.
+• Kesempatan menjadi karyawan tetap berdasarkan evaluasi.
+• Fleksibilitas lokasi kerja.
+Proses pendaftaran / seleksi
+Tanggung jawab meliputi pengembangan fitur menggunakan React dan Next.js, integrasi REST API,
+pengelolaan database PostgreSQL, debugging, pengujian aplikasi, sprint planning, dan code review. Pelamar
+mengirimkan CV, portofolio, dan GitHub melalui formulir rekrutmen. Kandidat yang lolos administrasi
+mengikuti technical test dan wawancara engineering. Sebagai bagian onboarding, kandidat terpilih
+diwajibkan membeli perangkat kerja pendukung berupa software development environment license melalui
+vendor mitra perusahaan seharga Rp399.000. Pembelian tersebut menjadi bagian dari paket onboarding dan
+tidak dapat diganti dengan lisensi pribadi.
+Kontak sintetis: career@nusa-kreasi.example
