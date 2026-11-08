@@ -100,7 +100,7 @@ async def test_normal_offer_does_not_claim_verified_safety() -> None:
     assert response.status_code == 200
     assert data["fraud_assessment"]["risk_category"] == "low"
     assert data["fraud_assessment"]["summary"] == summary
-    assert "penilaian indikatif Gemini" in data["disclaimer"]
+    assert "penilaian indikatif" in data["disclaimer"]
     assert data["legal_screening"]["status"] == "reference_unavailable"
 
 
@@ -530,3 +530,28 @@ async def test_contextual_assessment_is_used_with_one_indicator(code, quote, cat
     assessment = response.json()["fraud_assessment"]
     assert assessment["risk_category"] == category
     assert assessment["recommendations"] == recommendations
+
+
+async def test_english_language_output_end_to_end() -> None:
+    content = extraction(
+        observation("upfront_payment", "Transfer biaya administrasi Rp150.000"),
+        summary="This job offer presents high risk due to upfront fee requirement.",
+        recommendations=["Do not transfer any fees before official verification."],
+    )
+    app, calls = build_test_app(content)
+    async with open_test_client(app) as client:
+        response = await client.post(
+            "/api/v1/analyze",
+            files=form_parts(SUSPICIOUS_TEXT, lang="EN"),
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert "indicative assessment" in data["disclaimer"]
+    assert data["fraud_assessment"]["summary"] == "This job offer presents high risk due to upfront fee requirement."
+    indicators = data["fraud_assessment"]["indicators"]
+    upfront = next(i for i in indicators if i["code"] == "upfront_payment")
+    assert "Evidence found supporting indication of upfront payment request" in upfront["reason"]
+    not_detected = next(i for i in indicators if i["state"] == "not_detected")
+    assert "Not found in the readable material" in not_detected["reason"]
+    system_prompt_sent = calls[0].content.decode("utf-8")
+    assert "strictly in English" in system_prompt_sent

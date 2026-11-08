@@ -8,8 +8,6 @@ import {
   ChevronRight,
   FileText,
   Mail,
-  Pause,
-  Play,
   Scan,
   ShieldCheck,
   Smartphone,
@@ -160,7 +158,6 @@ function DecideVisual({ lang, onCheckJobOffer }: { lang: "ID" | "EN"; onCheckJob
 
 export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJobOffer, lang }) => {
   const [activeStep, setActiveStep] = useState(0)
-  const [isAutoPlaying, setIsAutoPlaying] = useState(false)
   const chapterRefs = useRef<Array<HTMLElement | null>>([])
 
   const steps: StoryStep[] = [
@@ -237,14 +234,7 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
       }
   }, [])
 
-  useEffect(() => {
-    if (!isAutoPlaying) return
-    const timer = window.setInterval(() => setActiveStep((current) => (current + 1) % steps.length), 6000)
-    return () => window.clearInterval(timer)
-  }, [isAutoPlaying, steps.length])
-
   const selectStep = (index: number) => {
-    setIsAutoPlaying(false)
     setActiveStep(index)
     chapterRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" })
   }
@@ -272,13 +262,9 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
             <div className="absolute right-4 top-4 z-20 rounded-full border border-[#064B50]/15 bg-white/90 px-3 py-1.5 text-[10px] font-black tracking-wider text-[#064B50]">{current.number} / 04 • {current.tag}</div>
             <div key={`mobile-${current.visualType}`} className={`story-scene-animated story-scene-${current.visualType}`}>{renderVisual(current.visualType)}</div>
           </div>
-          <div className="mt-3 flex items-center justify-between rounded-2xl border border-[#064B50]/10 bg-white p-2.5 shadow-2xs">
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => selectStep(activeStep === 0 ? steps.length - 1 : activeStep - 1)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]" aria-label={lang === "ID" ? "Tahap sebelumnya" : "Previous step"}><ChevronLeft className="h-4 w-4" /></button>
-              <button onClick={() => selectStep((activeStep + 1) % steps.length)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]" aria-label={lang === "ID" ? "Tahap berikutnya" : "Next step"}><ChevronRight className="h-4 w-4" /></button>
-              <button onClick={() => setIsAutoPlaying((value) => !value)} className="flex items-center gap-1.5 rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] px-2.5 py-2 text-xs font-semibold text-[#064B50]">{isAutoPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}{isAutoPlaying ? "Pause" : "Auto"}</button>
-            </div>
-            <span className="text-[10px] font-bold text-[#064B50]/70">{lang === "ID" ? "Scroll untuk lanjut ↓" : "Scroll to continue ↓"}</span>
+          <div className="mt-3 flex items-center gap-1.5 rounded-2xl border border-[#064B50]/10 bg-white p-2.5 shadow-2xs">
+            <button onClick={() => selectStep(activeStep === 0 ? steps.length - 1 : activeStep - 1)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]" aria-label={lang === "ID" ? "Tahap sebelumnya" : "Previous step"}><ChevronLeft className="h-4 w-4" /></button>
+            <button onClick={() => selectStep((activeStep + 1) % steps.length)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]" aria-label={lang === "ID" ? "Tahap berikutnya" : "Next step"}><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
 
@@ -316,13 +302,9 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
                 <div className="story-scene-backdrop" />
                 <div className="absolute right-6 top-5 z-20 rounded-full border border-[#064B50]/15 bg-white/90 px-3 py-1.5 text-[10px] font-black tracking-wider text-[#064B50] shadow-sm">{current.number} / 04 • {current.tag}</div>
                 <div key={current.visualType} className={`story-scene-animated story-scene-${current.visualType}`}>{renderVisual(current.visualType)}</div>
-                <div className="story-scene-controls z-20 flex items-center justify-between border-t border-[#064B50]/10 bg-white/85 p-2.5 shadow-sm backdrop-blur">
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => selectStep(activeStep === 0 ? steps.length - 1 : activeStep - 1)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronLeft className="h-4 w-4" /></button>
-                    <button onClick={() => selectStep((activeStep + 1) % steps.length)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronRight className="h-4 w-4" /></button>
-                    <button onClick={() => setIsAutoPlaying((value) => !value)} className="flex items-center gap-1.5 rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] px-2.5 py-2 text-xs font-semibold text-[#064B50]">{isAutoPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}{isAutoPlaying ? "Pause" : "Auto"}</button>
-                  </div>
-                  <span className="text-[11px] font-bold text-[#064B50]/70">{lang === "ID" ? "Scroll untuk melanjutkan cerita ↓" : "Scroll to continue the story ↓"}</span>
+                <div className="story-scene-controls z-20 flex items-center gap-1.5 border-t border-[#064B50]/10 bg-white/85 p-2.5 shadow-sm backdrop-blur">
+                  <button onClick={() => selectStep(activeStep === 0 ? steps.length - 1 : activeStep - 1)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronLeft className="h-4 w-4" /></button>
+                  <button onClick={() => selectStep((activeStep + 1) % steps.length)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronRight className="h-4 w-4" /></button>
                 </div>
               </div>
             </div>

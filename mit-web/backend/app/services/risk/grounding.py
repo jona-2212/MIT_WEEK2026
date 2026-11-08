@@ -3,7 +3,7 @@ import unicodedata
 
 from app.schemas.recognition import AIExtraction, Evidence, Indicator, IndicatorCode, IndicatorState
 
-LABELS = {
+LABELS_ID = {
     IndicatorCode.UPFRONT_PAYMENT: "permintaan pembayaran di muka",
     IndicatorCode.CREDENTIAL_REQUEST: "permintaan OTP, PIN, atau password",
     IndicatorCode.PREMATURE_SENSITIVE_DATA: "permintaan data sensitif terlalu dini",
@@ -11,6 +11,17 @@ LABELS = {
     IndicatorCode.UNREALISTIC_OFFER: "tawaran yang tidak wajar dalam konteks pekerjaan",
     IndicatorCode.UNOFFICIAL_CHANNEL: "kanal perekrut yang meragukan dengan indikasi pendukung",
 }
+
+LABELS_EN = {
+    IndicatorCode.UPFRONT_PAYMENT: "upfront payment request",
+    IndicatorCode.CREDENTIAL_REQUEST: "credential, OTP, PIN, or password request",
+    IndicatorCode.PREMATURE_SENSITIVE_DATA: "premature sensitive personal data request",
+    IndicatorCode.URGENCY_PRESSURE: "urgency pressure or prohibition to verify",
+    IndicatorCode.UNREALISTIC_OFFER: "unrealistic salary or job offer",
+    IndicatorCode.UNOFFICIAL_CHANNEL: "suspicious or unofficial communication channel",
+}
+
+LABELS = LABELS_ID
 
 NEGATED_REQUESTS = {
     IndicatorCode.UPFRONT_PAYMENT: re.compile(
@@ -43,13 +54,21 @@ def supported_quote(code: IndicatorCode, quote: str, source: str) -> bool:
 
 
 def ground_indicators(
-    extraction: AIExtraction, text: str, *, has_image: bool, sufficient: bool
+    extraction: AIExtraction,
+    text: str,
+    *,
+    has_image: bool,
+    sufficient: bool,
+    lang: str = "ID",
 ) -> tuple[list[Indicator], bool]:
     sources = {"text": normalize_text(text)}
     if has_image:
         sources["image"] = normalize_text(extraction.image_text)
     results = []
     rejected = False
+    is_en = lang == "EN"
+    labels = LABELS_EN if is_en else LABELS_ID
+
     for code in IndicatorCode:
         observations = [item for item in extraction.indicators if item.code == code]
         evidence: list[Evidence] = []
@@ -79,18 +98,32 @@ def ground_indicators(
         )
         if not sufficient:
             state = IndicatorState.UNCERTAIN
-            reason = "Materi belum cukup untuk menyimpulkan indikator ini."
+            reason = (
+                "Material is insufficient to conclude this indicator."
+                if is_en
+                else "Materi belum cukup untuk menyimpulkan indikator ini."
+            )
         elif detected and not any(i.state == IndicatorState.NOT_DETECTED for i in observations):
             state = IndicatorState.DETECTED
             reason = (
-                f"Ada kutipan yang mendukung indikasi {LABELS[code]}; konteks perlu diverifikasi."
+                f"Evidence found supporting indication of {labels[code]}; context requires verification."
+                if is_en
+                else f"Ada kutipan yang mendukung indikasi {labels[code]}; konteks perlu diverifikasi."
             )
         elif uncertain:
             state = IndicatorState.UNCERTAIN
-            reason = "Indikasi belum didukung bukti yang cukup atau hasil ekstraksi bertentangan."
+            reason = (
+                "Indication is not yet supported by sufficient evidence or extracted results conflict."
+                if is_en
+                else "Indikasi belum didukung bukti yang cukup atau hasil ekstraksi bertentangan."
+            )
         else:
             state = IndicatorState.NOT_DETECTED
-            reason = "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
+            reason = (
+                "Not found in the readable material; not a guarantee that the job is safe."
+                if is_en
+                else "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
+            )
         results.append(
             Indicator(
                 code=code,

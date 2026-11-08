@@ -4,7 +4,6 @@ import { HeroSection } from "./components/HeroSection"
 import { HowItWorksSection } from "./components/HowItWorksSection"
 import { KnowTheScamsSection } from "./components/KnowTheScamsSection"
 import { ScamSimulatorPreviewSection } from "./components/ScamSimulatorPreviewSection"
-import { ClosingCtaSection } from "./components/ClosingCtaSection"
 import Footer from "./components/Footer"
 import { JobOfferCheckerPage } from "./components/JobOfferCheckerPage"
 import { ScamSimulatorPage } from "./components/ScamSimulatorPage"
@@ -53,7 +52,6 @@ export default function App() {
           <HowItWorksSection onCheckJobOffer={() => navigate("checker")} lang={lang} />
           <KnowTheScamsSection onCheckJobOffer={() => navigate("checker")} lang={lang} />
           <ScamSimulatorPreviewSection onStartSimulation={() => navigate("simulator")} lang={lang} />
-          <ClosingCtaSection onCheckJobOffer={() => navigate("checker")} onStartSimulation={() => navigate("simulator")} lang={lang} />
         </main>
       ) : activePage === "checker" ? (
         <JobOfferCheckerPage onBackToHome={() => navigate("home")} onNavigate={navigate} lang={lang} />

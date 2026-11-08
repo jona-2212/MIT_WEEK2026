@@ -1,5 +1,11 @@
 import { jsPDF } from "jspdf"
 import type { JobAnalysisResponse, RiskCategory, IndicatorCode } from "../services/api"
+import {
+  localizeIndicatorReason,
+  localizeDisclaimer,
+  localizeSummary,
+  localizeRecommendation,
+} from "../components/JobOfferCheckerPage"
 
 interface GeneratePdfReportOptions {
   result: JobAnalysisResponse
@@ -111,7 +117,11 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
     doc.setFont("helvetica", "normal")
     doc.setFontSize(8)
     doc.setTextColor(8, 127, 122)
-    doc.text(`Tautan Sumber: ${targetUrl.slice(0, 85)}${targetUrl.length > 85 ? "..." : ""}`, margin, y)
+    doc.text(
+      `${lang === "ID" ? "Tautan Sumber" : "Source Link"}: ${targetUrl.slice(0, 85)}${targetUrl.length > 85 ? "..." : ""}`,
+      margin,
+      y
+    )
     y += 5
   }
 
@@ -164,7 +174,7 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8.5)
   doc.setTextColor(30, 41, 59)
-  const summaryLines = doc.splitTextToSize(risk.summary, contentWidth - 8)
+  const summaryLines = doc.splitTextToSize(localizeSummary(risk.summary, lang), contentWidth - 8)
   doc.text(summaryLines, margin + 4, y + 10)
 
   y += 24
@@ -202,9 +212,13 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   } else {
     for (const indicator of activeIndicators) {
       const isDetected = indicator.state === "detected"
-      const reasonLines = doc.splitTextToSize(indicator.reason, contentWidth - 12)
+      const localizedReason = localizeIndicatorReason(indicator.reason, indicator.code, lang)
+      const reasonLines = doc.splitTextToSize(localizedReason, contentWidth - 12)
       const evidenceLines = indicator.evidence.map((ev) =>
-        doc.splitTextToSize(`“${ev.quote}” (${ev.source === "image" ? "Screenshot" : "Teks"})`, contentWidth - 16)
+        doc.splitTextToSize(
+          `“${ev.quote}” (${ev.source === "image" ? "Screenshot" : (lang === "ID" ? "Teks" : "Text")})`,
+          contentWidth - 16
+        )
       )
       const totalEvidenceHeight = evidenceLines.reduce((acc, lines) => acc + lines.length * 3.8, 0)
       const itemHeight = 12 + reasonLines.length * 3.8 + (indicator.evidence.length > 0 ? totalEvidenceHeight + 6 : 0)
@@ -276,7 +290,8 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
     y += 5
 
     for (const rec of risk.recommendations) {
-      const recLines = doc.splitTextToSize(`• ${rec}`, contentWidth - 8)
+      const localizedRec = localizeRecommendation(rec, lang)
+      const recLines = doc.splitTextToSize(`• ${localizedRec}`, contentWidth - 8)
       const recHeight = recLines.length * 3.8 + 2
       ensureSpace(recHeight)
 
@@ -338,13 +353,18 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   doc.setFontSize(7)
   doc.setTextColor(148, 163, 184)
   const disclaimerText = doc.splitTextToSize(
-    `${result.disclaimer} Hak Cipta © Jeli AI — Pendamping Keamanan Pencari Kerja Indonesia. Unduh resmi via platform Jeli.`,
+    lang === "ID"
+      ? `${result.disclaimer} Hak Cipta © Jeli AI — Pendamping Keamanan Pencari Kerja Indonesia. Unduh resmi via platform Jeli.`
+      : `${localizeDisclaimer(result.disclaimer, lang)} Copyright © Jeli AI — Indonesia Job Seeker Digital Safety Guardian. Downloaded via Jeli Platform.`,
     contentWidth
   )
   doc.text(disclaimerText, margin, y)
 
   // Trigger browser file download
   const filenameDate = now.toISOString().slice(0, 10)
-  const filename = `Laporan-Evaluasi-Jeli-${result.fraud_assessment.risk_category.toUpperCase()}-${filenameDate}.pdf`
+  const filename =
+    lang === "ID"
+      ? `Laporan-Evaluasi-Jeli-${result.fraud_assessment.risk_category.toUpperCase()}-${filenameDate}.pdf`
+      : `Jeli-Assessment-Report-${result.fraud_assessment.risk_category.toUpperCase()}-${filenameDate}.pdf`
   doc.save(filename)
 }

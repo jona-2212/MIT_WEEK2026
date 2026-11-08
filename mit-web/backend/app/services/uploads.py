@@ -119,7 +119,7 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
             yield chunk
 
     parser = MemoryMultipartParser(
-        request.headers, stream(), max_files=1, max_fields=3, max_part_size=48_000
+        request.headers, stream(), max_files=1, max_fields=6, max_part_size=48_000
     )
     # Seluruh request sudah dibatasi. Tidak ada rollover file upload ke disk.
     try:
@@ -130,19 +130,39 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
         ) from None
     try:
         items = form.multi_items()
-        if any(key not in {"text", "file", "url"} for key, _ in items):
+        if any(key not in {"text", "file", "url", "lang"} for key, _ in items):
             raise AnalysisError(
-                422, "unknown_form_field", "Field yang diizinkan hanya text, file, dan url."
+                422, "unknown_form_field", "Field yang diizinkan hanya text, file, url, dan lang."
             )
-        if len(form.getlist("text")) > 1 or len(form.getlist("file")) > 1 or len(form.getlist("url")) > 1:
+        if (
+            len(form.getlist("text")) > 1
+            or len(form.getlist("file")) > 1
+            or len(form.getlist("url")) > 1
+            or len(form.getlist("lang")) > 1
+        ):
             raise AnalysisError(
                 422, "duplicate_form_field", "Setiap field hanya boleh dikirim sekali."
             )
         text = form.get("text", "")
         raw_url = form.get("url", "")
+        raw_lang = (
+            form.get("lang")
+            or request.query_params.get("lang")
+            or request.headers.get("x-lang")
+            or "ID"
+        )
         file = form.get("file")
-        if not isinstance(text, str) or not isinstance(raw_url, str) or (file is not None and not isinstance(file, UploadFile)):
-            raise AnalysisError(422, "invalid_form_field", "Tipe field text, url, atau file tidak valid.")
+        if (
+            not isinstance(text, str)
+            or not isinstance(raw_url, str)
+            or not isinstance(raw_lang, str)
+            or (file is not None and not isinstance(file, UploadFile))
+        ):
+            raise AnalysisError(
+                422, "invalid_form_field", "Tipe field text, url, lang, atau file tidak valid."
+            )
+
+        lang = "EN" if str(raw_lang).strip().upper() == "EN" else "ID"
 
         target_url = raw_url.strip() or None
         if not target_url and text.strip():
@@ -163,7 +183,9 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
         if not processed_text.strip() and file is None:
             raise AnalysisError(400, "empty_input", "Isi teks lowongan, tautan URL, atau pilih satu gambar.")
         try:
-            validated = AnalyzeInput(text=processed_text, has_image=file is not None, url=target_url)
+            validated = AnalyzeInput(
+                text=processed_text, has_image=file is not None, url=target_url, lang=lang
+            )
         except ValidationError:
             raise AnalysisError(
                 422, "invalid_text", "Teks maksimal 12.000 karakter setelah dirapikan."

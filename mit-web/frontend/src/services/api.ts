@@ -45,31 +45,51 @@ export async function analyzeJob({
   text,
   file,
   url,
+  lang = "ID",
 }: {
   text?: string
   file?: File
   url?: string
+  lang?: "ID" | "EN"
 }): Promise<JobAnalysisResponse> {
-  if (!apiUrl) throw new Error("Alamat backend AI belum dikonfigurasi. Atur VITE_AI_API_URL.")
+  if (!apiUrl) {
+    throw new Error(
+      lang === "ID"
+        ? "Alamat backend AI belum dikonfigurasi. Atur VITE_AI_API_URL."
+        : "AI backend address is not configured. Set VITE_AI_API_URL."
+    )
+  }
 
   const body = new FormData()
   if (text) body.append("text", text)
   if (file) body.append("file", file)
   if (url) body.append("url", url)
 
-  const response = await fetch(`${apiUrl}/api/v1/analyze`, {
+  const query = lang ? `?lang=${encodeURIComponent(lang)}` : ""
+  const response = await fetch(`${apiUrl}/api/v1/analyze${query}`, {
     method: "POST",
     body,
   }).catch(() => {
-    throw new Error("Tidak dapat menghubungi backend AI.")
+    throw new Error(
+      lang === "ID"
+        ? "Tidak dapat menghubungi backend AI."
+        : "Unable to connect to AI backend."
+    )
   })
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: { message: string } } | null
-    throw new Error(payload?.error?.message ?? `Analisis gagal (HTTP ${response.status}).`)
+    throw new Error(
+      payload?.error?.message ??
+        (lang === "ID"
+          ? `Analisis gagal (HTTP ${response.status}).`
+          : `Analysis failed (HTTP ${response.status}).`)
+    )
   }
   const result = (await response.json().catch(() => null)) as JobAnalysisResponse | null
   if (result?.analysis_version !== "recognition-v2") {
-    throw new Error("Respons backend AI tidak valid.")
+    throw new Error(
+      lang === "ID" ? "Respons backend AI tidak valid." : "Invalid AI backend response."
+    )
   }
   return result
 }

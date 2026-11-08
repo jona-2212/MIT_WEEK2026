@@ -25,14 +25,47 @@ class GeminiProvider:
         self.settings = settings
         self.client = client
 
-    def build_payload(self, text: str, image: ValidatedImage | None) -> dict:
+    def build_payload(self, text: str, image: ValidatedImage | None, lang: str = "ID") -> dict:
         schema = AIExtraction.model_json_schema()
         # Gemini rejects maxItems in this schema. Pydantic still validates the response limits.
         for definition in (schema, *schema.get("$defs", {}).values()):
             for field in definition.get("properties", {}).values():
                 field.pop("maxItems", None)
 
-        parts: list[dict] = [{"text": json.dumps({"job_text": text}, ensure_ascii=False)}]
+        system_instruction = SYSTEM_PROMPT
+        if lang == "EN":
+            if "properties" in schema and "summary" in schema["properties"]:
+                schema["properties"]["summary"]["description"] = (
+                    "Executive risk evaluation summary in 1–3 sentences strictly written in English."
+                )
+            if "properties" in schema and "recommendations" in schema["properties"]:
+                schema["properties"]["recommendations"]["description"] = (
+                    "List of 1–4 actionable, safe recommendations strictly written in English."
+                )
+
+            system_instruction = (
+                SYSTEM_PROMPT.replace(
+                    "Anda membantu pencari kerja Indonesia menilai risiko tawaran kerja berdasarkan konteks.",
+                    "You help evaluate job scam risks based on context. Even though the job materials are in Indonesian, all your explanations, summary, and recommendations MUST be written in English.",
+                )
+                .replace(
+                    "Tulis summary dalam 1–3 kalimat bahasa Indonesia.",
+                    "CRITICAL: Write summary in 1–3 sentences strictly in English. Do NOT use Indonesian in the summary.",
+                )
+                .replace(
+                    "Isi recommendations dengan 1–4 langkah aman dan konkret yang sesuai konteks.",
+                    "CRITICAL: Write recommendations with 1–4 safe, actionable, concrete steps strictly in English.",
+                )
+            )
+
+        user_content = {"job_text": text}
+        if lang == "EN":
+            user_content["output_language"] = "English"
+            user_content["instruction"] = (
+                "Evaluate the job offer and write the 'summary' and 'recommendations' strictly in English."
+            )
+
+        parts: list[dict] = [{"text": json.dumps(user_content, ensure_ascii=False)}]
         if image is not None:
             parts.append(
                 {
@@ -43,7 +76,7 @@ class GeminiProvider:
                 }
             )
         return {
-            "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+            "systemInstruction": {"parts": [{"text": system_instruction}]},
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {
                 "maxOutputTokens": 8192,
@@ -56,7 +89,9 @@ class GeminiProvider:
             },
         }
 
-    async def extract(self, text: str, image: ValidatedImage | None) -> AIExtraction:
+    async def extract(
+        self, text: str, image: ValidatedImage | None, lang: str = "ID"
+    ) -> AIExtraction:
         started = perf_counter()
         metadata = {
             "component": "recognition",
@@ -81,7 +116,7 @@ class GeminiProvider:
                     "POST",
                     url,
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
-                    json=self.build_payload(text, image),
+                    json=self.build_payload(text, image, lang=lang),
                 ) as response:
                     if response.status_code != 200:
                         self.raise_upstream_error(response.status_code)

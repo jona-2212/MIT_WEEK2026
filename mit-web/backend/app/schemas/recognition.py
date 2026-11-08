@@ -28,6 +28,7 @@ class AnalyzeInput(StrictModel):
     text: str = Field(default="", max_length=12_000, repr=False)
     has_image: bool = False
     url: str | None = Field(default=None, max_length=2_048)
+    lang: Literal["ID", "EN"] = "ID"
 
     @model_validator(mode="after")
     def require_content(self) -> "AnalyzeInput":

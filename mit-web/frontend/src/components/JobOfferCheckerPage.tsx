@@ -95,6 +95,187 @@ const indicatorIcons: Record<IndicatorCode, React.ComponentType<{ className?: st
   unofficial_channel: MessageCircle,
 }
 
+export function localizeIndicatorReason(
+  reason: string,
+  code: IndicatorCode,
+  lang: "ID" | "EN"
+): string {
+  if (lang === "ID") {
+    if (reason.includes("Material is insufficient")) {
+      return "Materi belum cukup untuk menyimpulkan indikator ini."
+    }
+    if (reason.includes("Evidence found") || reason.includes("Quotes found")) {
+      return `Ada kutipan yang mendukung indikasi ${indicatorLabels[code].ID.toLowerCase()}; konteks perlu diverifikasi.`
+    }
+    if (reason.includes("not yet supported by sufficient evidence")) {
+      return "Indikasi belum didukung bukti yang cukup atau hasil ekstraksi bertentangan."
+    }
+    if (reason.includes("Not found in the readable material")) {
+      return "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
+    }
+    return reason
+  }
+
+  // lang === "EN"
+  if (reason.includes("Materi belum cukup") || reason.includes("Material is insufficient")) {
+    return "Material is insufficient to conclude this indicator."
+  }
+  if (reason.includes("Ada kutipan") || reason.includes("Evidence found") || reason.includes("Quotes found")) {
+    return `Evidence found supporting indication of ${indicatorLabels[code].EN.toLowerCase()}; context requires verification.`
+  }
+  if (reason.includes("Indikasi belum didukung") || reason.includes("not yet supported by sufficient evidence")) {
+    return "Indication is not yet supported by sufficient evidence or extracted results conflict."
+  }
+  if (reason.includes("Tidak ditemukan pada materi") || reason.includes("Not found in the readable material")) {
+    return "Not found in the readable material; not a guarantee that the job is safe."
+  }
+  return reason
+}
+
+export function localizeSummary(summary: string, lang: "ID" | "EN"): string {
+  if (lang === "ID" || !summary) return summary
+
+  const isEnglish = /\b(this job offer|risk|applicant|payment|recruiter|official|material|detected|danger|caution)\b/i.test(
+    summary
+  )
+  if (isEnglish) return summary
+
+  let translated = summary
+  translated = translated.replace(
+    /Tawaran pekerjaan ini berisiko tinggi karena/gi,
+    "This job offer presents high risk because"
+  )
+  translated = translated.replace(
+    /Tawaran pekerjaan ini berisiko rendah/gi,
+    "This job offer is assessed as low risk"
+  )
+  translated = translated.replace(
+    /Tawaran pekerjaan ini perlu diwaspadai/gi,
+    "This job offer requires caution"
+  )
+  translated = translated.replace(
+    /Tawaran ini terindikasi berisiko tinggi/gi,
+    "This offer indicates high risk"
+  )
+  translated = translated.replace(
+    /Tawaran ini berisiko tinggi/gi,
+    "This offer is high risk"
+  )
+  translated = translated.replace(
+    /mewajibkan pelamar untuk melakukan pembayaran biaya administrasi di muka/gi,
+    "it requires applicants to make an upfront administrative payment"
+  )
+  translated = translated.replace(
+    /mewajibkan pelamar melakukan pembayaran/gi,
+    "it obligates applicants to make payments"
+  )
+  translated = translated.replace(
+    /sebagai syarat pendaftaran atau aktivasi akun/gi,
+    "as a condition for registration or account activation"
+  )
+  translated = translated.replace(
+    /sebagai syarat seleksi atau onboarding/gi,
+    "as a condition for selection or onboarding"
+  )
+  translated = translated.replace(
+    /sebagai syarat seleksi/gi,
+    "as a recruitment selection requirement"
+  )
+  translated = translated.replace(
+    /Selain itu, tawaran ini mencakup janji gaji yang sangat besar dengan persyaratan yang sangat minim serta menggunakan tekanan waktu yang mendesak\./gi,
+    "In addition, this offer promises unrealistically high salaries with minimal requirements and applies urgent time pressure."
+  )
+  translated = translated.replace(
+    /Selain itu, tawaran ini mencakup janji gaji yang sangat besar dengan persyaratan yang sangat minim/gi,
+    "Additionally, this offer promises unrealistically high salary with minimal requirements"
+  )
+  translated = translated.replace(
+    /janji gaji yang sangat besar/gi,
+    "unrealistically high salary promises"
+  )
+  translated = translated.replace(
+    /dengan persyaratan yang sangat minim/gi,
+    "with very minimal requirements"
+  )
+  translated = translated.replace(
+    /serta menggunakan tekanan waktu yang mendesak/gi,
+    "and imposes urgent time pressure"
+  )
+  translated = translated.replace(
+    /menggunakan tekanan waktu yang mendesak/gi,
+    "using urgent time pressure"
+  )
+  translated = translated.replace(
+    /tekanan waktu yang mendesak/gi,
+    "urgent time pressure"
+  )
+  translated = translated.replace(
+    /Identitas perekrut belum diverifikasi secara independen/gi,
+    "The recruiter's identity has not been independently verified"
+  )
+  translated = translated.replace(
+    /Materi belum cukup untuk menilai/gi,
+    "The material is insufficient to evaluate"
+  )
+  translated = translated.replace(
+    /Materi terlihat wajar/gi,
+    "The material appears standard and reasonable"
+  )
+
+  return translated
+}
+
+export function localizeRecommendation(rec: string, lang: "ID" | "EN"): string {
+  if (lang === "ID" || !rec) return rec
+  if (/\b(do not|verify|contact|never|check|avoid|official)\b/i.test(rec)) return rec
+
+  if (rec.includes("transfer") || rec.includes("biaya") || rec.includes("membayar")) {
+    return "Do not transfer any fees or pay administrative charges before receiving an official verified work contract."
+  }
+  if (rec.includes("kanal resmi") || rec.includes("sumber resmi") || rec.includes("verifikasi")) {
+    return "Independently verify company credentials and recruiter identity through official channels."
+  }
+  if (rec.includes("OTP") || rec.includes("password") || rec.includes("kredensial") || rec.includes("kata sandi")) {
+    return "Never share your OTP, PIN, account passwords, or personal credentials with anyone."
+  }
+  if (rec.includes("aplikasi") || rec.includes("APK") || rec.includes("instal")) {
+    return "Do not install suspicious applications or APK files requested by the recruiter."
+  }
+  return rec
+}
+
+export function localizeLegalSummary(summary: string, lang: "ID" | "EN"): string {
+  if (lang === "EN") {
+    if (summary.includes("Materi belum cukup untuk screening hukum")) {
+      return "Material is insufficient for legal screening."
+    }
+    if (
+      summary.includes("Rujukan hukum belum tersedia") ||
+      summary.includes("Indeks resmi belum tersedia")
+    ) {
+      return "Legal references unavailable. Fraud assessment does not determine legal compliance."
+    }
+  } else {
+    if (summary.includes("Material is insufficient")) {
+      return "Materi belum cukup untuk screening hukum."
+    }
+    if (summary.includes("Legal references unavailable")) {
+      return "Rujukan hukum belum tersedia. Hasil fraud tidak menentukan kepatuhan hukum."
+    }
+  }
+  return summary
+}
+
+export function localizeDisclaimer(disclaimer: string | undefined, lang: "ID" | "EN"): string {
+  if (lang === "EN") {
+    return "This category is an indicative assessment by Jeli AI based on the submitted material. AI results may be inaccurate. Independently verify through official sources."
+  }
+  return (
+    disclaimer ||
+    "Kategori ini adalah penilaian indikatif Jeli AI atas materi yang dikirim. Hasil AI dapat keliru. Verifikasi melalui sumber resmi secara mandiri."
+  )
+}
+
 export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
   onBackToHome,
   lang,
@@ -127,7 +308,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
     setResult(null)
     setIsScanning(true)
     try {
-      setResult(await analyzeJob({ text: inputText, file, url: targetUrl }))
+      setResult(await analyzeJob({ text: inputText, file, url: targetUrl, lang }))
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -511,7 +692,9 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                     <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-[#064B50]">
                       {lang === "ID" ? "Ringkasan Penilaian" : "Assessment Summary"}
                     </h3>
-                    <p className="font-medium text-[#202C2B] leading-relaxed">{risk.summary}</p>
+                    <p className="font-medium text-[#202C2B] leading-relaxed">
+                      {localizeSummary(risk.summary, lang)}
+                    </p>
                   </div>
 
                   {/* Risk Indicators Section */}
@@ -570,7 +753,9 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                                 </span>
                               </div>
 
-                              <p className="text-xs leading-relaxed text-[#202C2B]/80">{indicator.reason}</p>
+                              <p className="text-xs leading-relaxed text-[#202C2B]/80">
+                                {localizeIndicatorReason(indicator.reason, indicator.code, lang)}
+                              </p>
 
                               {indicator.evidence.map(({ source, quote }) => (
                                 <div
@@ -604,7 +789,9 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                           className="flex items-start gap-2.5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 text-xs leading-relaxed text-emerald-950"
                         >
                           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                          <span className="font-medium">{recommendation}</span>
+                          <span className="font-medium">
+                            {localizeRecommendation(recommendation, lang)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -617,7 +804,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                         <Scale className="h-3.5 w-3.5 text-[#087F7A]" />
                         {lang === "ID" ? "Rujukan Regulasi Ketenagakerjaan RI" : "Indonesian Labor Regulations"}
                       </h3>
-                      <p className="text-xs text-[#202C2B]/80">{legal.summary}</p>
+                      <p className="text-xs text-[#202C2B]/80">{localizeLegalSummary(legal.summary, lang)}</p>
                       <div className="space-y-2">
                         {legal.references.map((reference) => (
                           <div
@@ -681,7 +868,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                     </div>
 
                     <p className="text-[11px] leading-relaxed text-[#202C2B]/60 italic">
-                      {result?.disclaimer}
+                      {localizeDisclaimer(result?.disclaimer, lang)}
                     </p>
                   </div>
                 </div>

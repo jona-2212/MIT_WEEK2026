@@ -133,11 +133,16 @@ async def open_test_client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
 
 
 def form_parts(
-    text: str | None = None, image: bytes | None = None, mime: str = "image/png"
+    text: str | None = None,
+    image: bytes | None = None,
+    mime: str = "image/png",
+    lang: str | None = None,
 ) -> list:
     parts = []
     if text is not None:
         parts.append(("text", (None, text)))
     if image is not None:
         parts.append(("file", ("synthetic.png", image, mime)))
+    if lang is not None:
+        parts.append(("lang", (None, lang)))
     return parts

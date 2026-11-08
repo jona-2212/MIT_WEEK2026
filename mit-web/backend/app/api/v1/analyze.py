@@ -113,6 +113,12 @@ RESPONSES = {
                                 "format": "binary",
                                 "description": "JPEG/PNG/WebP, 5 MiB lokal atau 4 MiB Vercel.",
                             },
+                            "lang": {
+                                "type": "string",
+                                "enum": ["ID", "EN"],
+                                "default": "ID",
+                                "description": "Bahasa output analisis (ID atau EN).",
+                            },
                         },
                     },
                     "examples": {
