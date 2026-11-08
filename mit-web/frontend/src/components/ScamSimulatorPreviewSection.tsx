@@ -9,7 +9,6 @@ import {
   Brain,
   Target,
   Zap,
-  Check,
   Building2,
   Bot,
   UserCheck,

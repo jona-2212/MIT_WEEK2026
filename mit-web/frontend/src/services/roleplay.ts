@@ -1,4 +1,24 @@
 export type Outcome = "active" | "verified_exit" | "risky_choice" | "needs_clarification" | "stopped"
+
+export interface QuestionOption {
+  id: string
+  label: string
+  text: string
+  is_correct: boolean
+  feedback_label: string
+  explanation: string
+}
+
+export interface SimulatorQuestion {
+  question_number: number
+  title: string
+  recruiter_message: string
+  challenge_text: string
+  options: QuestionOption[]
+  good_answer_summary: string
+  educational_takeaway: string
+}
+
 export interface Scenario {
   id: string
   title: string
@@ -6,7 +26,10 @@ export interface Scenario {
   objective: string
   language: "ID"
   version: "roleplay-v1"
+  total_questions?: number
+  questions?: SimulatorQuestion[]
 }
+
 export interface Report {
   outcome: Outcome
   skills: { code: string; label: string; status: "observed" | "practice" | "unobserved" }[]
@@ -14,6 +37,7 @@ export interface Report {
   next_step: string
   safe_reply: string
 }
+
 export interface RoleplaySession {
   roleplay_version: "roleplay-v1"
   mode: "live" | "mock"
@@ -40,7 +64,7 @@ async function request<T>(path: string, signal: AbortSignal, body?: unknown): Pr
     }),
   }).catch((error: unknown) => {
     if (signal.aborted) throw error
-    throw new Error("Tidak dapat menghubungi backend AI. Coba lagi atau akhiri latihan.")
+    throw new Error("Tidak dapat menghubungi backend AI. Pastikan server backend sedang berjalan.")
   })
   const value = await response.json().catch(() => null)
   if (!response.ok) throw new Error(value?.error?.message ?? `Permintaan gagal (${response.status}).`)
@@ -64,6 +88,14 @@ export async function roleplayRequest(
     || !result.report || !Array.isArray(result.report.skills) || !Array.isArray(result.report.moments)
     || !["active", "verified_exit", "risky_choice", "needs_clarification", "stopped"].includes(result.outcome)) {
     throw new Error("Respons roleplay tidak valid.")
+  }
+  return result
+}
+
+export async function generateCustomScenario(prompt: string, signal: AbortSignal): Promise<Scenario> {
+  const result = await request<Scenario>("custom", signal, { user_prompt: prompt })
+  if (!result || result.version !== "roleplay-v1") {
+    throw new Error("Gagal membuat skenario kustom.")
   }
   return result
 }

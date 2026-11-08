@@ -13,6 +13,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app import __version__
 from app.api.v1.analyze import router as analyze_router
 from app.api.v1.health import router as health_router
+from app.api.v1.roleplay import router as roleplay_router
 from app.core.config import PROJECT_ROOT, Settings
 from app.core.errors import (
     AnalysisError,
@@ -26,6 +27,7 @@ from app.services.ai.embeddings import EmbeddingProvider, GeminiEmbeddingProvide
 from app.services.ai.gemini import GeminiProvider
 from app.services.knowledge.static_index import StaticKnowledgeRetriever
 from app.services.recognition import RecognitionService
+from app.services.roleplay import RoleplayService
 
 logger = logging.getLogger("job_scam_guardian.lifecycle")
 
@@ -56,8 +58,10 @@ def create_app(
                     embedding_provider or GeminiEmbeddingProvider(settings, provider_client),
                 ),
             )
+            app.state.roleplay_service = RoleplayService(settings, provider_client)
             yield
         app.state.recognition_service = None
+        app.state.roleplay_service = None
         logger.info("application_stopped", extra={"component": "lifecycle"})
 
     application = FastAPI(
@@ -90,6 +94,7 @@ def create_app(
     application.include_router(health_router)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(analyze_router, prefix="/api/v1")
+    application.include_router(roleplay_router, prefix="/api/v1")
 
     @application.get("/demo", include_in_schema=False)
     async def demo() -> HTMLResponse:
@@ -106,3 +111,7 @@ def render_demo(settings: Settings) -> str:
         .replace("__MAX_REQUEST_BYTES__", str(settings.max_request_bytes))
         .replace("__UPLOAD_MIB__", str(settings.max_image_bytes // (1024 * 1024)))
     )
+
+
+app = create_app()
+
