@@ -182,8 +182,8 @@ function HomePage() {
 
             <button type="button" onClick={() => setInspecting(!inspecting)} className={`relative mx-auto my-2 block h-36 w-36 rounded-full transition-transform ${inspecting ? 'scale-110' : 'hover:scale-105'}`} aria-label="Periksa maskot JobGuard">
               <span className="absolute left-1/2 top-0 h-10 w-1 -translate-x-1/2 bg-blue-400 before:absolute before:-left-1.5 before:-top-2 before:h-4 before:w-4 before:rounded-full before:border-2 before:border-[#ccff00] before:bg-blue-600 before:content-['']" />
-              <span className="absolute inset-x-0 top-12 text-center text-3xl text-blue-500">◢　◣</span>
-              <span className="absolute inset-3 top-14 grid h-24 place-items-center rounded-[35px] border-8 border-slate-800 bg-slate-950 text-2xl text-red-500 shadow-[0_0_0_4px_#0f172a]">▲　▲<small className="absolute bottom-4 text-lg text-[#ccff00]">•</small></span>
+              <span className="absolute inset-x-0 top-12 text-center text-3xl text-blue-500">◢ ◣</span>
+              <span className="absolute inset-3 top-14 grid h-24 place-items-center rounded-[35px] border-8 border-slate-800 bg-slate-950 text-2xl text-red-500 shadow-[0_0_0_4px_#0f172a]">▲ ▲<small className="absolute bottom-4 text-lg text-[#ccff00]">•</small></span>
               <span className="absolute -bottom-2 -right-2 grid h-14 w-11 place-items-center rounded-xl border-2 border-blue-300 bg-gradient-to-br from-emerald-400 to-blue-400 text-2xl text-[#07101f]">✓</span>
             </button>
             <div className="mb-3 text-center text-[10px] font-bold text-slate-500">{currentScenario.riskLabel} <span className="text-red-500">●</span></div>
