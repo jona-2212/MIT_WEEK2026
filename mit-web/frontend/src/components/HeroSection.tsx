@@ -1,5 +1,5 @@
 import React from "react"
-import { ArrowDown, ArrowRight, Eye, Search, ShieldCheck, Sparkles } from "lucide-react"
+import { ArrowDown, ArrowRight, Building2, Layers, Search, ShieldCheck } from "lucide-react"
 import { JeliCompanion } from "./JeliCompanion"
 
 interface HeroSectionProps {
@@ -55,44 +55,81 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <ArrowDown className="h-4 w-4 text-[#064B50] transition-transform group-hover:translate-y-0.5" />
             </button>
           </div>
-
-          <div className="flex flex-wrap items-center gap-6 border-t border-[#064B50]/10 pt-6 text-xs text-[#202C2B]/70">
-            <span><b className="text-[#202C2B]">48.200+</b> {lang === "ID" ? "Loker Dianalisis" : "Offers Analyzed"}</span>
-            <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#087F7A]" /><b className="text-[#202C2B]">99.4%</b> {lang === "ID" ? "Akurasi Deteksi" : "Detection Accuracy"}</span>
-            <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-[#064B50]" />{lang === "ID" ? "Edukasi Praktis" : "Practical Learning"}</span>
-          </div>
         </div>
 
-        <div className="relative flex justify-center lg:col-span-5">
-          <div className="relative w-full max-w-md rounded-3xl border border-[#064B50]/15 bg-white p-6 shadow-xl">
-            <div className="mb-7 flex items-center justify-between border-b border-[#064B50]/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#064B50]/10 text-[#064B50]"><Eye className="h-4 w-4" /></div>
+        <div className="relative flex items-center justify-center lg:col-span-5">
+          {/* Ambient Glow & Soft Decorative Rings */}
+          <div className="pointer-events-none absolute -inset-6 flex items-center justify-center">
+            <div className="h-64 w-64 rounded-full bg-gradient-to-tr from-[#087F7A]/20 via-[#B8F000]/25 to-[#064B50]/15 blur-3xl animate-pulse-soft" />
+            <div className="absolute h-72 w-72 rounded-full border border-[#064B50]/10" />
+            <div className="absolute h-96 w-96 rounded-full border border-dashed border-[#064B50]/10" />
+          </div>
+
+          <div className="relative flex w-full max-w-sm flex-col items-center justify-center py-8 sm:py-12">
+            {/* Mascot in the Center */}
+            <div className="relative z-10 animate-float-slow transition-transform hover:scale-105">
+              <JeliCompanion state="scanning" size="lg" />
+            </div>
+
+            {/* Floating Badge 1: Multi-Format (Top-Left) */}
+            <div className="absolute -top-1 left-0 z-20 sm:-left-6 animate-float-gentle">
+              <div className="flex items-center gap-2.5 rounded-2xl border border-[#064B50]/10 bg-white/85 px-3.5 py-2.5 shadow-lg shadow-[#064B50]/5 backdrop-blur-md transition-all hover:bg-white hover:shadow-xl">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#064B50]/10 text-[#064B50]">
+                  <Layers className="h-4 w-4" />
+                </div>
                 <div>
-                  <p className="text-xs font-extrabold text-[#064B50]">Jeli Awareness Lab</p>
-                  <p className="font-mono text-[10px] text-[#202C2B]/55">{lang === "ID" ? "Ruang latihan keputusan" : "Decision practice space"}</p>
+                  <p className="text-[11px] font-extrabold text-[#064B50]">
+                    {lang === "ID" ? "Multi-Format" : "Multi-Format"}
+                  </p>
+                  <p className="text-[10px] font-medium text-[#202C2B]/65">
+                    {lang === "ID" ? "Teks • Gambar • URL" : "Text • Image • URL"}
+                  </p>
                 </div>
               </div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">READY</span>
             </div>
-            <div className="mb-6 flex justify-center">
-              <div className="animate-float-slow"><JeliCompanion state="scanning" size="lg" /></div>
-            </div>
-            <div className="space-y-3">
-              {[
-                lang === "ID" ? "Baca sinyal, bukan hanya janji" : "Read signals, not just promises",
-                lang === "ID" ? "Latih respons tanpa risiko nyata" : "Practise responses without real-world risk",
-                lang === "ID" ? "Bangun kebiasaan verifikasi" : "Build verification habits",
-              ].map((label, index) => (
-                <div key={label} className="flex items-center gap-3 rounded-xl bg-[#F7F7F0] p-3 text-xs font-bold text-[#202C2B]">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#B8F000] text-[10px] text-[#064B50]">{index + 1}</span>
-                  {label}
+
+            {/* Floating Badge 2: Legalitas AHU (Right / Top-Right) */}
+            <div className="absolute top-10 -right-2 z-20 sm:-right-8 animate-float-reverse">
+              <div className="flex items-center gap-2.5 rounded-2xl border border-[#064B50]/10 bg-white/85 px-3.5 py-2.5 shadow-lg shadow-[#064B50]/5 backdrop-blur-md transition-all hover:bg-white hover:shadow-xl">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <Building2 className="h-4 w-4" />
                 </div>
-              ))}
+                <div>
+                  <p className="text-[11px] font-extrabold text-[#064B50]">
+                    {lang === "ID" ? "Legalitas PT" : "Legal Company"}
+                  </p>
+                  <p className="text-[10px] font-medium text-[#202C2B]/65">
+                    {lang === "ID" ? "Database AHU Resmi" : "Official AHU Check"}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="mt-5 flex items-center justify-between rounded-xl border border-[#064B50]/10 bg-[#064B50]/5 px-3 py-2 text-[10px] font-bold text-[#064B50]">
-              <span>{lang === "ID" ? "Mode latihan aman" : "Safe practice mode"}</span>
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#B8F000]" />
+
+            {/* Floating Badge 3: Privasi Terjaga (Bottom-Left) */}
+            <div className="absolute -bottom-2 left-0 z-20 sm:-left-4 animate-float-gentle" style={{ animationDelay: "0.6s" }}>
+              <div className="flex items-center gap-2.5 rounded-2xl border border-[#064B50]/10 bg-white/85 px-3.5 py-2.5 shadow-lg shadow-[#064B50]/5 backdrop-blur-md transition-all hover:bg-white hover:shadow-xl">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#B8F000]/40 text-[#064B50]">
+                  <ShieldCheck className="h-4 w-4 text-[#064B50]" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-extrabold text-[#064B50]">
+                    {lang === "ID" ? "Privat & Aman" : "Private & Secure"}
+                  </p>
+                  <p className="text-[10px] font-medium text-[#202C2B]/65">
+                    {lang === "ID" ? "Tanpa registrasi akun" : "No account needed"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Micro Badge 4: Status Ready (Bottom-Right) */}
+            <div className="absolute -bottom-3 right-0 z-20 sm:-right-4 animate-float-reverse" style={{ animationDelay: "1.4s" }}>
+              <div className="flex items-center gap-2 rounded-full border border-[#064B50]/10 bg-white/90 px-3 py-1.5 shadow-sm backdrop-blur-md">
+                <span className="h-2 w-2 rounded-full bg-[#B8F000] animate-pulse" />
+                <span className="text-[10px] font-bold text-[#064B50]">
+                  {lang === "ID" ? "Siap Menganalisis" : "Ready to Inspect"}
+                </span>
+              </div>
             </div>
           </div>
         </div>

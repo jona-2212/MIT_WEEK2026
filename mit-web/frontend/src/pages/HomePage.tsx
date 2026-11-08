@@ -3,10 +3,8 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowRight,
-  CheckCircle2,
   Eye,
   ShieldAlert,
-  Sparkles,
 } from 'lucide-react'
 import Button from '../components/Button'
 import Card from '../components/Card'
@@ -142,11 +140,6 @@ function HomePage() {
               Pelajari Cara Kerjanya
               <ArrowDown className="h-4 w-4 text-slate-400" />
             </Button>
-          </div>
-          <div className="flex w-full flex-wrap items-center gap-x-8 gap-y-3 border-t border-slate-800/80 pt-7 text-sm text-slate-400">
-            <span><b className="text-slate-200">48.200+</b> Loker Dianalisis</span>
-            <span className="flex items-center gap-1"><CheckCircle2 className="h-4 w-4 text-[#ccff00]" /><b className="text-slate-200">99.4%</b> Akurasi Deteksi</span>
-            <span className="flex items-center gap-1"><Sparkles className="h-4 w-4 text-blue-400" /><b className="text-slate-200">100% Gratis</b></span>
           </div>
           <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><span className="h-2 w-2 rounded-full bg-[#ccff00]" />{message}</p>
         </div>
