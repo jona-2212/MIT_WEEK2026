@@ -2,6 +2,12 @@ import type { Language } from "../i18n"
 
 const messages: Record<string, [string, string]> = {
   missing_api: ["Layanan Jeli belum dikonfigurasi.", "The Jeli service is not configured."],
+  local_api_unavailable: [
+    "Backend AI lokal belum dapat dihubungi. Jalankan frontend dan backend dengan scripts/run_local.py.",
+    "The local AI backend is unreachable. Start the web and API together with scripts/run_local.py.",
+  ],
+  provider_not_configured: ["Gemini belum dikonfigurasi di backend.", "Gemini is not configured on the backend."],
+  roleplay_not_configured: ["Kunci sesi latihan belum dikonfigurasi di backend.", "The practice session key is not configured on the backend."],
   network: ["Tidak dapat terhubung ke Jeli. Coba lagi.", "Could not connect to Jeli. Try again."],
   invalid_response: ["Respons Jeli tidak dapat dibaca. Coba lagi.", "Could not read Jeli's response. Try again."],
   empty_input: ["Masukkan teks, tautan, atau gambar lowongan.", "Enter job posting text, a link, or an image."],

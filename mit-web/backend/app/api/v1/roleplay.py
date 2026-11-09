@@ -110,8 +110,10 @@ async def chat(request: Request) -> RoleplayChatResponse:
 )
 async def tts(request: Request) -> Response:
     data = await read_json(request, SpeechRequest)
-    audio = await practice_service(request).synthesize_speech(data)
+    speech = await practice_service(request).synthesize_speech(data)
     headers = {"Cache-Control": "no-store"}
-    if not audio:
+    if speech is None:
         return Response(status_code=204, headers=headers)
+    audio, provider = speech
+    headers["X-Jeli-TTS-Provider"] = provider
     return Response(audio, media_type="audio/mpeg", headers=headers)

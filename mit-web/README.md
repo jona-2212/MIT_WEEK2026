@@ -1,32 +1,33 @@
 # MIT Web
 
-## Demo lokal Cek Tawaran Kerja
+## Menjalankan semua fitur AI secara lokal
 
-Jalankan perintah berikut dari `mit-web` untuk menyiapkan FastAPI AI.
-
-```powershell
-cd backend
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-```
-
-Isi `GEMINI_API_KEY` di `backend/.env` dengan kredensial Gemini proyek, lalu jalankan FastAPI dari folder `backend`.
+Dari folder `mit-web`, siapkan dependensi web dan konfigurasi backend sekali.
 
 ```powershell
-$env:ALLOWED_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
-$env:LEGAL_MIN_SIMILARITY = '0.70'
-uv run --locked python -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log
+npm --prefix frontend ci
+if (-not (Test-Path backend/.env)) { Copy-Item backend/.env.example backend/.env }
 ```
 
-Di terminal lain, dari `mit-web`, jalankan frontend React.
+Isi `GEMINI_API_KEY` dan `ROLEPLAY_SIGNING_SECRET` di `backend/.env`.
+Kunci sesi memerlukan minimal 32 karakter. Untuk membuat nilai acak lokal,
+jalankan `uv --directory backend run --locked python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+
+Jalankan kedua server dari terminal yang sama.
 
 ```powershell
-cd frontend
-npm ci
-$env:VITE_AI_API_URL = 'http://127.0.0.1:8000'
-npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+uv --directory backend run --locked python scripts/run_local.py
 ```
 
-Buka [Cek Tawaran Kerja](http://127.0.0.1:5173/#checker). Tempel teks atau unggah screenshot, lalu pilih **Analisis Tawaran**. Jika indeks hukum resmi belum tersedia, analisis yang berhasil akan menampilkan `reference_unavailable` pada bagian referensi hukum.
+Buka [Cek Tawaran Kerja](http://127.0.0.1:5173/#checker),
+[Jeli Lakon](http://127.0.0.1:5173/#simulator), atau
+[Sahabat Jeli](http://127.0.0.1:5173/#avatar). Launcher menunggu `/api/v1/health`
+berhasil melalui Vite sebelum menampilkan status siap. Vite meneruskan request
+AI dari port 5173 ke FastAPI di port 8000. Tekan Ctrl+C untuk menghentikan keduanya.
+
+Untuk API remote, set `VITE_AI_API_URL` ke origin API dan masukkan origin web
+yang persis sama ke `ALLOWED_ORIGINS` di backend. URL loopback standar dipakai
+untuk pengembangan lokal dan `npm run preview` yang berjalan di loopback.
 
 ## Deploy ke Vercel
 
@@ -34,10 +35,10 @@ Buat dua proyek dari repo yang sama. Tentukan domain Production masing-masing pr
 
 | Proyek | Root Directory | Preset | Variabel Production |
 | --- | --- | --- | --- |
-| API | `mit-web/backend` | FastAPI | `APP_ENV=production`, `GEMINI_API_KEY`, `ALLOWED_ORIGINS=https://<domain-frontend>.vercel.app`, `LEGAL_MIN_SIMILARITY=0.70` |
+| API | `mit-web/backend` | FastAPI | `APP_ENV=production`, `GEMINI_API_KEY`, `ROLEPLAY_SIGNING_SECRET`, `ALLOWED_ORIGINS=https://<domain-frontend>.vercel.app`, `LEGAL_MIN_SIMILARITY=0.70` |
 | Web | `mit-web/frontend` | Vite | `VITE_AI_API_URL=https://<domain-api>.vercel.app` |
 
-Gunakan Node.js 22.x atau 24.x untuk Web. Vercel membangun Web dengan `npm run build` dan menerbitkan `dist`. Simpan `GEMINI_API_KEY` hanya di pengaturan proyek API.
+Gunakan Node.js 22.x atau 24.x untuk Web. Vercel membangun Web dengan `npm run build` dan menerbitkan `dist`. Simpan `GEMINI_API_KEY` dan `ROLEPLAY_SIGNING_SECRET` hanya di pengaturan proyek API.
 
 Sertakan `manifest.json`, `chunks.json`, dan `vectors.json` dari `backend/data/legal_index` bersama kode pada branch yang akan dipakai Vercel. Build API memverifikasi bundle terhadap registry. Fungsi FastAPI membaca JSON tersebut saat startup dan memakai Gemini untuk embedding query yang relevan. Folder sampel, PDF sumber, dan Chroma lokal dikecualikan dari fungsi.
 

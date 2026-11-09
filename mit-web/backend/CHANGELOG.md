@@ -4,6 +4,14 @@ Tujuan: merangkum perubahan proyek yang penting bagi pengembang dan integrator. 
 
 ## [Unreleased]
 
+- Sahabat Jeli memakai ElevenLabs Flash v2.5 dengan suara Andi untuk ID dan George
+  untuk EN saat tersedia. Google TTS dan suara browser menjadi cadangan.
+- Rapor latihan dan PDF menampilkan progres serta pembahasan per jawaban tanpa
+  skor agregat atau label kesiapan.
+
+- Launcher lokal memulai backend dan frontend bersama. Request AI lokal melewati
+  proxy Vite, dan gangguan backend menampilkan langkah pemulihan.
+
 - Katalog dan sesi chat perekrut Jeli Lakon mendukung Indonesia dan Inggris.
   Pembuka, petunjuk, balasan, dan rapor mengikuti bahasa sesi.
 - Pembaca URL memvalidasi redirect dan IP tujuan, memakai TLS terverifikasi, dan melaporkan

@@ -59,3 +59,6 @@ Skenario kustom tidak ditambahkan ke katalog atau dipakai untuk memulai chat per
 Balasan avatar dan input TTS dibatasi 600 karakter. Input avatar dibatasi 1.000 karakter
 dengan paling banyak enam pesan riwayat. Endpoint TTS versi GET sudah diganti dengan POST.
 Sesi baru diperlukan untuk token UUID dari versi sebelumnya.
+
+Audio `POST /tts` memakai ElevenLabs Flash v2.5 bila kunci tersedia. Header
+`X-Jeli-TTS-Provider` bernilai `elevenlabs` atau `google` pada respons MP3.

@@ -35,7 +35,16 @@ class Settings(BaseSettings):
     legal_min_similarity: float = Field(default=0.75, ge=-1, le=1, allow_inf_nan=False)
     roleplay_signing_secret: SecretStr | None = None
     gemini_roleplay_model: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9.-]{0,99}$")
+    eleven_labs: SecretStr | None = None
     elevenlabs_api_key: SecretStr | None = None
+    elevenlabs_voice_id: str = Field(default="TMvmhlKUioQA4U7LOoko", pattern=r"^[A-Za-z0-9]{1,64}$")
+    elevenlabs_voice_id_en: str = Field(
+        default="JBFqnCBsd6RMkjVDRZzb", pattern=r"^[A-Za-z0-9]{1,64}$"
+    )
+
+    @property
+    def elevenlabs_key(self) -> SecretStr | None:
+        return self.eleven_labs or self.elevenlabs_api_key
 
     @property
     def max_image_bytes(self) -> int:
@@ -80,7 +89,11 @@ class Settings(BaseSettings):
         return result
 
     @field_validator(
-        "gemini_api_key", "elevenlabs_api_key", "roleplay_signing_secret", mode="before"
+        "gemini_api_key",
+        "eleven_labs",
+        "elevenlabs_api_key",
+        "roleplay_signing_secret",
+        mode="before",
     )
     @classmethod
     def empty_key_is_none(cls, value: str | SecretStr | None) -> str | SecretStr | None:

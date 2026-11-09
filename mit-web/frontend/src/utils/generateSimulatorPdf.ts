@@ -84,58 +84,38 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
   doc.line(margin, y, pageWidth - margin, y)
   y += 6
 
-  // --- SUMMARY SCORE CARD ---
-  const totalCompleted = answers.length
-  const correctCount = answers.filter((a) => a.isCorrect).length
-  const scorePercent = totalCompleted > 0 ? Math.round((correctCount / totalCompleted) * 100) : 0
+  // --- SCENARIO SUMMARY ---
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(12)
+  const titleLines: string[] = doc.splitTextToSize(scenario.title, contentWidth - 10)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8.5)
+  const descLines: string[] = doc.splitTextToSize(scenario.description, contentWidth - 10)
+  const cardHeight = 17 + titleLines.length * 5 + descLines.length * 4
 
-  ensureSpace(36)
-  // Background card
+  ensureSpace(cardHeight + 6)
   doc.setFillColor(247, 247, 240)
-  doc.roundedRect(margin, y, contentWidth, 32, 3, 3, "F")
+  doc.roundedRect(margin, y, contentWidth, cardHeight, 3, 3, "F")
   doc.setDrawColor(8, 127, 122)
   doc.setLineWidth(0.8)
-  doc.line(margin, y, margin, y + 32)
+  doc.line(margin, y, margin, y + cardHeight)
 
-  // Title of scenario
   doc.setFont("helvetica", "bold")
   doc.setFontSize(12)
   doc.setTextColor(6, 75, 80)
-  doc.text(scenario.title, margin + 5, y + 8)
+  doc.text(titleLines, margin + 5, y + 8)
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8.5)
   doc.setTextColor(71, 85, 105)
-  const descLines = doc.splitTextToSize(scenario.description, contentWidth - 55)
-  doc.text(descLines.slice(0, 2), margin + 5, y + 14)
+  const descY = y + 8 + titleLines.length * 5
+  doc.text(descLines, margin + 5, descY)
+  const answered = en
+    ? `${answers.length} of ${scenario.questions?.length ?? answers.length} questions answered.`
+    : `${answers.length} dari ${scenario.questions?.length ?? answers.length} pertanyaan dijawab.`
+  doc.text(answered, margin + 5, descY + descLines.length * 4 + 2)
 
-  // Score badge
-  const scoreBoxX = pageWidth - margin - 45
-  const scoreBoxY = y + 4
-  const badgeColor = scorePercent >= 80 ? [8, 127, 122] : scorePercent >= 50 ? [217, 119, 6] : [220, 38, 38]
-  doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2])
-  doc.roundedRect(scoreBoxX, scoreBoxY, 40, 24, 2, 2, "F")
-
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(14)
-  doc.setTextColor(255, 255, 255)
-  doc.text(`${scorePercent}%`, scoreBoxX + 20, scoreBoxY + 10, { align: "center" })
-
-  doc.setFontSize(7.5)
-  doc.setFont("helvetica", "normal")
-  doc.text(`${correctCount}/${totalCompleted} ${lang === "ID" ? "Aman" : "Safe"}`, scoreBoxX + 20, scoreBoxY + 16, {
-    align: "center",
-  })
-  doc.text(
-    scorePercent >= 80 ? (en ? "WELL PREPARED" : "SANGAT SIAP")
-      : scorePercent >= 50 ? (en ? "STAY ALERT" : "PERLU WASPADA")
-      : (en ? "KEEP PRACTISING" : "PERLU LATIHAN"),
-    scoreBoxX + 20,
-    scoreBoxY + 21,
-    { align: "center" }
-  )
-
-  y += 38
+  y += cardHeight + 6
 
   // --- QUESTIONS BREAKDOWN HEADER ---
   ensureSpace(12)

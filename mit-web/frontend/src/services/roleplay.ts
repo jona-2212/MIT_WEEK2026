@@ -1,5 +1,6 @@
 import type { Language } from "../i18n"
-import { JeliApiError, readApiError } from "./errors"
+import { JeliApiError } from "./errors"
+import { apiRequest } from "./http"
 
 export type Outcome = "active" | "verified_exit" | "risky_choice" | "needs_clarification" | "stopped"
 
@@ -56,21 +57,13 @@ export interface RoleplaySession {
   report: Report
 }
 
-const baseUrl = import.meta.env.VITE_AI_API_URL?.trim().replace(/\/+$/, "")
-  || (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")
-
 async function request<T>(path: string, signal: AbortSignal, lang: Language, body?: unknown): Promise<T> {
-  if (!baseUrl) throw new JeliApiError("missing_api", lang)
-  const response = await fetch(`${baseUrl}/api/v1/roleplay/${path}`, {
+  const response = await apiRequest(`roleplay/${path}`, lang, {
     signal,
     ...(body === undefined ? {} : {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     }),
-  }).catch((error: unknown) => {
-    if (signal.aborted) throw error
-    throw new JeliApiError("network", lang)
   })
-  if (!response.ok) throw await readApiError(response, lang)
   const value: unknown = await response.json().catch(() => null)
   if (!value) throw new JeliApiError("invalid_response", lang)
   return value as T
@@ -151,8 +144,7 @@ export async function chatLiveRoleplay(
 }
 
 export async function getTtsAudio(text: string, lang: "id" | "en", signal: AbortSignal) {
-  if (!baseUrl) throw new Error("TTS unavailable.")
-  const response = await fetch(`${baseUrl}/api/v1/roleplay/tts`, {
+  const response = await apiRequest("roleplay/tts", lang === "id" ? "ID" : "EN", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, lang }),

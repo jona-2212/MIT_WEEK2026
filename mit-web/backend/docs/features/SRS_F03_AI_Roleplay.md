@@ -38,5 +38,7 @@ bahasa sesi saat mulai, termasuk untuk pembuka, petunjuk, dan pembahasan.
 
 Sahabat Jeli adalah halaman avatar terpisah dengan input teks atau pengenalan
 suara browser. Balasan memakai Gemini atau panduan lokal berlabel saat provider
-gagal. Audio melalui POST privat ke backend dan suara browser menjadi fallback.
+gagal. Audio melalui POST privat ke backend. ElevenLabs Flash v2.5 menggunakan Andi
+untuk ID dan George untuk EN. Google TTS dan suara browser menjadi cadangan.
+Rapor latihan terpandu dan PDF menampilkan progres dan pembahasan tiap jawaban.
 Lihat [kontrak Roleplay](../api/roleplay.md).

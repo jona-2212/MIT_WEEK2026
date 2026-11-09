@@ -381,8 +381,6 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
 
   const answeredList = Object.values(answers)
   const totalAnswered = answeredList.length
-  const correctCount = answeredList.filter((a) => a.isCorrect).length
-  const scorePercent = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0
   const customTemplates = lang === "EN" ? customTemplatesEn : customTemplatesId
 
   return (
@@ -826,40 +824,13 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                     </div>
                   </div>
 
-                  {/* Score Summary Card */}
                   <div className="rounded-3xl border border-[#064B50]/20 bg-[#F7F7F0] p-6 sm:p-7">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#087F7A]">
-                          {lang === "ID" ? `SKENARIO: ${activeScenario?.title}` : `SCENARIO: ${activeScenario?.title}`}
-                        </p>
-                        <h3 className="mt-1 text-xl font-extrabold text-[#064B50]">
-                          {scorePercent >= 80
-                            ? lang === "ID"
-                              ? "Kesiapan Tinggi: Kamu Sangat Jeli!"
-                              : "High Readiness: You are Extremely Sharp!"
-                            : scorePercent >= 50
-                            ? lang === "ID"
-                              ? "Cukup Siap: Perlu Penajaman di Beberapa Trik!"
-                              : "Moderately Ready: Some Traps Need Sharpening!"
-                            : lang === "ID"
-                            ? "Perlu Latihan: Modus Menjebak Berhasil Memperdayamu!"
-                            : "Needs Practice: Deceptive Traps Caught You!"}
-                        </h3>
-                        <p className="mt-2 text-xs sm:text-sm text-[#202C2B]/75 max-w-xl">
-                          {lang === "ID"
-                            ? `Kamu berhasil menyelesaikan ${totalAnswered} dari ${questions.length} pertanyaan, dengan ${correctCount} jawaban aman.`
-                            : `You completed ${totalAnswered} of ${questions.length} questions, with ${correctCount} safe answers.`}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col items-center justify-center rounded-2xl bg-[#064B50] px-6 py-4 text-white shadow-sm shrink-0">
-                        <span className="text-3xl font-extrabold text-[#B8F000]">{scorePercent}%</span>
-                        <span className="text-[11px] font-bold text-white/80">
-                          {correctCount} / {totalAnswered} {lang === "ID" ? "Tepat" : "Correct"}
-                        </span>
-                      </div>
-                    </div>
+                    <h3 className="text-xl font-extrabold text-[#064B50]">{activeScenario.title}</h3>
+                    <p className="mt-2 text-sm text-[#202C2B]/75">
+                      {lang === "ID"
+                        ? `${totalAnswered} dari ${questions.length} pertanyaan dijawab.`
+                        : `${totalAnswered} of ${questions.length} questions answered.`}
+                    </p>
 
                     {/* PDF Download Trigger Banner */}
                     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 border border-[#064B50]/15">

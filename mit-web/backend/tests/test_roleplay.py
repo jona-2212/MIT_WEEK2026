@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -97,3 +99,79 @@ async def test_tts_uses_full_text_and_private_post():
         assert again.content == response.content
         assert len(calls) == 4
         assert (await client.get(endpoint)).status_code == 405
+
+
+@pytest.mark.parametrize("variable", ["ELEVEN_LABS", "ELEVENLABS_API_KEY"])
+async def test_elevenlabs_key_alias_from_dotenv(tmp_path, variable):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        ("ELEVEN_LABS=\n" if variable == "ELEVENLABS_API_KEY" else "ELEVENLABS_API_KEY=\n")
+        + f"{variable}=synthetic-tts-key\n"
+    )
+    assert Settings(_env_file=env_file).elevenlabs_key.get_secret_value() == "synthetic-tts-key"
+
+
+async def test_tts_selects_localized_elevenlabs_voice_and_caches():
+    requests = []
+
+    def tts(request):
+        requests.append(request)
+        assert request.url.host == "api.elevenlabs.io"
+        assert request.method == "POST"
+        assert request.headers["xi-api-key"] == "primary-tts-key"
+        assert request.url.params["output_format"] == "mp3_44100_128"
+        body = json.loads(request.content)
+        assert body["model_id"] == "eleven_flash_v2_5"
+        assert body["text"] == "Jeli"
+        return httpx.Response(200, headers={"Content-Type": "audio/mpeg"}, content=b"audio")
+
+    app = create_app(
+        Settings(_env_file=None, eleven_labs="primary-tts-key", elevenlabs_api_key="alternate"),
+        provider_transport=httpx.MockTransport(tts),
+    )
+    async with open_test_client(app) as client:
+        for lang in ("id", "en", "id"):
+            response = await client.post(
+                "/api/v1/roleplay/tts", json={"text": "**Jeli**", "lang": lang}
+            )
+            assert response.status_code == 200
+            assert response.headers["X-Jeli-TTS-Provider"] == "elevenlabs"
+            assert response.content == b"audio"
+    assert len(requests) == 2
+    assert [
+        (r.url.path.rsplit("/", 1)[-1], json.loads(r.content)["language_code"]) for r in requests
+    ] == [
+        ("TMvmhlKUioQA4U7LOoko", "id"),
+        ("JBFqnCBsd6RMkjVDRZzb", "en"),
+    ]
+
+
+async def test_tts_fallback_does_not_hide_elevenlabs_recovery():
+    hosts = []
+
+    def tts(request):
+        hosts.append(request.url.host)
+        if request.url.host == "api.elevenlabs.io" and len(hosts) == 1:
+            return httpx.Response(429)
+        return httpx.Response(200, headers={"Content-Type": "audio/mpeg"}, content=b"audio")
+
+    app = create_app(
+        Settings(_env_file=None, eleven_labs="synthetic-key"),
+        provider_transport=httpx.MockTransport(tts),
+    )
+    async with open_test_client(app) as client:
+        for provider in ("google", "elevenlabs", "elevenlabs"):
+            result = await client.post("/api/v1/roleplay/tts", json={"text": "Uji suara"})
+            assert result.headers["X-Jeli-TTS-Provider"] == provider
+    assert hosts == ["api.elevenlabs.io", "translate.google.com", "api.elevenlabs.io"]
+
+
+async def test_tts_returns_no_content_if_both_providers_fail():
+    app = create_app(
+        Settings(_env_file=None, eleven_labs="synthetic-key"),
+        provider_transport=httpx.MockTransport(lambda _: httpx.Response(503)),
+    )
+    async with open_test_client(app) as client:
+        result = await client.post("/api/v1/roleplay/tts", json={"text": "Uji suara"})
+        assert result.status_code == 204
+        assert "X-Jeli-TTS-Provider" not in result.headers

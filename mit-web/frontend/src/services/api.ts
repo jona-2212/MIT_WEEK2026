@@ -1,5 +1,6 @@
 import type { Language } from "../i18n"
-import { JeliApiError, readApiError } from "./errors"
+import { JeliApiError } from "./errors"
+import { apiRequest } from "./http"
 
 export type RiskCategory = "low" | "medium" | "high" | "insufficient_data"
 export type IndicatorCode =
@@ -40,8 +41,6 @@ export interface JobAnalysisResponse {
   disclaimer: string
 }
 
-const apiUrl = import.meta.env.VITE_AI_API_URL?.trim().replace(/\/+$/, "")
-  || (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")
 export const AHU_COMPANY_SEARCH_URL = "https://ahu.go.id/pencarian/profil-pt/"
 
 export async function analyzeJob({
@@ -57,26 +56,16 @@ export async function analyzeJob({
   lang?: Language
   signal?: AbortSignal
 }): Promise<JobAnalysisResponse> {
-  if (!apiUrl) {
-    throw new JeliApiError("missing_api", lang)
-  }
-
   const body = new FormData()
   if (text) body.append("text", text)
   if (file) body.append("file", file)
   if (url) body.append("url", url)
 
-  const response = await fetch(`${apiUrl}/api/v1/analyze?lang=${lang}`, {
+  const response = await apiRequest(`analyze?lang=${lang}`, lang, {
     method: "POST",
     body,
     signal,
-  }).catch((error: unknown) => {
-    if (signal?.aborted) throw error
-    throw new JeliApiError("network", lang)
   })
-  if (!response.ok) {
-    throw await readApiError(response, lang)
-  }
   const result = (await response.json().catch(() => null)) as JobAnalysisResponse | null
   if (result?.analysis_version !== "recognition-v2" || !result.fraud_assessment || !result.legal_screening) {
     throw new JeliApiError("invalid_response", lang)
