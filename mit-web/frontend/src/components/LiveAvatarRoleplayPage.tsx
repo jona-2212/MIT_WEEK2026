@@ -66,7 +66,7 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
   const [avatarEmotion, setAvatarEmotion] = useState<AvatarEmotion>("happy")
   const [speechError, setSpeechError] = useState("")
 
-  const chatEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const micPermittedRef = useRef<boolean>(false)
@@ -81,9 +81,14 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
     })
   }, [lang])
 
-  // Auto scroll chat to bottom
+  // Auto scroll chat internally to bottom WITHOUT moving or jerking the browser window
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: "smooth",
+      })
+    }
   }, [messages, isLoading])
 
   // Setup Web Speech Recognition (Speech-to-Text: Bicara)
@@ -484,7 +489,7 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
         </div>
 
         {/* Main Grid: Avatar on Left, Interactive Chat on Right */}
-        <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)] items-start">
+        <div className="grid gap-6 lg:grid-cols-[400px_minmax(0,1fr)] items-start">
           {/* LEFT: Animated Avatar Card & Voice Controls */}
           <div className="rounded-3xl border border-[#064B50]/15 bg-white p-6 shadow-sm flex flex-col items-center">
             {/* Dedicated Sahabat Jeli Identity Badge */}
@@ -497,7 +502,7 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
               </span>
             </div>
 
-            {/* THE ANIMATED AVATAR (Mata Kedap-Kedip, Mulut Berbicara, Tangan Bergerak) */}
+            {/* THE ANIMATED AVATAR (Mata Kedap-Kedip, Mulut Berbicara, Tangan Bergerak Simetris & Responsif) */}
             <div className="py-2">
               <JeliAvatar
                 character="jeli"
@@ -587,7 +592,7 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
 
             {/* Speech / Permission Helper & Troubleshooting */}
             {speechError && (
-              <div className="mt-3 w-full rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-900 space-y-2 animate-in fade-in-50">
+              <div className="mt-3 w-full rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-900 space-y-2 animate-in fade-in-50 text-left">
                 <p className="font-bold flex items-center gap-1.5 text-red-700">
                   <span>{lang === "ID" ? "⚠️ Akses Mikrofon" : "⚠️ Microphone Access"}</span>
                 </p>
@@ -651,7 +656,7 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
             </div>
 
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -716,8 +721,6 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
                   </span>
                 </div>
               )}
-
-              <div ref={chatEndRef} />
             </div>
 
             {/* Quick Suggested Chips */}

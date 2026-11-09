@@ -62,17 +62,46 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
   // 3. Hand & body gesture cycle (Tangan bergerak aktif saat berbicara / mendengarkan)
   useEffect(() => {
     const gestureInterval = setInterval(() => {
-      setGestureTick((prev) => (prev + 1) % 100)
-    }, 60)
+      setGestureTick((prev) => (prev >= 100000 ? 0 : prev + 1))
+    }, 30) // 30ms tick for fluid, responsive 33fps animation
     return () => clearInterval(gestureInterval)
   }, [])
 
-  // Dynamic hand rotation and translation based on state
+  // Dynamic symmetrical hand rotation and translation based on state
   const isTalkingOrActive = isSpeaking || emotion === "talking"
-  const leftHandY = isTalkingOrActive ? Math.sin(gestureTick * 0.18) * 10 - 6 : Math.sin(gestureTick * 0.08) * 3
-  const leftHandRot = isTalkingOrActive ? Math.sin(gestureTick * 0.18) * 14 - 15 : Math.sin(gestureTick * 0.08) * 4
-  const rightHandY = isTalkingOrActive ? Math.cos(gestureTick * 0.18) * 10 - 8 : Math.cos(gestureTick * 0.08) * 3
-  const rightHandRot = isTalkingOrActive ? -Math.cos(gestureTick * 0.18) * 14 + 18 : -Math.cos(gestureTick * 0.08) * 4
+
+  let handY = 0
+  let rotAngle = 0
+
+  if (isTalkingOrActive) {
+    // Active, friendly, and lively speaking gestures (both hands mirrored and balanced)
+    const speakPhase = gestureTick * 0.16
+    handY = -4 + Math.sin(speakPhase) * 4
+    rotAngle = 8 + Math.sin(speakPhase) * 10
+  } else if (isListening) {
+    // Attentive welcoming posture when listening to user
+    const listenPhase = gestureTick * 0.08
+    handY = -3 + Math.sin(listenPhase) * 2
+    rotAngle = 5 + Math.sin(listenPhase) * 3
+  } else if (emotion === "warning") {
+    // Protective alert posture when detecting red flags
+    handY = -5
+    rotAngle = 14
+  } else if (emotion === "celebrate" || emotion === "happy") {
+    // Cheerful hands-up wave
+    const happyPhase = gestureTick * 0.18
+    handY = -8 + Math.sin(happyPhase) * 5
+    rotAngle = 16 + Math.sin(happyPhase) * 8
+  } else if (emotion === "thinking") {
+    // Thoughtful posture
+    handY = -2
+    rotAngle = 6
+  } else {
+    // Resting idle breathing wave - fully balanced left & right
+    const idlePhase = gestureTick * 0.08
+    handY = Math.sin(idlePhase) * 2
+    rotAngle = Math.sin(idlePhase) * 3
+  }
 
   const sizeClasses = {
     md: "w-56 h-56",
@@ -151,13 +180,9 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
               transition: "transform 0.1s ease-out",
             }}
           >
-            {/* LEFT HAND (TANGAN KIRI) - Bergerak dinamis seolah-olah hidup */}
+            {/* LEFT HAND (TANGAN KIRI) - Proposional & Simetris Mutlak */}
             <g
-              style={{
-                transform: `translate(${38}px, ${168 + leftHandY}px) rotate(${leftHandRot}deg)`,
-                transformOrigin: "top right",
-                transition: "transform 0.08s ease-out",
-              }}
+              transform={`translate(36, ${168 + handY}) rotate(${-rotAngle}, 36, 19)`}
             >
               {/* Arm & Palm */}
               <path
@@ -171,13 +196,9 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
               <circle cx="2" cy="73" r="4.5" fill={accentHue} />
             </g>
 
-            {/* RIGHT HAND (TANGAN KANAN) - Bergerak aktif saat berbicara / menjelaskan */}
+            {/* RIGHT HAND (TANGAN KANAN) - Proposional & Simetris Mutlak */}
             <g
-              style={{
-                transform: `translate(${275}px, ${168 + rightHandY}px) rotate(${rightHandRot}deg)`,
-                transformOrigin: "top left",
-                transition: "transform 0.08s ease-out",
-              }}
+              transform={`translate(284, ${168 + handY}) rotate(${rotAngle}, -36, 19)`}
             >
               {/* Arm & Palm */}
               <path
