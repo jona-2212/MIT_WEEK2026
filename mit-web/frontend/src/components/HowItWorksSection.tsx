@@ -60,12 +60,16 @@ function ReceiveVisual({ lang, onCheckJobOffer }: { lang: "ID" | "EN"; onCheckJo
         <div className="mb-2 flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-300 bg-emerald-100 text-xs font-bold text-emerald-800">WA</span>
           <div>
-            <p className="text-xs font-bold text-[#202C2B]">HR Recruitment PT Sumber Makmur</p>
+            <p className="text-xs font-bold text-[#202C2B]">{lang === "ID" ? "HR Recruitment PT Sumber Makmur" : "HR Recruitment Global Corp"}</p>
             <p className="text-[10px] text-[#202C2B]/60">{lang === "ID" ? "Pesan belum tersimpan • Baru saja" : "Unstored message • Just now"}</p>
           </div>
         </div>
         <p className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-3 text-xs leading-relaxed text-[#202C2B]/85">
-          &quot;Halo kak Andi! Profil kamu terpilih untuk posisi <strong className="text-[#064B50]">Staff Admin Operasional</strong>. Gaji Rp12.000.000/bulan + WFH. Silakan balas untuk jadwalkan sesi wawancara.&quot;
+          {lang === "ID" ? (
+            <>&quot;Halo kak Andi! Profil kamu terpilih untuk posisi <strong className="text-[#064B50]">Staff Admin Operasional</strong>. Gaji Rp12.000.000/bulan + WFH. Silakan balas untuk jadwalkan sesi wawancara.&quot;</>
+          ) : (
+            <>&quot;Hello Alex! Your profile has been selected for the position of <strong className="text-[#064B50]">Operations Admin Staff</strong>. Salary $4,500/month + WFH. Please reply to schedule your interview session.&quot;</>
+          )}
         </p>
       </div>
       <div className="story-floating-label story-label-receive"><span className="story-pulse-dot" />{lang === "ID" ? "Pesan tawaran masuk" : "Offer message received"}</div>
@@ -91,8 +95,17 @@ function AnalyzeVisual({ lang }: { lang: "ID" | "EN" }) {
         </div>
         <div className="story-scan-sheet relative space-y-2 overflow-hidden rounded-2xl border border-[#064B50]/12 bg-white p-3.5 text-xs text-[#202C2B]">
           <div className="story-scan-line" />
-          <p className="leading-relaxed">...kandidat diwajibkan melakukan <mark className="rounded border border-red-300 bg-red-100 px-1.5 py-0.5 font-bold text-red-800">{lang === "ID" ? "transfer biaya pelatihan Rp250.000" : "transfer a Rp250,000 training fee"}</mark> ke rekening bendahara pribadi...</p>
-          <p className="leading-relaxed">...kandidat <mark className="rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 font-bold text-amber-800">{lang === "ID" ? "langsung diterima tanpa tes teknis" : "accepted without a technical test"}</mark> dan mulai bekerja besok pagi...</p>
+          {lang === "ID" ? (
+            <>
+              <p className="leading-relaxed">...kandidat diwajibkan melakukan <mark className="rounded border border-red-300 bg-red-100 px-1.5 py-0.5 font-bold text-red-800">transfer biaya pelatihan Rp250.000</mark> ke rekening bendahara pribadi...</p>
+              <p className="leading-relaxed">...kandidat <mark className="rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 font-bold text-amber-800">langsung diterima tanpa tes teknis</mark> dan mulai bekerja besok pagi...</p>
+            </>
+          ) : (
+            <>
+              <p className="leading-relaxed">...candidate is required to <mark className="rounded border border-red-300 bg-red-100 px-1.5 py-0.5 font-bold text-red-800">transfer a $250 training fee</mark> to a personal bank account...</p>
+              <p className="leading-relaxed">...candidate is <mark className="rounded border border-amber-300 bg-amber-100 px-1.5 py-0.5 font-bold text-amber-800">accepted without any technical assessment</mark> and starts tomorrow morning...</p>
+            </>
+          )}
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           <span className="story-chip story-chip-danger">🚨 {lang === "ID" ? "Permintaan Biaya di Awal" : "Upfront Fee Request"}</span>

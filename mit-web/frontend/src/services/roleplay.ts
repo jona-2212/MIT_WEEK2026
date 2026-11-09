@@ -72,10 +72,10 @@ async function request<T>(path: string, signal: AbortSignal, body?: unknown): Pr
   return value as T
 }
 
-export async function getScenarios(signal: AbortSignal): Promise<Scenario[]> {
-  const result = await request<Scenario[]>("scenarios", signal)
+export async function getScenarios(signal: AbortSignal, lang: "ID" | "EN" = "ID"): Promise<Scenario[]> {
+  const result = await request<Scenario[]>(`scenarios?lang=${lang.toLowerCase()}`, signal)
   if (!Array.isArray(result) || result.some((s) => s.version !== "roleplay-v1")) {
-    throw new Error("Daftar latihan tidak valid.")
+    throw new Error(lang === "ID" ? "Daftar latihan tidak valid." : "Invalid training scenarios list.")
   }
   return result
 }
@@ -99,3 +99,44 @@ export async function generateCustomScenario(prompt: string, signal: AbortSignal
   }
   return result
 }
+
+export interface ChatMessageItem {
+  id: string
+  role: "user" | "assistant"
+  text: string
+  timestamp: string
+  emotion?: "talking" | "happy" | "warning" | "thinking" | "celebrate"
+}
+
+export interface LiveChatResponse {
+  reply: string
+  emotion: "talking" | "happy" | "warning" | "thinking" | "celebrate"
+  key_takeaway: string
+  suggested_replies: string[]
+}
+
+export async function chatLiveRoleplay(
+  message: string,
+  character: "jeli" | "recruiter",
+  history: { role: "user" | "assistant"; text: string }[],
+  language: "ID" | "EN" = "ID",
+  signal?: AbortSignal
+): Promise<LiveChatResponse> {
+  return request<LiveChatResponse>("chat", signal || new AbortController().signal, {
+    message,
+    character,
+    language,
+    history: history.slice(-6),
+  })
+}
+
+export function getTtsAudioUrl(text: string, lang: "id" | "en" = "id"): string {
+  const clean = text
+    .replace(/https?:\/\/\S+/g, lang === "en" ? "web link" : "tautan web")
+    .replace(/[*_#`~[\]]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+  return `${baseUrl}/api/v1/roleplay/tts?lang=${lang}&text=${encodeURIComponent(clean)}`
+}
+
+

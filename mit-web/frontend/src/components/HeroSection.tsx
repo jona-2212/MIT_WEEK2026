@@ -5,12 +5,14 @@ import { JeliCompanion } from "./JeliCompanion"
 interface HeroSectionProps {
   onCheckJobOffer: () => void
   onExploreHowItWorks: () => void
+  onOpenAvatar?: () => void
   lang: "ID" | "EN"
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   onCheckJobOffer,
   onExploreHowItWorks,
+  onOpenAvatar,
   lang,
 }) => (
   <section className="relative flex min-h-[92vh] items-center overflow-hidden bg-[#F7F7F0] bg-warm-grid pb-20 pt-28 text-[#202C2B]">
@@ -44,7 +46,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </p>
           </div>
 
-          <div className="mb-10 flex w-full flex-col items-stretch gap-3.5 sm:w-auto sm:flex-row sm:items-center">
+          <div className="mb-10 flex w-full flex-col items-stretch gap-3.5 sm:w-auto sm:flex-row sm:items-center sm:flex-wrap">
             <button onClick={onCheckJobOffer} className="group flex items-center justify-center gap-3 rounded-xl bg-[#064B50] px-7 py-3.5 text-base font-extrabold text-white shadow-md transition-all hover:scale-[1.02] hover:bg-[#087F7A]">
               <Search className="h-5 w-5 text-[#B8F000]" />
               {lang === "ID" ? "Cek Tawaran Kerja" : "Check a Job Offer"}
@@ -54,6 +56,23 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               {lang === "ID" ? "Pelajari Cara Kerjanya" : "Explore How It Works"}
               <ArrowDown className="h-4 w-4 text-[#064B50] transition-transform group-hover:translate-y-0.5" />
             </button>
+            {onOpenAvatar && (
+              <button
+                onClick={onOpenAvatar}
+                className="group flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#087F7A]/40 bg-[#EFF7D5]/70 px-5 py-3.5 text-sm font-extrabold text-[#064B50] shadow-2xs transition-all hover:bg-[#EFF7D5] hover:border-[#087F7A]"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#087F7A] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#087F7A]"></span>
+                </span>
+                <span>
+                  {lang === "ID"
+                    ? "Tanya Jeli Live (Voice & Avatar)"
+                    : "Ask Jeli Live (Voice & Avatar)"}
+                </span>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -68,7 +87,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="relative flex w-full max-w-sm flex-col items-center justify-center py-8 sm:py-12">
             {/* Mascot in the Center */}
             <div className="relative z-10 animate-float-slow transition-transform hover:scale-105">
-              <JeliCompanion state="scanning" size="lg" />
+              <JeliCompanion state="scanning" size="lg" onInteract={onOpenAvatar} />
             </div>
 
             {/* Floating Badge 1: Multi-Format (Top-Left) */}

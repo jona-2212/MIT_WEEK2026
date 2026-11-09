@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -9,17 +10,21 @@ import httpx
 
 from app.core.config import Settings
 from app.schemas.roleplay import (
+    ChatMessageHistory,
     MessageItem,
     Moment,
     Outcome,
     QuestionOption,
     Report,
+    RoleplayChatRequest,
+    RoleplayChatResponse,
     RoleplaySession,
     Scenario,
     SimulatorQuestion,
     SkillEvaluation,
     SkillStatus,
 )
+from app.services.scenarios_en import SCENARIOS_DATA_EN
 
 logger = logging.getLogger("job_scam_guardian.roleplay")
 
@@ -726,6 +731,10 @@ SCENARIOS: dict[str, Scenario] = {}
 for s in SCENARIOS_DATA:
     SCENARIOS[s["id"]] = Scenario.model_validate(s)
 
+SCENARIOS_EN: dict[str, Scenario] = {}
+for s in SCENARIOS_DATA_EN:
+    SCENARIOS_EN[s["id"]] = Scenario.model_validate(s)
+
 
 class RoleplayService:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None) -> None:
@@ -733,7 +742,9 @@ class RoleplayService:
         self.client = client or httpx.AsyncClient(timeout=settings.gemini_timeout_seconds)
         self.sessions: dict[str, RoleplaySession] = {}
 
-    def get_scenarios(self) -> list[Scenario]:
+    def get_scenarios(self, lang: str = "id") -> list[Scenario]:
+        if lang.lower() == "en":
+            return list(SCENARIOS_EN.values())
         return list(SCENARIOS.values())
 
     async def generate_custom_scenario(self, user_prompt: str) -> Scenario:
@@ -1024,3 +1035,252 @@ Format output WAJIB JSON murni tanpa markdown dengan skema:
         session.turn_index += 1
         self.sessions[session.session_token] = session
         return session
+
+    async def chat_conversation(self, req: RoleplayChatRequest) -> RoleplayChatResponse:
+        """Endpoint percakapan AI live (voice/text) dengan avatar animasi."""
+        user_msg = req.message.strip().lower()
+
+        # Try Gemini first if key available
+        if bool(self.settings.gemini_api_key.get_secret_value()):
+            try:
+                gemini_resp = await self._call_gemini_chat(req)
+                if gemini_resp:
+                    return gemini_resp
+            except Exception as e:
+                logger.warning(f"Gemini live chat call failed: {e}, falling back to local reasoning.")
+
+        # Smart rule-based conversational fallback
+        return self._generate_fallback_chat_reply(req.message, req.character, req.language)
+
+    async def synthesize_speech(self, text: str, lang: str = "id") -> bytes:
+        """Menghasilkan audio MP3 Text-to-Speech bahasa Indonesia untuk respon suara Jeli."""
+        clean = re.sub(r"https?://\S+", "tautan web", text)
+        clean = re.sub(r"[*_#`~\[\]]", "", clean)
+        clean = re.sub(r"\s+", " ", clean).strip()
+        if not clean:
+            return b""
+
+        cache_key = f"{lang}:{clean[:160]}"
+        if not hasattr(self, "_tts_cache"):
+            self._tts_cache: dict[str, bytes] = {}
+        if cache_key in self._tts_cache:
+            return self._tts_cache[cache_key]
+
+        parts = re.split(r"([.?!,;:]+)", clean)
+        chunks: list[str] = []
+        curr = ""
+        for p in parts:
+            if len(curr) + len(p) < 170:
+                curr += p
+            else:
+                if curr.strip():
+                    chunks.append(curr.strip())
+                curr = p
+        if curr.strip():
+            chunks.append(curr.strip())
+
+        audio_parts: list[bytes] = []
+        try:
+            for c in chunks[:5]:  # max 5 chunks for snappy streaming
+                r = await self.client.get(
+                    "https://translate.google.com/translate_tts",
+                    params={"ie": "UTF-8", "q": c, "tl": lang, "client": "tw-ob"},
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=8.0,
+                )
+                if r.status_code == 200 and r.content:
+                    audio_parts.append(r.content)
+        except Exception as e:
+            logger.warning(f"TTS synthesis network error: {e}")
+
+        result = b"".join(audio_parts)
+        if result and len(self._tts_cache) < 100:
+            self._tts_cache[cache_key] = result
+        return result
+
+    async def _call_gemini_chat(self, req: RoleplayChatRequest) -> RoleplayChatResponse | None:
+        is_en = req.language == "EN"
+        if req.character == "recruiter":
+            system_role = (
+                "You are a Fictitious Recruiter in a job scam roleplay simulation. "
+                "Your goal is to test the candidate's vigilance. Write a short message (max 3 sentences) that sounds polite but deceptive. "
+                "If the user firmly refuses based on labor law or safety, praise their sharpness!"
+                if is_en
+                else "Kamu adalah Perekrut Fiktif dalam simulasi roleplay penipuan lowongan kerja. "
+                "Tujuanmu menguji ketegasan kandidat. Tuliskan pesan pendek (maksimal 3 kalimat) yang ramah tapi licik, "
+                "seperti mendesak konfirmasi, meminta biaya administrasi/seragam, atau meminta data sensitif. "
+                "Jika pengguna menolak dengan tegas berlandaskan hukum, akui kejelian mereka dan berikan pujian!"
+            )
+        else:
+            system_role = (
+                "You are Jeli, an intelligent, friendly, and protective AI career security companion from Job Scam Guardian. "
+                "You speak natural, fluent English. "
+                "Your task is to answer user questions about job offers, detect scam indicators (red flags), "
+                "and provide practical cybersecurity and career safety advice. "
+                "Your response will be read aloud via Text-to-Speech, so keep it to 2-3 concise, well-spoken, informative sentences."
+                if is_en
+                else "Kamu adalah Jeli, maskot AI sahabat pencari kerja yang cerdas, ramah, dan protektif dari Job Scam Guardian. "
+                "Kamu berbicara dalam bahasa Indonesia yang luwes, bersahabat, dan jelas. "
+                "Tugasmu menjawab pertanyaan pengguna mengenai lowongan kerja, mendeteksi indikasi penipuan (red flags), "
+                "dan memberikan saran hukum praktis (misal Permenaker No. 18/2024 atau tips keamanan siber). "
+                "Teks jawabanmu akan dibacakan dengan suara (Text-to-Speech), jadi batasi panjangnya maksimal 2-3 kalimat yang padat, "
+                "sangat enak didengar, dan informatif."
+            )
+
+        history_lines = []
+        for h in req.history[-4:]:
+            role_name = "User" if h.role == "user" else "AI"
+            history_lines.append(f"{role_name}: {h.text}")
+        history_str = "\n".join(history_lines)
+
+        prompt = f"""{system_role}
+
+Format output WAJIB JSON murni tanpa markdown dengan skema:
+{{
+  "reply": "{'Polite, concise response in English (max 2-3 sentences, clean for Text-to-Speech)' if is_en else 'Kalimat balasan santun, lugas, bersahabat (maks 2-3 kalimat, tanpa simbol aneh agar bagus saat dibacakan suara)'}",
+  "emotion": "talking",
+  "key_takeaway": "{'Key takeaway point for the user in English' if is_en else 'Poin kunci penting untuk pengguna'}",
+  "suggested_replies": {['Suggested question 1', 'Suggested question 2'] if is_en else ['Pertanyaan usulan 1', 'Pertanyaan usulan 2']}
+}}
+
+Percakapan sebelumnya:
+{history_str}
+
+Pesan terbaru pengguna: "{req.message}"
+JSON:"""
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.settings.gemini_model}:generateContent"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.5, "responseMimeType": "application/json"},
+        }
+        response = await self.client.post(
+            url,
+            headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
+            json=payload,
+            timeout=12.0,
+        )
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        candidates = data.get("candidates", [])
+        if not candidates:
+            return None
+        text_content = candidates[0]["content"]["parts"][0]["text"]
+        parsed = json.loads(text_content)
+        return RoleplayChatResponse(
+            reply=parsed.get(
+                "reply",
+                "Hello, is there any suspicious job offer you would like us to inspect?"
+                if is_en
+                else "Halo, ada yang bisa saya bantu terkait lowongan kerjamu?",
+            ),
+            emotion=parsed.get("emotion", "talking"),
+            key_takeaway=parsed.get(
+                "key_takeaway",
+                "Always verify corporate legitimacy before proceeding."
+                if is_en
+                else "Selalu verifikasi legalitas perusahaan sebelum melangkah.",
+            ),
+            suggested_replies=parsed.get(
+                "suggested_replies",
+                ["What are common uniform scam signs?", "How to decline politely?", "Test me again!"]
+                if is_en
+                else ["Ciri-ciri penipuan biaya seragam?", "Bagaimana cara menolak yang sopan?", "Uji saya lagi!"],
+            ),
+        )
+
+    def _generate_fallback_chat_reply(
+        self, message: str, character: str, language: str = "ID"
+    ) -> RoleplayChatResponse:
+        low = message.lower()
+        is_en = language == "EN"
+
+        if is_en:
+            if any(w in low for w in ["fee", "money", "uniform", "transfer", "deposit", "pay", "charge"]):
+                return RoleplayChatResponse(
+                    reply="Be extremely cautious! This is a major red flag. Legitimate employers never charge uniform, placement, or administrative fees to applicants. Never transfer funds to personal bank accounts!",
+                    emotion="warning",
+                    key_takeaway="Authentic corporations cover employee onboarding and selection expenses.",
+                    suggested_replies=["How do I decline politely?", "Where should I report scam accounts?", "Test me with another scenario!"],
+                )
+            elif any(w in low for w in ["apk", "file", "download", "link", "invitation", "install"]):
+                return RoleplayChatResponse(
+                    reply="Alert: never install that .APK file! It is banking trojan malware engineered to intercept SMS and OTP credentials. Genuine interview letters are always sent as PDF documents or through official corporate emails.",
+                    emotion="warning",
+                    key_takeaway=".APK files sent via chat apps are malicious tools used to siphon bank accounts.",
+                    suggested_replies=["What should I do if I installed it?", "What does a real invitation look like?", "Give me another safety tip!"],
+                )
+            elif any(w in low for w in ["telegram", "like", "task", "commission", "youtube"]):
+                return RoleplayChatResponse(
+                    reply="Watch out for paid task scams! They initially provide tiny payouts to win your trust, then demand thousands in non-refundable capital deposits. Avoid this scheme completely!",
+                    emotion="warning",
+                    key_takeaway="Task scams lure victims with easy money before demanding large deposits.",
+                    suggested_replies=["Why can't deposit money be withdrawn?", "How do I report task fraud?", "Show me common scam tactics!"],
+                )
+            elif any(w in low for w in ["overseas", "cambodia", "myanmar", "thailand", "visa", "trafficking"]):
+                return RoleplayChatResponse(
+                    reply="High risk alert! Working abroad without an official employment visa carries severe human trafficking risks. Only travel through legally licensed foreign employment agencies.",
+                    emotion="warning",
+                    key_takeaway="Never depart for overseas employment on a tourist visa.",
+                    suggested_replies=["How to verify licensed foreign agencies?", "What are red flags of trafficking?", "Check my job offer!"],
+                )
+            elif any(w in low for w in ["hello", "hi", "hey", "morning", "who are you"]):
+                return RoleplayChatResponse(
+                    reply="Hello! I'm Jeli, your AI career security guardian. You can chat or ask me directly via voice or text about any suspicious job offers. Is there an offer you'd like us to inspect together?",
+                    emotion="happy",
+                    key_takeaway="Jeli is ready to help evaluate job offers anytime via voice and text.",
+                    suggested_replies=["An admin job asks for uniform fees", "How do .APK malware scams work?", "Explain common job scam signs"],
+                )
+            else:
+                return RoleplayChatResponse(
+                    reply="Great question! Whenever evaluating job offers, always remember: never transfer upfront money, never install unknown APKs, and independently verify corporate contact info. What specific details would you like to examine?",
+                    emotion="talking",
+                    key_takeaway="Vigilance at the start protects your career and financial security.",
+                    suggested_replies=["An offer asks to pay for uniforms", "How do fake interview letters look?", "Test my reflexes with a scenario!"],
+                )
+
+        # Default Indonesian fallback
+        if any(w in low for w in ["biaya", "uang", "seragam", "transfer", "deposit", "materai", "bayar"]):
+            return RoleplayChatResponse(
+                reply="Waspada ya! Ini adalah tanda bahaya (red flag) yang sangat nyata. Pasal 11 Permenaker No. 18 Tahun 2024 melarang keras perusahaan memungut biaya penempatan dari pelamar. Jangan transfer uang ke rekening pribadi perorangan!",
+                emotion="warning",
+                key_takeaway="Perusahaan legal menanggung biaya seragam dan proses seleksi kerja.",
+                suggested_replies=["Bagaimana cara menolak yang sopan?", "Cek legalitas rekening di mana?", "Uji saya dengan skenario penipu!"],
+            )
+        elif any(w in low for w in ["apk", "file", "download", "unduh", "undangan", "link"]):
+            return RoleplayChatResponse(
+                reply="Awas, jangan pernah menginstal file berekstensi .APK tersebut! Itu adalah malware pencuri SMS dan OTP perbankan. Surat panggilan kerja resmi selalu dikirim dalam format dokumen PDF atau melalui email korporat perusahaan.",
+                emotion="warning",
+                key_takeaway="File APK di chat adalah modus pencurian data sensitif dan saldo m-banking.",
+                suggested_replies=["Apa yang harus dilakukan jika sudah terlanjur?", "Bagaimana format email resmi?", "Uji saya skenario lain!"],
+            )
+        elif any(w in low for w in ["telegram", "like", "tugas", "misi", "komisi", "youtube"]):
+            return RoleplayChatResponse(
+                reply="Hati-hati dengan modus tugas berbayar (task scam)! Awalnya mereka memberikan komisi kecil Rp20.000 untuk memancing kepercayaan, lalu menuntut deposit jutaan rupiah yang tidak bisa ditarik lagi. Hindari skema ini ya!",
+                emotion="warning",
+                key_takeaway="Skema Ponzi tugas paruh waktu memanfaatkan iming-iming uang cepat.",
+                suggested_replies=["Kenapa uang deposit tidak bisa cair?", "Bagaimana cara melaporkannya?", "Beri saya tips lainnya!"],
+            )
+        elif any(w in low for w in ["luar negeri", "kamboja", "myanmar", "thailand", "tanpa visa", "tppo"]):
+            return RoleplayChatResponse(
+                reply="Perhatian serius! Lowongan kerja luar negeri tanpa visa kerja resmi berisiko tinggi Tindak Pidana Perdagangan Orang (TPPO). Pastikan hanya berangkat lewat P3MI berizin resmi Kemnaker dan tercatat di BP2MI (Call Center: 133).",
+                emotion="warning",
+                key_takeaway="Jangan pernah berangkat bekerja ke luar negeri hanya bermodal visa turis.",
+                suggested_replies=["Apa nomor aduan resmi BP2MI?", "Ciri-ciri agen penyalur resmi?", "Cek tawaran kerja saya!"],
+            )
+        elif any(w in low for w in ["halo", "hai", "selamat", "pagi", "siang", "sore", "malam", "siapa kamu"]):
+            return RoleplayChatResponse(
+                reply="Halo! Saya Jeli, sahabat cerdas penjaga keamanan karirmu. Kamu bisa mengobrol atau bertanya langsung lewat suara dan tulisan tentang tawaran kerja yang mencurigakan. Ada yang ingin kamu ceritakan?",
+                emotion="happy",
+                key_takeaway="Jeli siap membantumu menguji tawaran kerja kapan saja lewat suara dan teks.",
+                suggested_replies=["Ada tawaran admin minta biaya seragam", "Coba tes saya dengan roleplay penipu!", "Jelaskan ciri-ciri lowongan palsu"],
+            )
+        else:
+            return RoleplayChatResponse(
+                reply="Pertanyaan yang sangat bagus! Setiap menerima tawaran kerja, terapkan selalu rumus JELI: Jaga kerahasiaan data, Evaluasi rincian gaji, Lacak legalitas PT, dan Ingat bahwa rekrutmen resmi tidak memungut biaya. Ada detail tawaran yang ingin kita bedah bersama?",
+                emotion="talking",
+                key_takeaway="Kecermatan di awal melindungi masa depan karir dan finansialmu.",
+                suggested_replies=["Ada tawaran disuruh bayar seragam", "Bagaimana modus file .APK?", "Uji saya dengan skenario perekrut!"],
+            )
+

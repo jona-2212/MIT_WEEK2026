@@ -29,7 +29,7 @@ class Scenario(BaseModel):
     title: str
     description: str
     objective: str
-    language: Literal["ID"] = "ID"
+    language: Literal["ID", "EN"] = "ID"
     version: Literal["roleplay-v1"] = "roleplay-v1"
     total_questions: int = 5
     questions: list[SimulatorQuestion] = Field(default_factory=list)
@@ -88,3 +88,23 @@ class TurnRoleplayRequest(BaseModel):
 
 class GenerateCustomScenarioRequest(BaseModel):
     user_prompt: str
+
+
+class ChatMessageHistory(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+
+
+class RoleplayChatRequest(BaseModel):
+    message: str
+    character: Literal["jeli", "recruiter"] = "jeli"
+    language: Literal["ID", "EN"] = "ID"
+    history: list[ChatMessageHistory] = Field(default_factory=list)
+
+
+class RoleplayChatResponse(BaseModel):
+    reply: str
+    emotion: Literal["talking", "happy", "warning", "thinking", "celebrate"] = "talking"
+    key_takeaway: str = ""
+    suggested_replies: list[str] = Field(default_factory=list)
+

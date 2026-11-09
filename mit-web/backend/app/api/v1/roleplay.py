@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 
 from app.schemas.roleplay import (
     GenerateCustomScenarioRequest,
+    RoleplayChatRequest,
+    RoleplayChatResponse,
     RoleplaySession,
     Scenario,
     StartRoleplayRequest,
@@ -16,14 +18,14 @@ router = APIRouter(prefix="/roleplay", tags=["Roleplay"])
     response_model=list[Scenario],
     summary="Daftar skenario latihan roleplay simulasi scam",
 )
-async def list_scenarios(request: Request) -> list[Scenario]:
+async def list_scenarios(request: Request, lang: str = "id") -> list[Scenario]:
     service = getattr(request.app.state, "roleplay_service", None)
     if not service:
         from app.services.roleplay import RoleplayService
 
         service = RoleplayService(request.app.state.settings)
         request.app.state.roleplay_service = service
-    return service.get_scenarios()
+    return service.get_scenarios(lang=lang)
 
 
 @router.post(
@@ -77,3 +79,49 @@ async def create_custom_scenario(
         service = RoleplayService(request.app.state.settings)
         request.app.state.roleplay_service = service
     return await service.generate_custom_scenario(body.user_prompt)
+
+
+@router.post(
+    "/chat",
+    response_model=RoleplayChatResponse,
+    summary="Percakapan AI live (suara/teks) dengan avatar Jeli & roleplay perekrut fiktif",
+)
+async def chat_conversation(
+    request: Request, body: RoleplayChatRequest
+) -> RoleplayChatResponse:
+    service = getattr(request.app.state, "roleplay_service", None)
+    if not service:
+        from app.services.roleplay import RoleplayService
+
+        service = RoleplayService(request.app.state.settings)
+        request.app.state.roleplay_service = service
+    return await service.chat_conversation(body)
+
+
+@router.get(
+    "/tts",
+    summary="Audio streaming Text-to-Speech untuk balasan suara Jeli",
+)
+async def tts_stream(
+    request: Request,
+    text: str,
+    lang: str = "id",
+) -> Response:
+    service = getattr(request.app.state, "roleplay_service", None)
+    if not service:
+        from app.services.roleplay import RoleplayService
+
+        service = RoleplayService(request.app.state.settings)
+        request.app.state.roleplay_service = service
+    audio_bytes = await service.synthesize_speech(text, lang)
+    if not audio_bytes:
+        return Response(status_code=204)
+    return Response(
+        content=audio_bytes,
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Content-Disposition": "inline; filename=speech.mp3",
+        },
+    )
+

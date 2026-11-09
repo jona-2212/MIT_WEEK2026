@@ -7,18 +7,28 @@ import { ScamSimulatorPreviewSection } from "./components/ScamSimulatorPreviewSe
 import Footer from "./components/Footer"
 import { JobOfferCheckerPage } from "./components/JobOfferCheckerPage"
 import { ScamSimulatorPage } from "./components/ScamSimulatorPage"
+import { LiveAvatarRoleplayPage } from "./components/LiveAvatarRoleplayPage"
 import type { Language } from "./i18n"
 
-export type Page = "home" | "checker" | "simulator"
+export type Page = "home" | "checker" | "simulator" | "avatar"
 
 function pageFromHash(): Page {
   const hash = window.location.hash.replace("#", "")
-  return hash === "checker" || hash === "simulator" ? hash : "home"
+  if (hash === "checker" || hash === "simulator" || hash === "avatar" || hash === "roleplay") {
+    return hash === "roleplay" ? "avatar" : (hash as Page)
+  }
+  return "home"
 }
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>(pageFromHash)
-  const [lang, setLang] = useState<Language>("ID")
+  const [lang, setLang] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem("jeli_lang")
+      if (saved === "EN" || saved === "ID") return saved
+    } catch {}
+    return "ID"
+  })
 
   useEffect(() => {
     const handleHashChange = () => setActivePage(pageFromHash())
@@ -34,6 +44,17 @@ export default function App() {
     setActivePage(page)
     window.history.pushState(null, "", page === "home" ? window.location.pathname : `#${page}`)
   }
+
+  const handleToggleLang = () => {
+    setLang((prev) => {
+      const next: Language = prev === "ID" ? "EN" : "ID"
+      try {
+        localStorage.setItem("jeli_lang", next)
+      } catch {}
+      return next
+    })
+  }
+
   const scrollTo = (id: string) => {
     if (activePage !== "home") {
       setActivePage("home")
@@ -45,18 +66,38 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F7F7F0] font-sans text-[#202C2B]">
-      <Navbar activePage={activePage} onNavigate={navigate} lang={lang} onToggleLang={() => setLang((value) => value === "ID" ? "EN" : "ID")} />
+      <Navbar
+        activePage={activePage}
+        onNavigate={navigate}
+        lang={lang}
+        onToggleLang={handleToggleLang}
+      />
       {activePage === "home" ? (
         <main>
-          <HeroSection onCheckJobOffer={() => navigate("checker")} onExploreHowItWorks={() => scrollTo("how-it-works")} lang={lang} />
+          <HeroSection
+            onCheckJobOffer={() => navigate("checker")}
+            onExploreHowItWorks={() => scrollTo("how-it-works")}
+            onOpenAvatar={() => navigate("avatar")}
+            lang={lang}
+          />
           <HowItWorksSection onCheckJobOffer={() => navigate("checker")} lang={lang} />
           <KnowTheScamsSection onCheckJobOffer={() => navigate("checker")} lang={lang} />
           <ScamSimulatorPreviewSection onStartSimulation={() => navigate("simulator")} lang={lang} />
         </main>
       ) : activePage === "checker" ? (
         <JobOfferCheckerPage onBackToHome={() => navigate("home")} onNavigate={navigate} lang={lang} />
+      ) : activePage === "simulator" ? (
+        <ScamSimulatorPage
+          onBackToHome={() => navigate("home")}
+          onOpenAvatar={() => navigate("avatar")}
+          lang={lang}
+        />
       ) : (
-        <ScamSimulatorPage onBackToHome={() => navigate("home")} lang={lang} />
+        <LiveAvatarRoleplayPage
+          onBackToHome={() => navigate("home")}
+          onOpenSimulator={() => navigate("simulator")}
+          lang={lang}
+        />
       )}
       <Footer onNavigate={navigate} onScrollTo={scrollTo} lang={lang} />
     </div>

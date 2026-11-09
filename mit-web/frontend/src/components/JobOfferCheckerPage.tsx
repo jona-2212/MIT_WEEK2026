@@ -297,9 +297,16 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
   }, [image])
 
   const inputText = mode === "image" ? imageDescription.trim() : (mode === "url" ? urlNote.trim() : text.trim())
-  const targetUrl = mode === "url" ? url.trim() : undefined
+  const normalizedUrl = url.trim()
+    ? (/^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`)
+    : undefined
+  const targetUrl = mode === "url" ? normalizedUrl : undefined
   const file = mode === "image" ? image?.file : undefined
   const hasInput = Boolean(inputText || file || targetUrl)
+  const isTextALink = Boolean(
+    text.trim().startsWith("http") ||
+    /^(?:www\.|[a-zA-Z0-9-]+\.(?:co\.id|com|id|org|net|site|xyz))/i.test(text.trim())
+  )
 
   const handleAnalyze = async () => {
     if (isScanning || !hasInput) return
@@ -462,7 +469,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                   }
                   className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-4 text-sm leading-relaxed outline-none focus:border-[#064B50] focus:bg-white transition-colors"
                 />
-                {text.trim().startsWith("http") && (
+                {isTextALink && (
                   <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-[#064B50]/20 bg-[#064B50]/5 p-2.5 text-xs text-[#064B50]">
                     <Globe className="h-4 w-4 shrink-0 text-[#087F7A]" />
                     <span>

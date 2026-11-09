@@ -322,7 +322,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                     {cur.badge}
                   </span>
                   <span className="text-xs text-[#202C2B]/60 font-mono">
-                    Simulasi Kasus Nyata
+                    {lang === "ID" ? "Simulasi Kasus Nyata" : "Real Case Simulation"}
                   </span>
                 </div>
 
@@ -334,19 +334,33 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                         💸
                       </div>
                       <p className="text-xs text-[#202C2B]/70">
-                        Total Tagihan Administrasi Seragam:
+                        {lang === "ID"
+                          ? "Total Tagihan Administrasi Seragam:"
+                          : "Total Uniform Administration Invoice:"}
                       </p>
                       <p className="text-2xl font-black text-red-700 font-mono my-1">
-                        Rp350.000
+                        {lang === "ID" ? "Rp350.000" : "$350"}
                       </p>
                       <p className="text-[11px] text-[#202C2B]/60 font-mono">
-                        BCA: 8820-9123-4512 a.n. RAHMAT (Pribadi)
+                        {lang === "ID"
+                          ? "BCA: 8820-9123-4512 a.n. RAHMAT (Pribadi)"
+                          : "Wire: 8820-9123-4512 c/o RAHMAT (Personal)"}
                       </p>
                     </div>
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
-                      🚨 <strong>Jebakan:</strong> Menyebut uang seragam{" "}
-                      &quot;pasti direfund hari pertama&quot;. Begitu transfer,
-                      kontak langsung diblokir.
+                      {lang === "ID" ? (
+                        <>
+                          🚨 <strong>Jebakan:</strong> Menyebut uang seragam{" "}
+                          &quot;pasti direfund hari pertama&quot;. Begitu transfer,
+                          kontak langsung diblokir.
+                        </>
+                      ) : (
+                        <>
+                          🚨 <strong>Trap:</strong> Promises uniform fee{" "}
+                          &quot;guaranteed refund on day one&quot;. Once transferred,
+                          you are immediately blocked.
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -357,27 +371,36 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                     <div className="bg-white border border-amber-200 rounded-2xl p-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-amber-800">
-                          Loker Paruh Waktu Viral
+                          {lang === "ID" ? "Loker Paruh Waktu Viral" : "Viral Part-Time Vacancy"}
                         </span>
                         <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold border border-amber-200">
-                          Tanpa Syarat
+                          {lang === "ID" ? "Tanpa Syarat" : "No Requirements"}
                         </span>
                       </div>
                       <h4 className="text-base font-extrabold text-[#202C2B]">
-                        Misi Like & Subscribe Video
+                        {lang === "ID" ? "Misi Like & Subscribe Video" : "Like & Subscribe Video Task"}
                       </h4>
                       <p className="text-xl font-black text-[#087F7A] font-mono mt-1">
-                        Rp500.000 - Rp1.200.000 / Hari
+                        {lang === "ID" ? "Rp500.000 - Rp1.200.000 / Hari" : "$50 - $120 / Day"}
                       </p>
                       <p className="text-[11px] text-[#202C2B]/80 mt-2">
-                        &quot;Tugas pertama gratis cair Rp20.000. Untuk ambil
-                        tugas VIP, silakan transfer deposit modal
-                        Rp1.500.000.&quot;
+                        {lang === "ID"
+                          ? '"Tugas pertama gratis cair Rp20.000. Untuk ambil tugas VIP, silakan transfer deposit modal Rp1.500.000."'
+                          : '"First task pays $20 instantly. To unlock VIP high-tier tasks, transfer a $150 capital deposit."'}
                       </p>
                     </div>
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
-                      🚨 <strong>Jebakan:</strong> Modus Ponzi Task Scam. Uang
-                      deposit besar tidak akan pernah bisa ditarik kembali.
+                      {lang === "ID" ? (
+                        <>
+                          🚨 <strong>Jebakan:</strong> Modus Ponzi Task Scam. Uang
+                          deposit besar tidak akan pernah bisa ditarik kembali.
+                        </>
+                      ) : (
+                        <>
+                          🚨 <strong>Trap:</strong> Ponzi Task Scam tactic. Large
+                          deposit funds can never be withdrawn.
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -391,23 +414,39 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                         <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                         <span className="text-[10px] text-[#202C2B]/60 font-mono ml-2">
-                          https://rekrutmen-pertamina.site/tes
+                          {lang === "ID"
+                            ? "https://rekrutmen-pertamina.site/tes"
+                            : "https://recruitment-globalcorp.site/test"}
                         </span>
                       </div>
                       <p className="text-xs font-bold text-[#202C2B] mb-1">
-                        Pengirim: Panitia Seleksi BUMN
+                        {lang === "ID"
+                          ? "Pengirim: Panitia Seleksi BUMN"
+                          : "Sender: Enterprise Selection Committee"}
                       </p>
                       <p className="text-[11px] text-red-700 font-mono bg-red-50 p-2 rounded-lg border border-red-200">
-                        Email: hrd.pertamina.rekrut@gmail.com ❌
+                        {lang === "ID"
+                          ? "Email: hrd.pertamina.rekrut@gmail.com ❌"
+                          : "Email: hrd.globalcorp.recruit@gmail.com ❌"}
                       </p>
                       <p className="text-[11px] text-[#202C2B]/75 mt-2">
-                        Lampiran PDF surat panggilan dengan logo BUMN buram
-                        beresolusi rendah.
+                        {lang === "ID"
+                          ? "Lampiran PDF surat panggilan dengan logo BUMN buram beresolusi rendah."
+                          : "PDF invitation attachment featuring a blurry, low-resolution enterprise logo."}
                       </p>
                     </div>
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
-                      🚨 <strong>Jebakan:</strong> Pencatutan nama korporasi
-                      besar untuk menipu lewat tiket travel fiktif.
+                      {lang === "ID" ? (
+                        <>
+                          🚨 <strong>Jebakan:</strong> Pencatutan nama korporasi
+                          besar untuk menipu lewat tiket travel fiktif.
+                        </>
+                      ) : (
+                        <>
+                          🚨 <strong>Trap:</strong> Impersonating reputable corporations
+                          to scam candidates through fake travel agency bookings.
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -418,31 +457,42 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                     <div className="bg-white border border-[#064B50]/12 rounded-2xl p-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-[#202C2B]">
-                          Formulir Verifikasi Berkas Awal
+                          {lang === "ID"
+                            ? "Formulir Verifikasi Berkas Awal"
+                            : "Initial File Verification Form"}
                         </span>
                         <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold border border-red-200">
-                          Wajib Diisi
+                          {lang === "ID" ? "Wajib Diisi" : "Required"}
                         </span>
                       </div>
                       <div className="space-y-2 text-xs text-[#202C2B] mt-2">
                         <div className="p-2 rounded bg-[#F7F7F0] border border-[#064B50]/10 flex justify-between">
                           <span>{lang === "ID" ? "Upload Foto KTP Asli:" : "Upload Original ID Photo:"}</span>
-                          <span className="text-red-600 font-bold">*Wajib</span>
+                          <span className="text-red-600 font-bold">{lang === "ID" ? "*Wajib" : "*Required"}</span>
                         </div>
                         <div className="p-2 rounded bg-[#F7F7F0] border border-[#064B50]/10 flex justify-between">
                           <span>{lang === "ID" ? "Foto Selfie Pegang KTP:" : "Selfie Holding ID:"}</span>
-                          <span className="text-red-600 font-bold">*Wajib</span>
+                          <span className="text-red-600 font-bold">{lang === "ID" ? "*Wajib" : "*Required"}</span>
                         </div>
                         <div className="p-2 rounded bg-[#F7F7F0] border border-[#064B50]/10 flex justify-between">
                           <span>{lang === "ID" ? "Ibu Kandung & Rekening:" : "Mother's Name & Bank Account:"}</span>
-                          <span className="text-red-600 font-bold">*Wajib</span>
+                          <span className="text-red-600 font-bold">{lang === "ID" ? "*Wajib" : "*Required"}</span>
                         </div>
                       </div>
                     </div>
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
-                      🚨 <strong>Jebakan:</strong> Data KYC dijual atau
-                      digunakan untuk mencairkan pinjaman online ilegal atas
-                      nama pelamar.
+                      {lang === "ID" ? (
+                        <>
+                          🚨 <strong>Jebakan:</strong> Data KYC dijual atau
+                          digunakan untuk mencairkan pinjaman online ilegal atas
+                          nama pelamar.
+                        </>
+                      ) : (
+                        <>
+                          🚨 <strong>Trap:</strong> KYC identity data is sold or
+                          weaponized to take out illegal online loans under the applicant&apos;s name.
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -454,21 +504,31 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                       <div className="flex items-center justify-center gap-2 text-red-700 mb-1">
                         <Clock className="w-5 h-5 animate-spin" />
                         <span className="text-xs font-bold uppercase tracking-wider">
-                          BATAS WAKTU SELEKSI
+                          {lang === "ID" ? "BATAS WAKTU SELEKSI" : "SELECTION DEADLINE"}
                         </span>
                       </div>
                       <p className="text-3xl font-black text-red-700 font-mono my-2 animate-pulse">
                         00:27:14
                       </p>
                       <p className="text-xs text-[#202C2B]/80">
-                        &quot;Sisa 1 slot lagi! Segera konfirmasi sekarang atau
-                        nama Anda dibatalkan permanen.&quot;
+                        {lang === "ID"
+                          ? '"Sisa 1 slot lagi! Segera konfirmasi sekarang atau nama Anda dibatalkan permanen."'
+                          : '"Only 1 slot left! Confirm now or your placement will be permanently cancelled."'}
                       </p>
                     </div>
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
-                      🚨 <strong>Jebakan:</strong> Menggunakan teknik rekayasa
-                      sosial agar korban panik dan tidak sempat bertanya ke
-                      orang lain.
+                      {lang === "ID" ? (
+                        <>
+                          🚨 <strong>Jebakan:</strong> Menggunakan teknik rekayasa
+                          sosial agar korban panik dan tidak sempat bertanya ke
+                          orang lain.
+                        </>
+                      ) : (
+                        <>
+                          🚨 <strong>Trap:</strong> Uses psychological urgency
+                          so victims panic without consulting others or verifying facts.
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -476,7 +536,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                 {/* Realistic Scam Quote Box */}
                 <div className="mt-4 p-3 bg-white border border-[#064B50]/12 rounded-xl text-xs text-[#202C2B]/80 italic">
                   <span className="not-italic font-bold text-[#064B50] block mb-1">
-                    Contoh Pesan Penipu:
+                    {lang === "ID" ? "Contoh Pesan Penipu:" : "Scammer Message Example:"}
                   </span>
                   {cur.sampleQuote}
                 </div>
@@ -487,7 +547,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
             <div className="lg:col-span-6 flex flex-col items-start text-left">
               {/* Scam Title & Tagline */}
               <span className="text-xs font-extrabold uppercase tracking-wider text-[#087F7A] mb-1">
-                KATEGORI MODUS
+                {lang === "ID" ? "KATEGORI MODUS" : "TACTIC CATEGORY"}
               </span>
               <h3 className="text-2xl sm:text-3xl font-extrabold text-[#064B50] tracking-tight mb-2">
                 {cur.title}

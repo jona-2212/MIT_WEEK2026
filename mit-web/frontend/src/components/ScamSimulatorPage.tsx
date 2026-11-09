@@ -13,6 +13,7 @@ import {
   Lightbulb,
   LoaderCircle,
   MessageCircle,
+  Mic,
   RotateCcw,
   ShieldAlert,
   Sparkles,
@@ -32,10 +33,11 @@ import { generateSimulatorPdf, type UserAnswerRecord } from "../utils/generateSi
 
 interface Props {
   onBackToHome: () => void
+  onOpenAvatar?: () => void
   lang: "ID" | "EN"
 }
 
-const customTemplates = [
+const customTemplatesId = [
   "Tawaran barista kopi disuruh bayar uang materai & jaminan seragam Rp75.000",
   "Admin media sosial freelance diminta kirim foto selfie memegang KTP",
   "Pekerjaan ketik dokumen manual tapi harus bayar biaya aktivasi akun Rp100.000",
@@ -43,10 +45,18 @@ const customTemplates = [
   "Tawaran kerja remote gaji dolar tapi disuruh deposit kripto untuk buka dompet kerja",
 ]
 
+const customTemplatesEn = [
+  "Barista offer demanding $50 uniform deposit & document stamp fee",
+  "Freelance social media admin requested to submit selfie holding government ID",
+  "Document typing job requiring $80 upfront account activation fee",
+  "Cruise ship interview requiring flight tickets booked via designated travel partner",
+  "Remote dollar-salary job demanding crypto deposit to unlock working wallet",
+]
+
 const button =
   "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#087F7A] disabled:cursor-not-allowed disabled:opacity-50"
 
-export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
+export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [selectedId, setSelectedId] = useState("")
   const [loading, setLoading] = useState(true)
@@ -66,7 +76,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
   // PDF Download feedback
   const [downloadingPdf, setDownloadingPdf] = useState(false)
 
-  // Custom Modal Pop-up State (Replaces native browser alert & confirm)
+  // Custom Modal Pop-up State
   const [modalDialog, setModalDialog] = useState<{
     isOpen: boolean
     title: string
@@ -86,7 +96,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
       isOpen: true,
       title,
       message,
-      confirmText: "Mengerti",
+      confirmText: lang === "ID" ? "Mengerti" : "Understood",
       variant,
     })
   }
@@ -94,8 +104,8 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
   function showConfirmDialog({
     title,
     message,
-    confirmText = "Lanjutkan",
-    cancelText = "Batal",
+    confirmText = lang === "ID" ? "Lanjutkan" : "Continue",
+    cancelText = lang === "ID" ? "Batal" : "Cancel",
     variant = "warning",
     onConfirm,
   }: {
@@ -121,38 +131,53 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
     setModalDialog((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const activeScenario = scenarios.find((s) => s.id === selectedId) || scenarios[0]
-  const questions: SimulatorQuestion[] = activeScenario?.questions || []
-  const activeQuestion: SimulatorQuestion | undefined = questions[currentQuestionIdx]
-  const currentAnswer = answers[currentQuestionIdx]
-
+  // Fetch scenarios whenever language toggles
   useEffect(() => {
     const controller = new AbortController()
-    getScenarios(controller.signal)
+    setLoading(true)
+    getScenarios(controller.signal, lang)
       .then((items) => {
         if (controller.signal.aborted) return
         setScenarios(items)
         if (items.length > 0) {
-          setSelectedId(items[0].id)
+          setSelectedId((prev) => {
+            if (prev && items.some((i) => i.id === prev)) return prev
+            return items[0].id
+          })
         }
         setError("")
       })
       .catch((e: unknown) => {
-        if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Gagal memuat latihan.")
+        if (!controller.signal.aborted)
+          setError(
+            e instanceof Error
+              ? e.message
+              : lang === "ID"
+              ? "Gagal memuat latihan."
+              : "Failed to load practice scenarios."
+          )
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [])
+  }, [lang])
+
+  const activeScenario = scenarios.find((s) => s.id === selectedId) || scenarios[0]
+  const questions: SimulatorQuestion[] = activeScenario?.questions || []
+  const activeQuestion: SimulatorQuestion | undefined = questions[currentQuestionIdx]
+  const currentAnswer = answers[currentQuestionIdx]
 
   function handleSelectScenario(id: string) {
     if (Object.keys(answers).length > 0 && !isFinished) {
       showConfirmDialog({
-        title: "Ganti Skenario Latihan?",
-        message: "Berpindah ke skenario lain akan mereset progres latihan yang sedang berjalan. Apakah kamu yakin ingin berganti latihan?",
-        confirmText: "Ya, Ganti Skenario",
-        cancelText: "Lanjutkan Latihan Ini",
+        title: lang === "ID" ? "Ganti Skenario Latihan?" : "Switch Practice Scenario?",
+        message:
+          lang === "ID"
+            ? "Berpindah ke skenario lain akan mereset progres latihan yang sedang berjalan. Apakah kamu yakin ingin berganti latihan?"
+            : "Switching to another scenario will reset your current practice progress. Are you sure you want to switch?",
+        confirmText: lang === "ID" ? "Ya, Ganti Skenario" : "Yes, Switch Scenario",
+        cancelText: lang === "ID" ? "Lanjutkan Latihan Ini" : "Continue Current Practice",
         variant: "warning",
         onConfirm: () => {
           setSelectedId(id)
@@ -218,17 +243,22 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
   function handleEndSimulation() {
     if (Object.keys(answers).length === 0) {
       showAlertDialog(
-        "Latihan Belum Dimulai",
-        "Kamu belum memilih respons pada pertanyaan ini. Silakan pilih salah satu opsi terlebih dahulu sebelum mengakhiri latihan.",
+        lang === "ID" ? "Latihan Belum Dimulai" : "Practice Not Started",
+        lang === "ID"
+          ? "Kamu belum memilih respons pada pertanyaan ini. Silakan pilih salah satu opsi terlebih dahulu sebelum mengakhiri latihan."
+          : "You haven't selected a response yet. Please pick an option first before ending the session.",
         "info"
       )
       return
     }
     showConfirmDialog({
-      title: "Akhiri Latihan Sekarang?",
-      message: `Kamu telah menyelesaikan ${totalAnswered} dari ${questions.length} pertanyaan. Apakah kamu ingin menyudahi sesi sekarang dan melihat evaluasi hasil latihanmu?`,
-      confirmText: "Ya, Akhiri & Lihat Rapor",
-      cancelText: "Lanjutkan Latihan",
+      title: lang === "ID" ? "Akhiri Latihan Sekarang?" : "End Practice Now?",
+      message:
+        lang === "ID"
+          ? `Kamu telah menyelesaikan ${totalAnswered} dari ${questions.length} pertanyaan. Apakah kamu ingin menyudahi sesi sekarang dan melihat evaluasi hasil latihanmu?`
+          : `You have completed ${totalAnswered} of ${questions.length} questions. Do you want to finish now and view your evaluation report?`,
+      confirmText: lang === "ID" ? "Ya, Akhiri & Lihat Rapor" : "Yes, Finish & View Report",
+      cancelText: lang === "ID" ? "Lanjutkan Latihan" : "Continue Practice",
       variant: "danger",
       onConfirm: () => {
         closeModalDialog()
@@ -261,8 +291,10 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
     } catch (e) {
       console.error("PDF generation failed:", e)
       showAlertDialog(
-        "Gagal Mengunduh Dokumen",
-        "Terjadi kendala saat menghasilkan berkas PDF di browsermu. Silakan coba kembali beberapa saat lagi.",
+        lang === "ID" ? "Gagal Mengunduh Dokumen" : "Failed to Download Document",
+        lang === "ID"
+          ? "Terjadi kendala saat menghasilkan berkas PDF di browsermu. Silakan coba kembali beberapa saat lagi."
+          : "An error occurred while generating the PDF in your browser. Please try again shortly.",
         "warning"
       )
     } finally {
@@ -289,7 +321,13 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
       setCustomPrompt("")
       window.scrollTo({ top: 120, behavior: "smooth" })
     } catch (err: unknown) {
-      setCustomError(err instanceof Error ? err.message : "Gagal membuat skenario AI. Pastikan backend aktif.")
+      setCustomError(
+        err instanceof Error
+          ? err.message
+          : lang === "ID"
+          ? "Gagal membuat skenario AI. Pastikan backend aktif."
+          : "Failed to create AI scenario. Ensure backend is running."
+      )
     } finally {
       setGeneratingCustom(false)
     }
@@ -299,40 +337,61 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
   const totalAnswered = answeredList.length
   const correctCount = answeredList.filter((a) => a.isCorrect).length
   const scorePercent = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0
+  const customTemplates = lang === "EN" ? customTemplatesEn : customTemplatesId
 
   return (
     <main className="min-h-screen bg-warm-grid px-4 pb-24 pt-28 text-[#202C2B]">
       <div className="mx-auto max-w-5xl">
-        {/* Navigation back */}
-        <button onClick={onBackToHome} className={`${button} mb-6 px-0 text-[#064B50] hover:text-[#087F7A]`}>
-          <ArrowLeft size={17} /> {lang === "ID" ? "Kembali ke Beranda" : "Back to Homepage"}
-        </button>
+        {/* Navigation back & Switch to Live Avatar */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <button onClick={onBackToHome} className={`${button} px-0 text-[#064B50] hover:text-[#087F7A]`}>
+            <ArrowLeft size={17} /> {lang === "ID" ? "Kembali ke Beranda" : "Back to Homepage"}
+          </button>
+
+          {onOpenAvatar && (
+            <button
+              onClick={onOpenAvatar}
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#064B50] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#087F7A] transition-all"
+            >
+              <Mic size={15} className="text-[#B8F000]" />
+              <span>
+                {lang === "ID"
+                  ? "Coba Tanya Jeli Live (Voice & Avatar)"
+                  : "Try Ask Jeli Live (Voice & Avatar)"}
+              </span>
+              <ArrowRight size={14} />
+            </button>
+          )}
+        </div>
 
         {/* Header */}
         <header className="mb-8 max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF7D5] px-3.5 py-1 text-xs font-extrabold uppercase tracking-widest text-[#064B50]">
             <Sparkles size={14} className="text-[#087F7A]" />
-            Jeli Lakon · Simulator Scam Interaktif
+            {lang === "ID" ? "Jeli Lakon · Simulator Scam Interaktif" : "Jeli Lakon · Interactive Scam Simulator"}
           </div>
           <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#064B50] sm:text-4xl">
-            Latih refleksmu menghadapi modus penipuan kerja.
+            {lang === "ID"
+              ? "Latih refleksmu menghadapi modus penipuan kerja."
+              : "Train your reflexes against deceptive job scam tactics."}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#202C2B]/75">
-            Setiap modul menyajikan <strong>studi kasus nyata</strong> beserta kemungkinan skenario dari penipu.
-            Pilih responsmu di setiap pertanyaan, pelajari analisis benar/salah dan deskripsi jawaban yang baik, lalu unduh rapor lengkapmu dalam format PDF.
+            {lang === "ID"
+              ? "Setiap modul menyajikan studi kasus nyata beserta kemungkinan skenario dari penipu. Pilih responsmu di setiap pertanyaan, pelajari analisis benar/salah dan deskripsi jawaban yang baik, lalu unduh rapor lengkapmu dalam format PDF."
+              : "Each module presents a real-world case study and possible scammer tactics. Choose your response at each stage, learn instant right/wrong analysis with good answer guides, and download your comprehensive report card in PDF format."}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-[#087F7A]">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> 5 Modul Studi Kasus Siap Pakai
+              <CheckCircle2 size={15} /> {lang === "ID" ? "5 Modul Studi Kasus Siap Pakai" : "5 Ready-to-Play Case Studies"}
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> Generator Kasus Mandiri (AI)
+              <CheckCircle2 size={15} /> {lang === "ID" ? "Generator Kasus Mandiri (AI)" : "AI Custom Case Generator"}
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> Evaluasi Benar & Salah Seketika
+              <CheckCircle2 size={15} /> {lang === "ID" ? "Evaluasi Benar & Salah Seketika" : "Instant Right & Wrong Feedback"}
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> Unduh Laporan PDF
+              <CheckCircle2 size={15} /> {lang === "ID" ? "Unduh Laporan PDF" : "Download PDF Report"}
             </span>
           </div>
         </header>
@@ -340,10 +399,9 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
         {loading ? (
           <div className="flex items-center justify-center gap-3 py-16 text-sm font-semibold text-[#064B50]">
             <LoaderCircle className="animate-spin text-[#087F7A]" size={24} />
-            <span>Memuat data simulasi latihan…</span>
+            <span>{lang === "ID" ? "Memuat data simulasi latihan…" : "Loading simulation exercises…"}</span>
           </div>
         ) : (
-          /* Notice items-start to prevent empty stretching! */
           <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] items-start">
             {/* Left Sidebar: Scenario Selector & AI Custom Creator */}
             <aside aria-label="Pilih skenario" className="space-y-3">
@@ -353,7 +411,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                 className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#087F7A]/40 bg-[#EFF7D5]/70 p-4 text-xs font-extrabold text-[#064B50] shadow-2xs transition-all hover:border-[#087F7A] hover:bg-[#EFF7D5]"
               >
                 <Wand2 size={16} className="text-[#087F7A]" />
-                <span>+ Buat Skenario Sendiri (AI)</span>
+                <span>{lang === "ID" ? "+ Buat Skenario Sendiri (AI)" : "+ Create Custom Scenario (AI)"}</span>
               </button>
 
               <div className="space-y-2.5">
@@ -375,14 +433,20 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-75">
-                          {isCustom ? "✨ KASUS KUSTOM AI" : `MODUL 0${index + 1}`}
+                          {isCustom
+                            ? lang === "ID"
+                              ? "✨ KASUS KUSTOM AI"
+                              : "✨ AI CUSTOM CASE"
+                            : lang === "ID"
+                            ? `MODUL 0${index + 1}`
+                            : `MODULE 0${index + 1}`}
                         </span>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                             isSelected ? "bg-[#B8F000] text-[#064B50]" : "bg-[#F7F7F0] text-[#064B50]"
                           }`}
                         >
-                          {qCount} Pertanyaan
+                          {qCount} {lang === "ID" ? "Pertanyaan" : "Questions"}
                         </span>
                       </div>
                       <h2 className="mt-1.5 text-sm font-bold leading-snug">{item.title}</h2>
@@ -393,7 +457,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
               </div>
             </aside>
 
-            {/* Right: Main Simulator Arena (No justify-between, natural flow!) */}
+            {/* Right: Main Simulator Arena */}
             <section className="min-w-0 overflow-hidden rounded-3xl border border-[#064B50]/15 bg-white shadow-sm flex flex-col">
               {/* Top Banner Bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#064B50]/10 bg-[#FAFBF6] px-5 py-4">
@@ -403,12 +467,16 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   </span>
                   <div>
                     <p className="text-xs font-extrabold text-[#064B50]">
-                      {activeScenario?.title || "Simulasi Penipuan Kerja"}
+                      {activeScenario?.title || (lang === "ID" ? "Simulasi Penipuan Kerja" : "Job Scam Simulation")}
                     </p>
                     <p className="text-[11px] text-[#202C2B]/60">
                       {!isFinished && questions.length > 0
-                        ? `Pertanyaan ${currentQuestionIdx + 1} dari ${questions.length}`
-                        : "Laporan Evaluasi Keputusan"}
+                        ? lang === "ID"
+                          ? `Pertanyaan ${currentQuestionIdx + 1} dari ${questions.length}`
+                          : `Question ${currentQuestionIdx + 1} of ${questions.length}`
+                        : lang === "ID"
+                        ? "Laporan Evaluasi Keputusan"
+                        : "Decision Evaluation Report"}
                     </p>
                   </div>
                 </div>
@@ -418,7 +486,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                     onClick={handleEndSimulation}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
                   >
-                    <StopCircle size={14} /> Akhiri Latihan
+                    <StopCircle size={14} /> {lang === "ID" ? "Akhiri Latihan" : "End Practice"}
                   </button>
                 )}
               </div>
@@ -432,11 +500,17 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                       <div className="flex items-center gap-2">
                         <BookOpen size={16} className="text-[#087F7A]" />
                         <span className="text-xs font-extrabold uppercase tracking-wider text-[#064B50]">
-                          Studi Kasus: {activeScenario?.title}
+                          {lang === "ID" ? "Studi Kasus:" : "Case Study:"} {activeScenario?.title}
                         </span>
                       </div>
                       <span className="rounded-full bg-[#EFF7D5] px-2.5 py-0.5 text-[10px] font-bold text-[#064B50]">
-                        {activeScenario?.id.startsWith("custom-") ? "Kasus Pengguna" : "Studi Kasus Resmi"}
+                        {activeScenario?.id.startsWith("custom-")
+                          ? lang === "ID"
+                            ? "Kasus Pengguna"
+                            : "User Custom Case"
+                          : lang === "ID"
+                          ? "Studi Kasus Resmi"
+                          : "Official Case Study"}
                       </span>
                     </div>
 
@@ -445,7 +519,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                     </p>
 
                     <div className="mt-2.5 flex items-start gap-1.5 text-xs font-semibold text-[#087F7A] bg-white/70 p-2.5 rounded-xl border border-[#064B50]/10">
-                      <span className="font-bold shrink-0">Target Latihan:</span>
+                      <span className="font-bold shrink-0">{lang === "ID" ? "Target Latihan:" : "Learning Objective:"}</span>
                       <span>{activeScenario?.objective}</span>
                     </div>
                   </div>
@@ -453,8 +527,14 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   {/* Stepper Progress Indicator */}
                   <div>
                     <div className="flex items-center justify-between text-xs font-bold text-[#064B50] mb-2">
-                      <span>Pertanyaan {currentQuestionIdx + 1} dari {questions.length}</span>
-                      <span>{Math.round(((currentQuestionIdx + 1) / questions.length) * 100)}% Selesai</span>
+                      <span>
+                        {lang === "ID"
+                          ? `Pertanyaan ${currentQuestionIdx + 1} dari ${questions.length}`
+                          : `Question ${currentQuestionIdx + 1} of ${questions.length}`}
+                      </span>
+                      <span>
+                        {Math.round(((currentQuestionIdx + 1) / questions.length) * 100)}% {lang === "ID" ? "Selesai" : "Completed"}
+                      </span>
                     </div>
 
                     {/* Progress Pills */}
@@ -467,9 +547,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                         let pillStyle = "bg-slate-200 text-slate-500"
                         if (isCurrent) pillStyle = "bg-[#064B50] text-white ring-2 ring-[#087F7A]/40"
                         else if (isAnswered) {
-                          pillStyle = isCorrect
-                            ? "bg-emerald-600 text-white"
-                            : "bg-red-500 text-white"
+                          pillStyle = isCorrect ? "bg-emerald-600 text-white" : "bg-red-500 text-white"
                         }
 
                         return (
@@ -478,7 +556,11 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                             onClick={() => {
                               setCurrentQuestionIdx(idx)
                             }}
-                            title={`Pertanyaan ${idx + 1}: ${q.title}`}
+                            title={
+                              lang === "ID"
+                                ? `Pertanyaan ${idx + 1}: ${q.title}`
+                                : `Question ${idx + 1}: ${q.title}`
+                            }
                             className={`flex-1 h-2 rounded-full transition-all ${pillStyle}`}
                           />
                         )
@@ -489,7 +571,9 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   {/* Stage Title */}
                   <div className="pt-1">
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#087F7A]">
-                      TAHAP {activeQuestion.question_number} DARI {questions.length}
+                      {lang === "ID"
+                        ? `TAHAP ${activeQuestion.question_number} DARI ${questions.length}`
+                        : `STAGE ${activeQuestion.question_number} OF ${questions.length}`}
                     </span>
                     <h3 className="text-base sm:text-lg font-extrabold text-[#064B50]">{activeQuestion.title}</h3>
                   </div>
@@ -498,7 +582,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   <div className="rounded-2xl border border-[#064B50]/15 bg-[#FAFBF6] p-4 sm:p-5 shadow-2xs">
                     <div className="flex items-center gap-2 mb-2 text-xs font-bold text-[#064B50]">
                       <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
-                      <span>Pesan Perekrut Fiktif AI:</span>
+                      <span>{lang === "ID" ? "Pesan Perekrut Fiktif AI:" : "Fictitious AI Recruiter Message:"}</span>
                     </div>
                     <p className="whitespace-pre-wrap text-xs sm:text-sm leading-relaxed text-[#202C2B] font-medium bg-white p-3.5 rounded-xl border border-slate-200">
                       “{activeQuestion.recruiter_message}”
@@ -516,7 +600,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   {/* Options List */}
                   <div className="space-y-3">
                     <p className="text-xs font-extrabold uppercase tracking-wider text-[#202C2B]/60">
-                      PILIH RESPONSMU (KLIK UNTUK EVALUASI):
+                      {lang === "ID" ? "PILIH RESPONSMU (KLIK UNTUK EVALUASI):" : "CHOOSE YOUR RESPONSE (CLICK TO EVALUATE):"}
                     </p>
                     {activeQuestion.options.map((option) => {
                       const isSelected = currentAnswer?.selectedOptionId === option.id
@@ -588,7 +672,11 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                       <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-4">
                         <div className="flex items-center gap-2 mb-1.5 text-xs font-bold text-amber-900">
                           <Lightbulb size={16} className="text-amber-600" />
-                          <span>Deskripsi Mengenai Jawaban yang Baik:</span>
+                          <span>
+                            {lang === "ID"
+                              ? "Deskripsi Mengenai Jawaban yang Baik:"
+                              : "Description of a Good Response:"}
+                          </span>
                         </div>
                         <p className="text-xs sm:text-sm leading-relaxed text-amber-950 font-medium">
                           {activeQuestion.good_answer_summary}
@@ -600,7 +688,9 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                         <div className="flex items-start gap-2.5 rounded-xl bg-[#EFF7D5]/80 p-3.5 border border-[#087F7A]/20">
                           <ShieldAlert size={16} className="text-[#087F7A] shrink-0 mt-0.5" />
                           <p className="text-xs leading-relaxed text-[#064B50]">
-                            <strong className="font-bold">Kunci Regulasi & Refleks: </strong>
+                            <strong className="font-bold">
+                              {lang === "ID" ? "Kunci Regulasi & Refleks: " : "Key Regulations & Reflexes: "}
+                            </strong>
                             {activeQuestion.educational_takeaway}
                           </p>
                         </div>
@@ -614,7 +704,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                             onClick={handlePrevQuestion}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-[#064B50]/20 bg-white px-4 py-2.5 text-xs font-bold text-[#064B50] hover:bg-[#F7F7F0] transition-colors"
                           >
-                            <ChevronLeft size={16} /> Pertanyaan Sebelumnya
+                            <ChevronLeft size={16} /> {lang === "ID" ? "Pertanyaan Sebelumnya" : "Previous Question"}
                           </button>
                         ) : (
                           <div />
@@ -626,7 +716,11 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                             onClick={handleNextQuestion}
                             className="inline-flex items-center gap-2 rounded-xl bg-[#064B50] px-5 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-[#087F7A] transition-colors"
                           >
-                            <span>Lanjut ke Pertanyaan Selanjutnya</span>
+                            <span>
+                              {lang === "ID"
+                                ? "Lanjut ke Pertanyaan Selanjutnya"
+                                : "Next Question"}
+                            </span>
                             <ArrowRight size={16} />
                           </button>
                         ) : (
@@ -635,7 +729,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                             onClick={handleNextQuestion}
                             className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-emerald-800 transition-colors"
                           >
-                            <span>🏁 Selesai & Lihat Rapor Hasil</span>
+                            <span>{lang === "ID" ? "🏁 Selesai & Lihat Rapor Hasil" : "🏁 Finish & View Report Card"}</span>
                           </button>
                         )}
                       </div>
@@ -645,14 +739,16 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   {/* Always-present Bottom End Training Option */}
                   <div className="border-t border-slate-100 pt-4 flex items-center justify-between">
                     <p className="text-xs text-[#202C2B]/60">
-                      Ingin menyudahi latihan? Kamu tetap dapat meninjau rapor evaluasi dari pertanyaan yang sudah dijawab.
+                      {lang === "ID"
+                        ? "Ingin menyudahi latihan? Kamu tetap dapat meninjau rapor evaluasi dari pertanyaan yang sudah dijawab."
+                        : "Want to finish now? You can still review your evaluation report for questions answered so far."}
                     </p>
                     <button
                       type="button"
                       onClick={handleEndSimulation}
                       className="text-xs font-bold text-slate-500 hover:text-red-600 transition-colors"
                     >
-                      Akhiri Latihan
+                      {lang === "ID" ? "Akhiri Latihan" : "End Practice"}
                     </button>
                   </div>
                 </div>
@@ -667,10 +763,10 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                     </div>
                     <div>
                       <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#087F7A]">
-                        EVALUASI SIMULATOR JELI LAKON
+                        {lang === "ID" ? "EVALUASI SIMULATOR JELI LAKON" : "JELI LAKON SIMULATOR EVALUATION"}
                       </span>
                       <h2 className="text-2xl font-extrabold text-[#064B50]">
-                        Rapor Hasil Latihanmu
+                        {lang === "ID" ? "Rapor Hasil Latihanmu" : "Your Practice Report Card"}
                       </h2>
                     </div>
                   </div>
@@ -680,25 +776,32 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-wider text-[#087F7A]">
-                          SKENARIO: {activeScenario?.title}
+                          {lang === "ID" ? `SKENARIO: ${activeScenario?.title}` : `SCENARIO: ${activeScenario?.title}`}
                         </p>
                         <h3 className="mt-1 text-xl font-extrabold text-[#064B50]">
                           {scorePercent >= 80
-                            ? "Kesiapan Tinggi: Kamu Sangat Jeli!"
+                            ? lang === "ID"
+                              ? "Kesiapan Tinggi: Kamu Sangat Jeli!"
+                              : "High Readiness: You are Extremely Sharp!"
                             : scorePercent >= 50
-                            ? "Cukup Siap: Perlu Penajaman di Beberapa Trik!"
-                            : "Perlu Latihan: Modus Menjebak Berhasil Memperdayamu!"}
+                            ? lang === "ID"
+                              ? "Cukup Siap: Perlu Penajaman di Beberapa Trik!"
+                              : "Moderately Ready: Some Traps Need Sharpening!"
+                            : lang === "ID"
+                            ? "Perlu Latihan: Modus Menjebak Berhasil Memperdayamu!"
+                            : "Needs Practice: Deceptive Traps Caught You!"}
                         </h3>
                         <p className="mt-2 text-xs sm:text-sm text-[#202C2B]/75 max-w-xl">
-                          Kamu berhasil menyelesaikan {totalAnswered} dari {questions.length} pertanyaan, dengan{" "}
-                          <strong>{correctCount} jawaban aman</strong>.
+                          {lang === "ID"
+                            ? `Kamu berhasil menyelesaikan ${totalAnswered} dari ${questions.length} pertanyaan, dengan ${correctCount} jawaban aman.`
+                            : `You completed ${totalAnswered} of ${questions.length} questions, with ${correctCount} safe answers.`}
                         </p>
                       </div>
 
                       <div className="flex flex-col items-center justify-center rounded-2xl bg-[#064B50] px-6 py-4 text-white shadow-sm shrink-0">
                         <span className="text-3xl font-extrabold text-[#B8F000]">{scorePercent}%</span>
                         <span className="text-[11px] font-bold text-white/80">
-                          {correctCount} / {totalAnswered} Tepat
+                          {correctCount} / {totalAnswered} {lang === "ID" ? "Tepat" : "Correct"}
                         </span>
                       </div>
                     </div>
@@ -708,9 +811,13 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                       <div className="flex items-center gap-3">
                         <FileText size={20} className="text-[#087F7A]" />
                         <div>
-                          <p className="text-xs font-bold text-[#064B50]">Unduh Dokumen Latihan Lengkap</p>
+                          <p className="text-xs font-bold text-[#064B50]">
+                            {lang === "ID" ? "Unduh Dokumen Latihan Lengkap" : "Download Complete Practice Document"}
+                          </p>
                           <p className="text-[11px] text-[#202C2B]/65">
-                            Menyimpan seluruh pertanyaan, pilihanmu, kunci jawaban, dan tips regulasi dalam satu file PDF.
+                            {lang === "ID"
+                              ? "Menyimpan seluruh pertanyaan, pilihanmu, kunci jawaban, dan tips regulasi dalam satu file PDF."
+                              : "Saves all questions, your responses, correct answers, and regulation tips in a single PDF file."}
                           </p>
                         </div>
                       </div>
@@ -724,22 +831,22 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                         {downloadingPdf ? (
                           <>
                             <LoaderCircle size={15} className="animate-spin" />
-                            Membuat PDF…
+                            {lang === "ID" ? "Membuat PDF…" : "Generating PDF…"}
                           </>
                         ) : (
                           <>
                             <Download size={15} className="text-[#B8F000]" />
-                            Unduh Laporan Latihan (PDF)
+                            {lang === "ID" ? "Unduh Laporan Latihan (PDF)" : "Download Practice Report (PDF)"}
                           </>
                         )}
                       </button>
                     </div>
                   </div>
 
-                  {/* Questions Review Accordion/List */}
+                  {/* Questions Review List */}
                   <div className="space-y-4">
                     <h4 className="text-sm font-extrabold uppercase tracking-wider text-[#064B50]">
-                      Tinjauan Lengkap Pertanyaan & Jawaban:
+                      {lang === "ID" ? "Tinjauan Lengkap Pertanyaan & Jawaban:" : "Complete Review of Questions & Answers:"}
                     </h4>
 
                     {answeredList.map((item) => (
@@ -749,7 +856,8 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className="text-xs font-bold text-[#087F7A]">
-                            Tahap {item.questionNumber}: {item.title}
+                            {lang === "ID" ? `Tahap ${item.questionNumber}: ` : `Stage ${item.questionNumber}: `}
+                            {item.title}
                           </span>
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
@@ -758,7 +866,13 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                                 : "bg-red-100 text-red-800"
                             }`}
                           >
-                            {item.isCorrect ? "✅ Tepat & Aman" : "❌ Salah / Terjebak"}
+                            {item.isCorrect
+                              ? lang === "ID"
+                                ? "✅ Tepat & Aman"
+                                : "✅ Safe & Accurate"
+                              : lang === "ID"
+                              ? "❌ Salah / Terjebak"
+                              : "❌ Wrong / Trapped"}
                           </span>
                         </div>
 
@@ -768,21 +882,25 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
 
                         <div className="text-xs space-y-1.5 my-3 bg-slate-50 p-3 rounded-xl">
                           <p>
-                            <strong>Pilihanmu: </strong> {item.selectedOptionText}
+                            <strong>{lang === "ID" ? "Pilihanmu: " : "Your Choice: "}</strong>
+                            {item.selectedOptionText}
                           </p>
                           {!item.isCorrect && item.correctOptionText && (
                             <p className="text-emerald-700">
-                              <strong>Pilihan yang Lebih Aman: </strong> {item.correctOptionText}
+                              <strong>{lang === "ID" ? "Pilihan yang Lebih Aman: " : "Safer Choice: "}</strong>
+                              {item.correctOptionText}
                             </p>
                           )}
                           <p className="text-slate-600">
-                            <strong>Analisis: </strong> {item.explanation}
+                            <strong>{lang === "ID" ? "Analisis: " : "Analysis: "}</strong>
+                            {item.explanation}
                           </p>
                         </div>
 
                         {item.goodAnswerSummary && (
                           <div className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 border border-amber-200/60">
-                            <strong>Deskripsi Jawaban yang Baik: </strong> {item.goodAnswerSummary}
+                            <strong>{lang === "ID" ? "Deskripsi Jawaban yang Baik: " : "Description of a Good Response: "}</strong>
+                            {item.goodAnswerSummary}
                           </div>
                         )}
                       </div>
@@ -796,7 +914,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                       onClick={handleRestartSimulation}
                       className={`${button} bg-[#064B50] text-white hover:bg-[#087F7A]`}
                     >
-                      <RotateCcw size={16} /> Ulangi Skenario Ini
+                      <RotateCcw size={16} /> {lang === "ID" ? "Ulangi Skenario Ini" : "Retake This Scenario"}
                     </button>
                     <button
                       type="button"
@@ -809,7 +927,8 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                       }}
                       className={`${button} border border-[#064B50]/20 bg-white text-[#064B50] hover:bg-[#F7F7F0]`}
                     >
-                      Pilih Latihan Lainnya <ArrowRight size={16} />
+                      {lang === "ID" ? "Pilih Latihan Lainnya" : "Choose Another Scenario"}{" "}
+                      <ArrowRight size={16} />
                     </button>
                   </div>
                 </div>
@@ -822,7 +941,10 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   className="m-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
                 >
                   <p className="flex-1">{error}</p>
-                  <button aria-label="Tutup pesan kesalahan" onClick={() => setError("")}>
+                  <button
+                    aria-label={lang === "ID" ? "Tutup pesan kesalahan" : "Close error message"}
+                    onClick={() => setError("")}
+                  >
                     <X size={16} />
                   </button>
                 </div>
@@ -848,14 +970,21 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   <Wand2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-[#064B50]">Buat Skenario Latihan Kustom dengan AI</h3>
-                  <p className="text-xs text-[#202C2B]/60">Ajukan kasus atau pertanyaanmu untuk dijadikan simulator interaktif.</p>
+                  <h3 className="text-base font-extrabold text-[#064B50]">
+                    {lang === "ID" ? "Buat Skenario Latihan Kustom dengan AI" : "Create Custom AI Practice Scenario"}
+                  </h3>
+                  <p className="text-xs text-[#202C2B]/60">
+                    {lang === "ID"
+                      ? "Ajukan kasus atau pertanyaanmu untuk dijadikan simulator interaktif."
+                      : "Submit your case or question to build an interactive simulator."}
+                  </p>
                 </div>
               </div>
 
               <p className="mb-3 text-xs leading-relaxed text-[#202C2B]/75">
-                Pernah menerima pesan lowongan mencurigakan atau penasaran dengan modus tertentu? Ketikkan ceritanya, AI Jeli
-                akan merancangnya menjadi rangkaian pertanyaan simulasi interaktif (hingga 5-7 tahap):
+                {lang === "ID"
+                  ? "Pernah menerima pesan lowongan mencurigakan atau penasaran dengan modus tertentu? Ketikkan ceritanya, AI Jeli akan merancangnya menjadi rangkaian pertanyaan simulasi interaktif (hingga 5-7 tahap):"
+                  : "Received a suspicious job message or curious about a specific tactic? Describe it, and Jeli AI will build an interactive multi-stage quiz scenario (up to 5-7 stages):"}
               </p>
 
               {/* Quick Template Pills */}
@@ -874,7 +1003,9 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
 
               <form onSubmit={(e) => void handleCreateCustomScenario(e)}>
                 <label htmlFor="custom-prompt" className="mb-1.5 block text-xs font-bold text-[#064B50]">
-                  Ceritakan situasi tawaran kerja / pertanyaan yang ingin kamu uji:
+                  {lang === "ID"
+                    ? "Ceritakan situasi tawaran kerja / pertanyaan yang ingin kamu uji:"
+                    : "Describe the job offer situation or question you want to test:"}
                 </label>
                 <textarea
                   id="custom-prompt"
@@ -882,7 +1013,11 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   disabled={generatingCustom}
-                  placeholder="Contoh: Saya dapat tawaran jadi admin data WFH tapi diminta transfer deposit uang seragam Rp200.000..."
+                  placeholder={
+                    lang === "ID"
+                      ? "Contoh: Saya dapat tawaran jadi admin data WFH tapi diminta transfer deposit uang seragam Rp200.000..."
+                      : "Example: I received an offer for remote data admin but they asked for a $200 uniform deposit..."
+                  }
                   className="w-full rounded-xl border border-[#064B50]/25 p-3 text-sm focus:outline-2 focus:outline-[#087F7A]"
                 />
 
@@ -897,7 +1032,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                     disabled={generatingCustom}
                     className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
                   >
-                    Batal
+                    {lang === "ID" ? "Batal" : "Cancel"}
                   </button>
                   <button
                     type="submit"
@@ -907,12 +1042,12 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                     {generatingCustom ? (
                       <>
                         <LoaderCircle size={15} className="animate-spin" />
-                        Merancang Skenario AI…
+                        {lang === "ID" ? "Merancang Skenario AI…" : "Crafting AI Scenario…"}
                       </>
                     ) : (
                       <>
                         <Sparkles size={15} className="text-[#B8F000]" />
-                        Rancang Skenario AI
+                        {lang === "ID" ? "Rancang Skenario AI" : "Craft AI Scenario"}
                       </>
                     )}
                   </button>
@@ -922,7 +1057,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
           </div>
         )}
 
-        {/* Custom Confirmation / Alert Modal Pop-up (No native browser alerts!) */}
+        {/* Custom Confirmation / Alert Modal Pop-up */}
         {modalDialog.isOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-2xs animate-in fade-in-50">
             <div className="relative w-full max-w-md rounded-3xl border border-[#064B50]/15 bg-white p-6 shadow-2xl sm:p-7 animate-in zoom-in-95 duration-150">
@@ -930,7 +1065,7 @@ export function ScamSimulatorPage({ onBackToHome, lang }: Props) {
                 type="button"
                 onClick={closeModalDialog}
                 className="absolute right-5 top-5 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                aria-label="Tutup dialog"
+                aria-label={lang === "ID" ? "Tutup dialog" : "Close dialog"}
               >
                 <X size={18} />
               </button>

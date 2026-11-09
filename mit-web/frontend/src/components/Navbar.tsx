@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react"
-import { Sparkles, Menu, X, ArrowRight, Search } from "lucide-react"
+import { Sparkles, Menu, X, ArrowRight, Search, Mic } from "lucide-react"
 import { t } from "../i18n"
 import JeliLogo from "./JeliLogo"
+import type { Page } from "../App"
 
 interface NavbarProps {
-  activePage?: "home" | "checker" | "simulator"
-  onNavigate?: (page: "home" | "checker" | "simulator") => void
+  activePage?: Page
+  onNavigate?: (page: Page) => void
   lang?: "ID" | "EN"
   onToggleLang?: () => void
 }
@@ -108,6 +109,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Sparkles className="w-3.5 h-3.5 text-[#087F7A]" />
               {t(lang, "simulator")}
             </button>
+
+            <button
+              onClick={() => onNavigate("avatar")}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
+                activePage === "avatar"
+                  ? "bg-[#064B50] text-white font-bold shadow-sm"
+                  : "text-[#202C2B]/80 hover:text-[#064B50] hover:bg-[#064B50]/5"
+              }`}
+            >
+              <Mic className="w-3.5 h-3.5 text-[#B8F000]" />
+              <span>{lang === "ID" ? "Tanya Jeli (Voice & Avatar)" : "Ask Jeli (Voice & Avatar)"}</span>
+            </button>
           </nav>
 
           {/* Right-side Actions */}
@@ -205,6 +218,21 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
               <span className="text-[10px] bg-[#B8F000]/30 text-[#064B50] px-2 py-0.5 rounded-full font-bold">
                 {t(lang, "interactive")}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false)
+                onNavigate("avatar")
+              }}
+              className="px-4 py-2.5 text-left text-sm font-semibold rounded-xl text-[#202C2B] hover:bg-[#F7F7F0] flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-[#087F7A]" />
+                {lang === "ID" ? "Tanya Jeli (Voice & Avatar)" : "Ask Jeli (Voice & Avatar)"}
+              </span>
+              <span className="text-[10px] bg-[#B8F000]/40 text-[#064B50] px-2 py-0.5 rounded-full font-bold">
+                Live AI
               </span>
             </button>
             <div className="pt-2 border-t border-slate-100 mt-1">

@@ -10,7 +10,7 @@ from starlette.requests import ClientDisconnect, Request
 
 from app.core.errors import AnalysisError
 from app.schemas.recognition import AnalyzeInput
-from app.services.url_reader import extract_first_url, fetch_url_content
+from app.services.url_reader import extract_first_url, fetch_url_content, normalize_url
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_REQUEST_BYTES = MAX_IMAGE_BYTES + 64 * 1024
@@ -164,11 +164,11 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
 
         lang = "EN" if str(raw_lang).strip().upper() == "EN" else "ID"
 
-        target_url = raw_url.strip() or None
+        target_url = normalize_url(raw_url) if raw_url.strip() else None
         if not target_url and text.strip():
             detected = extract_first_url(text)
-            if detected and (text.strip() == detected or text.strip().startswith(("http://", "https://"))):
-                target_url = detected
+            if detected:
+                target_url = normalize_url(detected)
 
         if target_url:
             title, web_content = await fetch_url_content(target_url)
