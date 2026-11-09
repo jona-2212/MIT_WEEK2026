@@ -45,8 +45,8 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("application_started", extra={"component": "lifecycle"})
         async with httpx.AsyncClient(
-            timeout=httpx.Timeout(settings.gemini_timeout_seconds, connect=5.0),
-            limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
+            timeout=httpx.Timeout(settings.gemini_timeout_seconds, connect=15.0),
+            limits=httpx.Limits(max_connections=6, max_keepalive_connections=3),
             follow_redirects=False,
             trust_env=False,
             transport=provider_transport,

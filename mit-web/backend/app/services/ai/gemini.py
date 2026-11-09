@@ -99,58 +99,69 @@ class GeminiProvider:
             "model": self.settings.gemini_model,
             "prompt_template_version": PROMPT_VERSION,
         }
-        try:
-            if self.settings.gemini_api_key is None:
-                raise AnalysisError(
-                    503,
-                    "provider_not_configured",
-                    "Gemini belum dikonfigurasi. Isi GEMINI_API_KEY pada backend, "
-                    "lalu jalankan ulang server.",
-                )
-            url = (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{self.settings.gemini_model}:generateContent"
+        if self.settings.gemini_api_key is None:
+            raise AnalysisError(
+                503,
+                "provider_not_configured",
+                "Gemini belum dikonfigurasi. Isi GEMINI_API_KEY pada backend, "
+                "lalu jalankan ulang server.",
             )
+
+        payload_dict = self.build_payload(text, image, lang=lang)
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.settings.gemini_model}:generateContent"
+        )
+        data = bytearray()
+        try:
             async with asyncio.timeout(self.settings.gemini_timeout_seconds):
-                async with self.client.stream(
-                    "POST",
-                    url,
-                    headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
-                    json=self.build_payload(text, image, lang=lang),
-                ) as response:
-                    if response.status_code != 200:
-                        self.raise_upstream_error(response.status_code)
+                for attempt in range(2):
                     data = bytearray()
-                    async for chunk in response.aiter_bytes():
-                        data.extend(chunk)
-                        if len(data) > MAX_PROVIDER_BYTES:
-                            raise AnalysisError(
-                                502, "provider_invalid_response", "Respons AI terlalu besar."
-                            )
-            try:
-                payload = json.loads(data)
-                candidates = payload.get("candidates", [])
-                if not candidates or candidates[0].get("finishReason") != "STOP":
-                    raise ValueError("incomplete_or_blocked")
-                parts = candidates[0]["content"]["parts"]
-                content = "".join(
-                    part["text"] for part in parts if "text" in part and not part.get("thought")
-                )
-                extraction = AIExtraction.model_validate_json(content)
-                usage = payload.get("usageMetadata", {})
-                for provider_key, log_key in (
-                    ("promptTokenCount", "input_tokens"),
-                    ("candidatesTokenCount", "output_tokens"),
-                ):
-                    value = usage.get(provider_key)
-                    if type(value) is int and value >= 0:
-                        metadata[log_key] = value
-            except (ValueError, KeyError, TypeError, AttributeError, ValidationError):
-                raise AnalysisError(
-                    502,
-                    "provider_invalid_response",
-                    "Hasil AI tidak valid atau tidak lengkap. Coba kembali.",
-                ) from None
+                    async with self.client.stream(
+                        "POST",
+                        url,
+                        headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
+                        json=payload_dict,
+                    ) as response:
+                        if response.status_code in {500, 502, 503} and attempt == 0:
+                            logger.warning("Gemini upstream transient status, retrying...")
+                            await asyncio.sleep(0.5)
+                            continue
+                        if response.status_code != 200:
+                            self.raise_upstream_error(response.status_code)
+                        async for chunk in response.aiter_bytes():
+                            data.extend(chunk)
+                            if len(data) > MAX_PROVIDER_BYTES:
+                                raise AnalysisError(
+                                    502, "provider_invalid_response", "Respons AI terlalu besar."
+                                )
+                    break
+
+            payload = json.loads(data)
+            candidates = payload.get("candidates", [])
+            if not candidates or candidates[0].get("finishReason") != "STOP":
+                raise ValueError("incomplete_or_blocked")
+            parts = candidates[0]["content"]["parts"]
+            content = "".join(
+                part["text"] for part in parts if "text" in part and not part.get("thought")
+            ).strip()
+
+            if content.startswith("```"):
+                content = re.sub(r"^```[a-zA-Z]*\n?", "", content)
+                content = re.sub(r"\n?```$", "", content).strip()
+
+            extraction = AIExtraction.model_validate_json(content)
+            usage = payload.get("usageMetadata", {})
+            for provider_key, log_key in (
+                ("promptTokenCount", "input_tokens"),
+                ("candidatesTokenCount", "output_tokens"),
+            ):
+                value = usage.get(provider_key)
+                if type(value) is int and value >= 0:
+                    metadata[log_key] = value
+        except AnalysisError as error:
+            self.log_failure(error, started, metadata)
+            raise
         except (TimeoutError, httpx.TimeoutException):
             error = AnalysisError(
                 504, "provider_timeout", "AI tidak merespons tepat waktu. Coba kembali."
@@ -163,9 +174,22 @@ class GeminiProvider:
             )
             self.log_failure(error, started, metadata)
             raise error from None
-        except AnalysisError as error:
+        except (ValueError, KeyError, TypeError, AttributeError, ValidationError):
+            error = AnalysisError(
+                502,
+                "provider_invalid_response",
+                "Hasil AI tidak valid atau tidak lengkap. Coba kembali.",
+            )
             self.log_failure(error, started, metadata)
-            raise
+            raise error from None
+        except Exception:
+            error = AnalysisError(
+                502,
+                "provider_invalid_response",
+                "Hasil AI tidak valid atau tidak lengkap. Coba kembali.",
+            )
+            self.log_failure(error, started, metadata)
+            raise error from None
         logger.info(
             "ai_request_completed",
             extra={

@@ -63,6 +63,12 @@ def validate_image(
         with Image.open(BytesIO(data), formats=list(ALLOWED_FORMATS)) as image:
             image.load()
             ImageOps.exif_transpose(image, in_place=True)
+            # Optimasi dimensi untuk inferensi AI yang cepat, hemat kuota, dan anti-timeout
+            max_dim = 1600
+            w, h = image.size
+            if max(w, h) > max_dim:
+                scale = max_dim / max(w, h)
+                image = image.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
             # Buat gambar baru agar EXIF/GPS, komentar, dan metadata lain tidak diteruskan.
             clean = Image.new("RGBA" if "A" in image.getbands() else "RGB", image.size)
             clean.paste(image.convert(clean.mode))
