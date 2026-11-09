@@ -1,3 +1,6 @@
+import type { Language } from "../i18n"
+import { JeliApiError, readApiError } from "./errors"
+
 export type RiskCategory = "low" | "medium" | "high" | "insufficient_data"
 export type IndicatorCode =
   | "upfront_payment"
@@ -46,18 +49,16 @@ export async function analyzeJob({
   file,
   url,
   lang = "ID",
+  signal,
 }: {
   text?: string
   file?: File
   url?: string
-  lang?: "ID" | "EN"
+  lang?: Language
+  signal?: AbortSignal
 }): Promise<JobAnalysisResponse> {
   if (!apiUrl) {
-    throw new Error(
-      lang === "ID"
-        ? "Alamat backend AI belum dikonfigurasi. Atur VITE_AI_API_URL."
-        : "AI backend address is not configured. Set VITE_AI_API_URL."
-    )
+    throw new JeliApiError("missing_api", lang)
   }
 
   const body = new FormData()
@@ -65,31 +66,20 @@ export async function analyzeJob({
   if (file) body.append("file", file)
   if (url) body.append("url", url)
 
-  const query = lang ? `?lang=${encodeURIComponent(lang)}` : ""
-  const response = await fetch(`${apiUrl}/api/v1/analyze${query}`, {
+  const response = await fetch(`${apiUrl}/api/v1/analyze?lang=${lang}`, {
     method: "POST",
     body,
-  }).catch(() => {
-    throw new Error(
-      lang === "ID"
-        ? "Tidak dapat menghubungi backend AI."
-        : "Unable to connect to AI backend."
-    )
+    signal,
+  }).catch((error: unknown) => {
+    if (signal?.aborted) throw error
+    throw new JeliApiError("network", lang)
   })
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: { message: string } } | null
-    throw new Error(
-      payload?.error?.message ??
-        (lang === "ID"
-          ? `Analisis gagal (HTTP ${response.status}).`
-          : `Analysis failed (HTTP ${response.status}).`)
-    )
+    throw await readApiError(response, lang)
   }
   const result = (await response.json().catch(() => null)) as JobAnalysisResponse | null
-  if (result?.analysis_version !== "recognition-v2") {
-    throw new Error(
-      lang === "ID" ? "Respons backend AI tidak valid." : "Invalid AI backend response."
-    )
+  if (result?.analysis_version !== "recognition-v2" || !result.fraud_assessment || !result.legal_screening) {
+    throw new JeliApiError("invalid_response", lang)
   }
   return result
 }

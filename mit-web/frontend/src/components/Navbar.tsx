@@ -1,254 +1,133 @@
-import React, { useState, useEffect } from "react"
-import { Sparkles, Menu, X, ArrowRight, Search, Mic } from "lucide-react"
-import { t } from "../i18n"
+import { useEffect, useRef, useState } from "react"
+import { ArrowRight, Menu, Mic, Search, Sparkles, X } from "lucide-react"
+import { t, type Language, type TranslationKey } from "../i18n"
 import JeliLogo from "./JeliLogo"
 import type { Page } from "../App"
 
 interface NavbarProps {
   activePage?: Page
-  onNavigate?: (page: Page) => void
-  lang?: "ID" | "EN"
+  lang?: Language
   onToggleLang?: () => void
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-  activePage = "home",
-  onNavigate = () => undefined,
-  lang = "ID",
-  onToggleLang = () => undefined,
-}) => {
+const links: { href: string; label: TranslationKey; page?: Page; icon?: typeof Mic }[] = [
+  { href: "#home", label: "home", page: "home" },
+  { href: "#how-it-works", label: "howItWorks" },
+  { href: "#know-the-scams", label: "knowScams" },
+  { href: "#simulator", label: "simulator", page: "simulator", icon: Sparkles },
+  { href: "#avatar", label: "askJeli", page: "avatar", icon: Mic },
+]
+
+export function Navbar({ activePage = "home", lang = "ID", onToggleLang }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const languageAction = lang === "ID" ? "Ganti ke bahasa Inggris" : "Switch to Indonesian"
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 20) {
-        setScrolled(true)
-      } else {
-        setScrolled(false)
-      }
-    }
-    window.addEventListener("scroll", handleScroll)
+    const handleScroll = () => setScrolled(window.scrollY > 20)
+    handleScroll()
+    window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const scrollToSection = (sectionId: string) => {
-    setMobileMenuOpen(false)
-    if (activePage !== "home") {
-      onNavigate("home")
-      setTimeout(() => {
-        const el = document.getElementById(sectionId)
-        if (el) el.scrollIntoView({ behavior: "smooth" })
-      }, 100)
-    } else {
-      const el = document.getElementById(sectionId)
-      if (el) el.scrollIntoView({ behavior: "smooth" })
-    }
-  }
-
-  const handleHomeClick = () => {
-    setMobileMenuOpen(false)
-    onNavigate("home")
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
+  useEffect(() => {
+    const closeMenu = () => setMobileMenuOpen(false)
+    window.addEventListener("hashchange", closeMenu)
+    return () => window.removeEventListener("hashchange", closeMenu)
+  }, [])
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-[#F7F7F0]/95 backdrop-blur-md border-b border-[#064B50]/12 shadow-sm py-3"
-          : "bg-transparent py-4"
+      className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
+        scrolled ? "border-b border-[#064B50]/12 bg-[#F7F7F0]/95 shadow-sm backdrop-blur-md" : "bg-[#F7F7F0]/85"
       }`}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && mobileMenuOpen) {
+          setMobileMenuOpen(false)
+          menuButton.current?.focus()
+        }
+      }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between">
-          {/* Jeli Brand Logo */}
-          <button
-            onClick={handleHomeClick}
-            className="flex items-center gap-2 group focus:outline-none text-left transition-transform hover:scale-[1.02]"
-          >
-            <JeliLogo variant="full" size="lg" />
-          </button>
+      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-2">
+          <a href="#home" onClick={() => setMobileMenuOpen(false)} className="shrink-0 rounded-lg" aria-label={t(lang, "home")}>
+            <JeliLogo variant="full" size="lg" className="max-sm:h-9" />
+          </a>
 
-          {/* Desktop Nav Items */}
-          <nav className="hidden md:flex items-center gap-1 bg-white/90 border border-[#064B50]/10 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-sm">
-            <button
-              onClick={handleHomeClick}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 ${
-                activePage === "home"
-                  ? "bg-[#064B50]/10 text-[#064B50] font-bold"
-                  : "text-[#202C2B]/80 hover:text-[#064B50] hover:bg-[#064B50]/5"
-              }`}
-            >
-              {t(lang, "home")}
-            </button>
-
-            <button
-              onClick={() => scrollToSection("how-it-works")}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl text-[#202C2B]/80 hover:text-[#064B50] hover:bg-[#064B50]/5 transition-all duration-200"
-            >
-              {t(lang, "howItWorks")}
-            </button>
-
-            <button
-              onClick={() => scrollToSection("know-the-scams")}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-xl text-[#202C2B]/80 hover:text-[#064B50] hover:bg-[#064B50]/5 transition-all duration-200 flex items-center gap-1.5"
-            >
-              {t(lang, "knowScams")}
-              <span className="w-1.5 h-1.5 rounded-full bg-[#B8F000]" />
-            </button>
-
-            <button
-              onClick={() => onNavigate("simulator")}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
-                activePage === "simulator"
-                  ? "bg-[#064B50] text-white font-bold shadow-sm"
-                  : "text-[#202C2B]/80 hover:text-[#064B50] hover:bg-[#064B50]/5"
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#087F7A]" />
-              {t(lang, "simulator")}
-            </button>
-
-            <button
-              onClick={() => onNavigate("avatar")}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
-                activePage === "avatar"
-                  ? "bg-[#064B50] text-white font-bold shadow-sm"
-                  : "text-[#202C2B]/80 hover:text-[#064B50] hover:bg-[#064B50]/5"
-              }`}
-            >
-              <Mic className="w-3.5 h-3.5 text-[#B8F000]" />
-              <span>{lang === "ID" ? "Tanya Jeli (Voice & Avatar)" : "Ask Jeli (Voice & Avatar)"}</span>
-            </button>
+          <nav aria-label={t(lang, "navigation")} className="hidden items-center gap-1 rounded-2xl border border-[#064B50]/10 bg-white/90 px-2 py-1.5 shadow-sm xl:flex">
+            {links.map(({ href, label, page, icon: Icon }) => (
+              <a
+                key={href}
+                href={href}
+                aria-current={page === activePage ? "page" : undefined}
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold text-[#064B50] hover:bg-[#064B50]/5 ${
+                  page === activePage ? "bg-[#064B50]/10" : ""
+                }`}
+              >
+                {Icon && <Icon className="h-3.5 w-3.5 text-[#087F7A]" />}
+                {t(lang, label)}
+              </a>
+            ))}
           </nav>
 
-          {/* Right-side Actions */}
-          <div className="flex items-center gap-2.5">
-            {/* Language Toggle */}
+          <div className="flex shrink-0 items-center gap-2">
             <button
+              type="button"
               onClick={onToggleLang}
-              title="Ganti Bahasa / Switch Language"
-              className="px-2.5 py-1 text-xs font-bold rounded-xl border border-[#064B50]/15 bg-white text-[#202C2B] hover:border-[#064B50]/30 transition-colors flex items-center gap-1 shadow-2xs"
+              aria-label={languageAction}
+              title={languageAction}
+              className="flex min-h-10 items-center gap-1 rounded-xl border border-[#064B50]/15 bg-white px-2 text-xs font-bold text-[#202C2B] hover:border-[#064B50]/35 sm:px-3"
             >
-              <span
-                className={
-                  lang === "ID"
-                    ? "text-[#064B50] font-black"
-                    : "text-[#202C2B]/60"
-                }
-              >
-                ID
-              </span>
-              <span className="text-slate-300">/</span>
-              <span
-                className={
-                  lang === "EN"
-                    ? "text-[#064B50] font-black"
-                    : "text-[#202C2B]/60"
-                }
-              >
-                EN
-              </span>
+              <span className={lang === "ID" ? "font-black text-[#064B50]" : "text-[#202C2B]/70"}>ID</span>
+              <span aria-hidden="true">/</span>
+              <span className={lang === "EN" ? "font-black text-[#064B50]" : "text-[#202C2B]/70"}>EN</span>
             </button>
-
-            {/* Primary CTA */}
-            <button
-              onClick={() => onNavigate("checker")}
-              className="relative group bg-[#064B50] hover:bg-[#087F7A] text-white text-xs sm:text-sm font-bold px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl shadow-sm transition-all duration-200 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+            <a
+              href="#checker"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label={t(lang, "checkOffer")}
+              aria-current={activePage === "checker" ? "page" : undefined}
+              className="flex min-h-10 items-center gap-1.5 rounded-xl bg-[#064B50] px-2.5 text-xs font-bold text-white hover:bg-[#087F7A] sm:gap-2 sm:px-4 sm:text-sm"
             >
-              <Search className="w-4 h-4 text-[#B8F000]" />
-              <span>
-                {t(lang, "checkOffer")}
-              </span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-
-            {/* Mobile Menu Button */}
+              <Search className="h-4 w-4 text-[#B8F000]" />
+              <span className="sm:hidden">{lang === "ID" ? "Cek" : "Check"}</span>
+              <span className="hidden sm:inline">{t(lang, "checkOffer")}</span>
+              <ArrowRight className="hidden h-3.5 w-3.5 sm:block" />
+            </a>
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl text-[#202C2B] hover:bg-white border border-[#064B50]/15"
-              aria-label="Toggle menu"
+              type="button"
+              ref={menuButton}
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-label={mobileMenuOpen ? t(lang, "closeMenu") : t(lang, "openMenu")}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
+              className="min-h-10 rounded-xl border border-[#064B50]/15 bg-white p-2 text-[#202C2B] hover:bg-[#F7F7F0] xl:hidden"
             >
-              {mobileMenuOpen ? (
-                <X className="w-5 h-5" />
-              ) : (
-                <Menu className="w-5 h-5" />
-              )}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Dropdown Drawer */}
-        {mobileMenuOpen && (
-          <div className="md:hidden mt-3 pt-3 pb-4 px-3 bg-white border border-[#064B50]/12 backdrop-blur-xl rounded-2xl shadow-xl flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-            <button
-              onClick={handleHomeClick}
-              className="px-4 py-2.5 text-left text-sm font-semibold rounded-xl text-[#202C2B] hover:bg-[#F7F7F0] flex items-center justify-between"
+        <nav
+          id="mobile-navigation"
+          hidden={!mobileMenuOpen}
+          aria-label={t(lang, "navigation")}
+          className="mt-3 max-h-[calc(100dvh-5rem)] space-y-1 overflow-y-auto rounded-2xl border border-[#064B50]/15 bg-white p-2 shadow-lg xl:hidden"
+        >
+          {links.map(({ href, label, page, icon: Icon }) => (
+            <a
+              key={href}
+              href={href}
+              aria-current={page === activePage ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-[#064B50] hover:bg-[#F7F7F0]"
             >
-              <span>{t(lang, "home")}</span>
-            </button>
-            <button
-              onClick={() => scrollToSection("how-it-works")}
-              className="px-4 py-2.5 text-left text-sm font-semibold rounded-xl text-[#202C2B] hover:bg-[#F7F7F0] flex items-center justify-between"
-            >
-              <span>{t(lang, "howItWorks")}</span>
-            </button>
-            <button
-              onClick={() => scrollToSection("know-the-scams")}
-              className="px-4 py-2.5 text-left text-sm font-semibold rounded-xl text-[#202C2B] hover:bg-[#F7F7F0] flex items-center justify-between"
-            >
-              <span>
-                {t(lang, "knowScamsFull")}
-              </span>
-              <span className="text-[10px] bg-[#064B50]/10 text-[#064B50] px-2 py-0.5 rounded-full font-bold">
-                {lang === "ID" ? "5 Tipe" : "5 Types"}
-              </span>
-            </button>
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                onNavigate("simulator")
-              }}
-              className="px-4 py-2.5 text-left text-sm font-semibold rounded-xl text-[#202C2B] hover:bg-[#F7F7F0] flex items-center justify-between"
-            >
-              <span className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#087F7A]" />
-                {t(lang, "simulator")}
-              </span>
-              <span className="text-[10px] bg-[#B8F000]/30 text-[#064B50] px-2 py-0.5 rounded-full font-bold">
-                {t(lang, "interactive")}
-              </span>
-            </button>
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                onNavigate("avatar")
-              }}
-              className="px-4 py-2.5 text-left text-sm font-semibold rounded-xl text-[#202C2B] hover:bg-[#F7F7F0] flex items-center justify-between"
-            >
-              <span className="flex items-center gap-2">
-                <Mic className="w-4 h-4 text-[#087F7A]" />
-                {lang === "ID" ? "Tanya Jeli (Voice & Avatar)" : "Ask Jeli (Voice & Avatar)"}
-              </span>
-              <span className="text-[10px] bg-[#B8F000]/40 text-[#064B50] px-2 py-0.5 rounded-full font-bold">
-                Live AI
-              </span>
-            </button>
-            <div className="pt-2 border-t border-slate-100 mt-1">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false)
-                  onNavigate("checker")
-                }}
-                className="w-full bg-[#064B50] hover:bg-[#087F7A] text-white font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm"
-              >
-                <Search className="w-4 h-4 text-[#B8F000]" />
-                {t(lang, "checkOfferNow")}
-              </button>
-            </div>
-          </div>
-        )}
+              {Icon && <Icon className="h-4 w-4 text-[#087F7A]" />}
+              {t(lang, label)}
+            </a>
+          ))}
+        </nav>
       </div>
     </header>
   )

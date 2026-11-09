@@ -1,3 +1,6 @@
+import type { Language } from "../i18n"
+import { JeliApiError, readApiError } from "./errors"
+
 export type Outcome = "active" | "verified_exit" | "risky_choice" | "needs_clarification" | "stopped"
 
 export interface QuestionOption {
@@ -24,7 +27,7 @@ export interface Scenario {
   title: string
   description: string
   objective: string
-  language: "ID"
+  language: Language
   version: "roleplay-v1"
   total_questions?: number
   questions?: SimulatorQuestion[]
@@ -42,6 +45,7 @@ export interface RoleplaySession {
   roleplay_version: "roleplay-v1"
   mode: "live" | "mock"
   scenario_id: string
+  language?: Language
   session_token: string
   expires_at: number
   turn_index: number
@@ -55,8 +59,8 @@ export interface RoleplaySession {
 const baseUrl = import.meta.env.VITE_AI_API_URL?.trim().replace(/\/+$/, "")
   || (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")
 
-async function request<T>(path: string, signal: AbortSignal, body?: unknown): Promise<T> {
-  if (!baseUrl) throw new Error("Alamat backend AI belum dikonfigurasi. Atur VITE_AI_API_URL.")
+async function request<T>(path: string, signal: AbortSignal, lang: Language, body?: unknown): Promise<T> {
+  if (!baseUrl) throw new JeliApiError("missing_api", lang)
   const response = await fetch(`${baseUrl}/api/v1/roleplay/${path}`, {
     signal,
     ...(body === undefined ? {} : {
@@ -64,38 +68,47 @@ async function request<T>(path: string, signal: AbortSignal, body?: unknown): Pr
     }),
   }).catch((error: unknown) => {
     if (signal.aborted) throw error
-    throw new Error("Tidak dapat menghubungi backend AI. Pastikan server backend sedang berjalan.")
+    throw new JeliApiError("network", lang)
   })
-  const value = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(value?.error?.message ?? `Permintaan gagal (${response.status}).`)
-  if (!value) throw new Error("Respons roleplay tidak valid.")
+  if (!response.ok) throw await readApiError(response, lang)
+  const value: unknown = await response.json().catch(() => null)
+  if (!value) throw new JeliApiError("invalid_response", lang)
   return value as T
 }
 
-export async function getScenarios(signal: AbortSignal, lang: "ID" | "EN" = "ID"): Promise<Scenario[]> {
-  const result = await request<Scenario[]>(`scenarios?lang=${lang.toLowerCase()}`, signal)
-  if (!Array.isArray(result) || result.some((s) => s.version !== "roleplay-v1")) {
-    throw new Error(lang === "ID" ? "Daftar latihan tidak valid." : "Invalid training scenarios list.")
+async function requestCatalog(path: "scenarios" | "chat-scenarios", signal: AbortSignal, lang: Language) {
+  const result = await request<Scenario[]>(`${path}?lang=${lang.toLowerCase()}`, signal, lang)
+  if (!Array.isArray(result) || result.some((item) => item?.version !== "roleplay-v1" || (item.language ?? "ID") !== lang)) {
+    throw new JeliApiError("invalid_response", lang)
   }
   return result
+}
+
+export function getScenarios(signal: AbortSignal, lang: Language = "ID") {
+  return requestCatalog("scenarios", signal, lang)
 }
 
 export async function roleplayRequest(
-  path: "start" | "turn", body: unknown, signal: AbortSignal,
+  path: "start" | "turn", body: unknown, signal: AbortSignal, lang: Language = "ID",
 ): Promise<RoleplaySession> {
-  const result = await request<RoleplaySession>(path, signal, body)
-  if (result.roleplay_version !== "roleplay-v1" || !Array.isArray(result.messages)
+  const result = await request<RoleplaySession>(path, signal, lang, body)
+  if (result.roleplay_version !== "roleplay-v1" || (result.language ?? "ID") !== lang
+    || !Array.isArray(result.messages)
     || !result.report || !Array.isArray(result.report.skills) || !Array.isArray(result.report.moments)
     || !["active", "verified_exit", "risky_choice", "needs_clarification", "stopped"].includes(result.outcome)) {
-    throw new Error("Respons roleplay tidak valid.")
+    throw new JeliApiError("invalid_response", lang)
   }
   return result
 }
 
-export async function generateCustomScenario(prompt: string, signal: AbortSignal): Promise<Scenario> {
-  const result = await request<Scenario>("custom", signal, { user_prompt: prompt })
-  if (!result || result.version !== "roleplay-v1") {
-    throw new Error("Gagal membuat skenario kustom.")
+export function getChatScenarios(signal: AbortSignal, lang: Language = "ID") {
+  return requestCatalog("chat-scenarios", signal, lang)
+}
+
+export async function generateCustomScenario(prompt: string, signal: AbortSignal, language: Language): Promise<Scenario> {
+  const result = await request<Scenario>("custom", signal, language, { user_prompt: prompt, language })
+  if (result.version !== "roleplay-v1" || result.language !== language || !result.questions?.length) {
+    throw new JeliApiError("invalid_response", language)
   }
   return result
 }
@@ -104,11 +117,13 @@ export interface ChatMessageItem {
   id: string
   role: "user" | "assistant"
   text: string
+  mode?: "live" | "fallback"
   timestamp: string
   emotion?: "talking" | "happy" | "warning" | "thinking" | "celebrate"
 }
 
 export interface LiveChatResponse {
+  mode: "live" | "fallback"
   reply: string
   emotion: "talking" | "happy" | "warning" | "thinking" | "celebrate"
   key_takeaway: string
@@ -119,24 +134,30 @@ export async function chatLiveRoleplay(
   message: string,
   character: "jeli" | "recruiter",
   history: { role: "user" | "assistant"; text: string }[],
-  language: "ID" | "EN" = "ID",
+  language: Language = "ID",
   signal?: AbortSignal
 ): Promise<LiveChatResponse> {
-  return request<LiveChatResponse>("chat", signal || new AbortController().signal, {
+  const result = await request<LiveChatResponse>("chat", signal || new AbortController().signal, language, {
     message,
     character,
     language,
     history: history.slice(-6),
   })
+  if (typeof result.reply !== "string" || !["live", "fallback"].includes(result.mode)
+    || !["talking", "happy", "warning", "thinking", "celebrate"].includes(result.emotion)) {
+    throw new JeliApiError("invalid_response", language)
+  }
+  return result
 }
 
-export function getTtsAudioUrl(text: string, lang: "id" | "en" = "id"): string {
-  const clean = text
-    .replace(/https?:\/\/\S+/g, lang === "en" ? "web link" : "tautan web")
-    .replace(/[*_#`~[\]]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-  return `${baseUrl}/api/v1/roleplay/tts?lang=${lang}&text=${encodeURIComponent(clean)}`
+export async function getTtsAudio(text: string, lang: "id" | "en", signal: AbortSignal) {
+  if (!baseUrl) throw new Error("TTS unavailable.")
+  const response = await fetch(`${baseUrl}/api/v1/roleplay/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, lang }),
+    signal,
+  })
+  if (response.status !== 200) throw new Error("TTS unavailable.")
+  return response.blob()
 }
-
-

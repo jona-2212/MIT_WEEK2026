@@ -4,6 +4,14 @@ Tujuan: merangkum perubahan proyek yang penting bagi pengembang dan integrator. 
 
 ## [Unreleased]
 
+- Katalog dan sesi chat perekrut Jeli Lakon mendukung Indonesia dan Inggris.
+  Pembuka, petunjuk, balasan, dan rapor mengikuti bahasa sesi.
+- Pembaca URL memvalidasi redirect dan IP tujuan, memakai TLS terverifikasi, dan melaporkan
+  halaman yang gagal dibaca. Analisis materi tidak cukup dan checksum indeks lintas OS diperbaiki.
+- Jeli Lakon memisahkan latihan terpandu dan chat perekrut bertanda tangan. Skenario kustom
+  berada di browser pengguna dan memakai rubrik terkurasi.
+- Sahabat Jeli menandai fallback lokal. Audio memakai POST privat dan berhenti saat pindah halaman.
+
 - Pencarian hukum dapat menampilkan satu pasal terverifikasi sebagai rujukan awal berdasarkan topik ketika kemiripan semantik di bawah ambang.
 - Gemini menentukan kategori risiko, ringkasan, dan rekomendasi berdasarkan konteks, termasuk pada pesan singkat.
 - Bundle RAG resmi pilot Pasal 11 berhasil mengembalikan tautan dan kutipan JDIH pada demo React.

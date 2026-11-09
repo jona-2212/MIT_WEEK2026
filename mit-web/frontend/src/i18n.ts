@@ -1,5 +1,7 @@
 export type Language = "ID" | "EN"
 
+export const locales = { ID: "id-ID", EN: "en-US" } as const
+
 const translations = {
   ID: {
     home: "Beranda",
@@ -8,7 +10,10 @@ const translations = {
     knowScamsFull: "Kenali Modus Penipuan",
     checkOffer: "Cek Tawaran Kerja",
     checkOfferNow: "Cek Tawaran Kerja Sekarang",
-    simulator: "Scam Simulator",
+    simulator: "Simulator Penipuan",
+    askJeli: "Tanya Jeli",
+    openMenu: "Buka menu",
+    closeMenu: "Tutup menu",
     interactive: "Interaktif",
     backHome: "Kembali ke Beranda",
     backHomepage: "Kembali ke Halaman Utama",
@@ -42,6 +47,9 @@ const translations = {
     checkOffer: "Check a Job Offer",
     checkOfferNow: "Check a Job Offer Now",
     simulator: "Scam Simulator",
+    askJeli: "Ask Jeli",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
     interactive: "Interactive",
     backHome: "Back to Homepage",
     backHomepage: "Back to Homepage",

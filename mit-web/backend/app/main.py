@@ -28,6 +28,7 @@ from app.services.ai.gemini import GeminiProvider
 from app.services.knowledge.static_index import StaticKnowledgeRetriever
 from app.services.recognition import RecognitionService
 from app.services.roleplay import RoleplayService
+from app.services.roleplay_chat import RecruiterRoleplayService
 
 logger = logging.getLogger("job_scam_guardian.lifecycle")
 
@@ -58,10 +59,12 @@ def create_app(
                     embedding_provider or GeminiEmbeddingProvider(settings, provider_client),
                 ),
             )
-            app.state.roleplay_service = RoleplayService(settings, provider_client)
+            app.state.recruiter_service = RecruiterRoleplayService(settings, provider_client)
+            app.state.roleplay_service = RoleplayService(app.state.recruiter_service)
             yield
         app.state.recognition_service = None
         app.state.roleplay_service = None
+        app.state.recruiter_service = None
         logger.info("application_stopped", extra={"component": "lifecycle"})
 
     application = FastAPI(
@@ -114,4 +117,3 @@ def render_demo(settings: Settings) -> str:
 
 
 app = create_app()
-

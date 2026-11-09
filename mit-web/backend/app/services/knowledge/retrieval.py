@@ -53,7 +53,9 @@ def is_verified(entry: KnowledgeEntry, *, allow_test: bool = False) -> bool:
     )
 
 
-def load_registry(path: Path) -> tuple[dict[str, KnowledgeEntry], str]:
+def load_registry(
+    path: Path, *, expected_sha256: str | None = None
+) -> tuple[dict[str, KnowledgeEntry], str]:
     try:
         with path.open("rb") as source:
             raw = source.read(2 * 1024 * 1024 + 1)
@@ -65,9 +67,17 @@ def load_registry(path: Path) -> tuple[dict[str, KnowledgeEntry], str]:
         entries = [KnowledgeEntry.model_validate(item) for item in data]
         if len({e.source_id for e in entries}) != len(entries):
             raise ValueError
-        return {entry.source_id: entry for entry in entries}, sha256(raw).hexdigest()
     except (OSError, UnicodeError, ValueError, ValidationError):
         raise ValueError("legal_registry_invalid") from None
+
+    canonical = raw.replace(b"\r\n", b"\n")
+    canonical_hash = sha256(canonical).hexdigest()
+    if expected_sha256 is not None and expected_sha256 != canonical_hash:
+        # Existing bundles built on Windows may have signed the CRLF representation.
+        legacy_hash = sha256(canonical.replace(b"\n", b"\r\n")).hexdigest()
+        if expected_sha256 != legacy_hash:
+            raise ValueError("legal_registry_mismatch")
+    return {entry.source_id: entry for entry in entries}, canonical_hash
 
 
 class KnowledgeRetriever(Protocol):

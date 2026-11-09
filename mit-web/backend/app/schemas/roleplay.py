@@ -1,8 +1,10 @@
 from typing import Literal
+
 from pydantic import BaseModel, Field
 
-Outcome = Literal["active", "verified_exit", "risky_choice", "needs_clarification", "stopped"]
-SkillStatus = Literal["observed", "practice", "unobserved"]
+from app.schemas.recognition import StrictModel
+
+Language = Literal["ID", "EN"]
 
 
 class QuestionOption(BaseModel):
@@ -35,76 +37,42 @@ class Scenario(BaseModel):
     questions: list[SimulatorQuestion] = Field(default_factory=list)
 
 
-class SkillEvaluation(BaseModel):
-    code: str
-    label: str
-    status: SkillStatus
+class GenerateCustomScenarioRequest(StrictModel):
+    user_prompt: str = Field(min_length=20, max_length=1500, repr=False)
+    language: Language = "ID"
 
 
-class Moment(BaseModel):
-    message_id: str
-    quote: str
-    trigger: str
-    explanation: str
+class CustomContext(StrictModel):
+    title: str = Field(min_length=1, max_length=100)
+    description: str = Field(min_length=20, max_length=500)
+    template_id: Literal[
+        "wfh-deposit", "telegram-task", "soe-travel", "apk-phishing", "overseas-job"
+    ]
 
 
-class Report(BaseModel):
-    outcome: Outcome
-    skills: list[SkillEvaluation] = Field(default_factory=list)
-    moments: list[Moment] = Field(default_factory=list)
-    next_step: str = ""
-    safe_reply: str = ""
-
-
-class MessageItem(BaseModel):
-    id: str
-    role: Literal["recruiter", "user"]
-    text: str
-
-
-class RoleplaySession(BaseModel):
-    roleplay_version: Literal["roleplay-v1"] = "roleplay-v1"
-    mode: Literal["live", "mock"] = "live"
-    scenario_id: str
-    session_token: str
-    expires_at: int
-    turn_index: int
-    max_turns: int = 7
-    outcome: Outcome
-    messages: list[MessageItem]
-    hint: str
-    report: Report
-
-
-class StartRoleplayRequest(BaseModel):
-    scenario_id: str
-
-
-class TurnRoleplayRequest(BaseModel):
-    session_token: str
-    client_turn_id: str | None = None
-    message: str
-
-
-class GenerateCustomScenarioRequest(BaseModel):
-    user_prompt: str
-
-
-class ChatMessageHistory(BaseModel):
+class ChatMessageHistory(StrictModel):
     role: Literal["user", "assistant"]
-    text: str
+    text: str = Field(min_length=1, max_length=1000, repr=False)
 
 
-class RoleplayChatRequest(BaseModel):
-    message: str
+class RoleplayChatRequest(StrictModel):
+    message: str = Field(min_length=1, max_length=1000, repr=False)
     character: Literal["jeli", "recruiter"] = "jeli"
-    language: Literal["ID", "EN"] = "ID"
-    history: list[ChatMessageHistory] = Field(default_factory=list)
+    language: Language = "ID"
+    history: list[ChatMessageHistory] = Field(default_factory=list, max_length=6, repr=False)
 
 
-class RoleplayChatResponse(BaseModel):
-    reply: str
+class AvatarReply(StrictModel):
+    reply: str = Field(min_length=1, max_length=600, repr=False)
     emotion: Literal["talking", "happy", "warning", "thinking", "celebrate"] = "talking"
-    key_takeaway: str = ""
-    suggested_replies: list[str] = Field(default_factory=list)
+    key_takeaway: str = Field(default="", max_length=240)
+    suggested_replies: list[str] = Field(default_factory=list, max_length=3)
 
+
+class RoleplayChatResponse(AvatarReply):
+    mode: Literal["live", "fallback"] = "live"
+
+
+class SpeechRequest(StrictModel):
+    text: str = Field(min_length=1, max_length=600, repr=False)
+    lang: Literal["id", "en"] = "id"

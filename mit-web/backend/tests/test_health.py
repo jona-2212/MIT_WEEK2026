@@ -44,7 +44,16 @@ async def test_documentation_and_openapi(client: AsyncClient) -> None:
     assert response.status_code == 200
     schema = response.json()
     assert schema["info"]["version"] == __version__
-    assert set(schema["paths"]) == {"/health", "/api/v1/health", "/api/v1/analyze"}
+    assert set(schema["paths"]) == {
+        "/health",
+        "/api/v1/health",
+        "/api/v1/analyze",
+        *{
+            f"/api/v1/roleplay/{path}"
+            for path in ("scenarios", "chat-scenarios", "custom", "start", "turn", "chat", "tts")
+        },
+    }
+    assert set(schema["paths"]["/api/v1/roleplay/tts"]) == {"post"}
     assert set(schema["components"]["schemas"]["HealthResponse"]["properties"]) == {
         "status",
         "service",

@@ -1,3 +1,6 @@
+# Preserve authored dialogue and feedback in readable single-line strings.
+# ruff: noqa: E501
+
 from typing import Any
 
 SCENARIOS_DATA_EN: list[dict[str, Any]] = [
@@ -57,7 +60,7 @@ SCENARIOS_DATA_EN: list[dict[str, Any]] = [
                         "text": "Under labor regulations, recruitment processes are free of charge. I am not willing to transfer funds to any personal account before an official contract.",
                         "is_correct": True,
                         "feedback_label": "Correct & Safe (Refused Payment)",
-                        "explanation": "Excellent reflex. Refusing upfront fees defeats 99% of job scam tactics immediately.",
+                        "explanation": "You declined an upfront fee. Verify the offer through an official channel before proceeding.",
                     },
                 ],
             },
@@ -702,4 +705,3 @@ SCENARIOS_DATA_EN: list[dict[str, Any]] = [
         ],
     },
 ]
-

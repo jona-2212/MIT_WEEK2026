@@ -1,29 +1,46 @@
+import socket
+
+import httpx
 import pytest
 
 from app.core.errors import AnalysisError
-from app.services.url_reader import extract_first_url, is_safe_url, fetch_url_content
+from app.services import url_reader
+
+pytestmark = pytest.mark.anyio
 
 
-def test_extract_first_url():
-    assert extract_first_url("cek lowongan https://example.com/job segera") == "https://example.com/job"
-    assert extract_first_url("tidak ada url di sini") is None
-    assert extract_first_url("http://test.org/path?a=1&b=2") == "http://test.org/path?a=1&b=2"
+@pytest.mark.parametrize(
+    "url", ["http://127.0.0.1:8080/admin", "file:///etc/passwd", "https://user:pw@jobs.example"]
+)
+async def test_unsafe_url_raises_error(url):
+    with pytest.raises(AnalysisError) as err:
+        await url_reader.fetch_url_content(url)
+    assert (err.value.status_code, err.value.code) == (400, "invalid_url")
 
 
-def test_is_safe_url():
-    assert is_safe_url("https://glints.com/id/opportunities") is True
-    assert is_safe_url("http://localhost") is False
-    assert is_safe_url("http://127.0.0.1:8000") is False
-    assert is_safe_url("http://192.168.1.1") is False
-    assert is_safe_url("http://10.0.0.1/secret") is False
-    assert is_safe_url("file:///etc/passwd") is False
-    assert is_safe_url("ftp://example.com") is False
+async def test_redirect_to_private_address_is_never_fetched(monkeypatch):
+    calls = []
 
+    def resolve(host, port, **kwargs):
+        ip = "93.184.216.34" if host == "jobs.example" else "127.0.0.1"
+        return [(socket.AF_INET, 0, 0, "", (ip, port))]
 
-@pytest.mark.anyio
-async def test_unsafe_url_raises_error():
-    with pytest.raises(AnalysisError) as exc_info:
-        await fetch_url_content("http://127.0.0.1:8080/admin")
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.code == "invalid_url"
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(302, headers={"Location": "http://127.0.0.1/internal"})
 
+    client = httpx.AsyncClient
+    monkeypatch.setattr(socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(
+        url_reader.httpx,
+        "AsyncClient",
+        lambda **kw: client(**kw, transport=httpx.MockTransport(respond)),
+    )
+
+    with pytest.raises(AnalysisError) as err:
+        await url_reader.fetch_url_content("https://jobs.example/posting")
+    assert err.value.code == "invalid_url"
+    assert len(calls) == 1
+    assert calls[0].url.host == "93.184.216.34"
+    assert calls[0].headers["Host"] == "jobs.example"
+    assert calls[0].extensions["sni_hostname"] == "jobs.example"

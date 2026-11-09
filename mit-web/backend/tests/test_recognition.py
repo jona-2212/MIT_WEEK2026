@@ -323,7 +323,7 @@ async def test_demo_and_openapi_expose_unified_contract() -> None:
     schema = api["paths"]["/api/v1/analyze"]["post"]["requestBody"]["content"][
         "multipart/form-data"
     ]["schema"]
-    assert set(schema["properties"]) == {"text", "file", "url"}
+    assert set(schema["properties"]) == {"text", "file", "url", "lang"}
     assert schema["properties"]["file"]["format"] == "binary"
     assert preflight.status_code == 400  # Origin belum dikonfigurasi pada test app ini.
 
@@ -547,7 +547,10 @@ async def test_english_language_output_end_to_end() -> None:
     assert response.status_code == 200
     data = response.json()
     assert "indicative assessment" in data["disclaimer"]
-    assert data["fraud_assessment"]["summary"] == "This job offer presents high risk due to upfront fee requirement."
+    assert (
+        data["fraud_assessment"]["summary"]
+        == "This job offer presents high risk due to upfront fee requirement."
+    )
     indicators = data["fraud_assessment"]["indicators"]
     upfront = next(i for i in indicators if i["code"] == "upfront_payment")
     assert "Evidence found supporting indication of upfront payment request" in upfront["reason"]
@@ -555,3 +558,39 @@ async def test_english_language_output_end_to_end() -> None:
     assert "Not found in the readable material" in not_detected["reason"]
     system_prompt_sent = calls[0].content.decode("utf-8")
     assert "strictly in English" in system_prompt_sent
+
+
+async def test_incomplete_model_input_cannot_return_low_risk():
+    content = extraction()
+    content.update(is_job_related=False, sufficient_content=False, risk_category="low")
+    app, _ = build_test_app(content)
+    async with open_test_client(app) as client:
+        result = await client.post("/api/v1/analyze", files=form_parts(SUSPICIOUS_TEXT))
+    assert result.status_code == 200
+    data = result.json()
+    assert data["status"] == "insufficient_data"
+    assert data["fraud_assessment"]["risk_category"] == "insufficient_data"
+    assert data["legal_screening"]["status"] == "needs_more_context"
+
+
+async def test_legal_index_tolerates_crlf_and_still_detects_tampering(rag_bundle):
+    from app.services.knowledge.static_index import digest, manifest_digest, verify_index
+
+    settings, _ = rag_bundle
+    index = settings.legal_index_path
+    registry = settings.legal_registry_path
+    initial = verify_index(index, registry, allow_test=True)
+    for path in [registry, *(index / f"{name}.json" for name in ("manifest", "chunks", "vectors"))]:
+        path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    assert verify_index(index, registry, allow_test=True) == initial
+    manifest = initial[0]
+    manifest.registry_sha256 = digest(registry.read_bytes())
+    manifest.index_sha256 = manifest_digest(manifest)
+    (index / "manifest.json").write_text(manifest.model_dump_json(), encoding="utf-8")
+    registry.write_bytes(registry.read_bytes().replace(b"\r\n", b"\n"))
+    assert verify_index(index, registry, allow_test=True)[0] == manifest
+
+    chunks = index / "chunks.json"
+    chunks.write_bytes(chunks.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="legal_index_checksum_mismatch"):
+        verify_index(index, registry, allow_test=True)

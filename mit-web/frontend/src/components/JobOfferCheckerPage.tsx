@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import {
   AlertTriangle,
   ArrowLeft,
-  BriefcaseBusiness,
   Building2,
   Check,
   CheckCircle2,
@@ -19,7 +18,6 @@ import {
   Plus,
   RefreshCw,
   Scale,
-  Scan,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -27,7 +25,7 @@ import {
   TrendingUp,
   Upload,
 } from "lucide-react"
-import { t } from "../i18n"
+import { locales, t, type Language } from "../i18n"
 import {
   AHU_COMPANY_SEARCH_URL,
   analyzeJob,
@@ -35,22 +33,17 @@ import {
   type JobAnalysisResponse,
   type RiskCategory,
 } from "../services/api"
-import { generatePdfReport } from "../utils/generatePdfReport"
+import { JeliApiError } from "../services/errors"
+import { indicatorLabels, legalSummary, riskLabels } from "../utils/localizeAnalysis"
 
 interface JobOfferCheckerPageProps {
   onBackToHome: () => void
-  onNavigate: (page: "home" | "checker" | "simulator") => void
-  lang: "ID" | "EN"
+  lang: Language
 }
 
 type InputMode = "text" | "url" | "image"
 
-const riskLabels: Record<RiskCategory, Record<"ID" | "EN", string>> = {
-  low: { ID: "Risiko Rendah", EN: "Low Risk" },
-  medium: { ID: "Perlu Waspada", EN: "Needs Caution" },
-  high: { ID: "Risiko Tinggi", EN: "High Risk" },
-  insufficient_data: { ID: "Data Belum Cukup", EN: "Insufficient Data" },
-}
+type Scan = { lang: Language; signal: AbortSignal; targetUrl?: string; result?: JobAnalysisResponse }
 
 const riskTheme: Record<
   RiskCategory,
@@ -60,11 +53,11 @@ const riskTheme: Record<
   }
 > = {
   high: {
-    bannerGradient: "from-rose-600 via-red-600 to-rose-700",
+    bannerGradient: "from-rose-700 to-red-800",
     icon: ShieldAlert,
   },
   medium: {
-    bannerGradient: "from-amber-500 via-orange-500 to-amber-600",
+    bannerGradient: "from-amber-800 to-orange-800",
     icon: AlertTriangle,
   },
   low: {
@@ -77,15 +70,6 @@ const riskTheme: Record<
   },
 }
 
-const indicatorLabels: Record<IndicatorCode, Record<"ID" | "EN", string>> = {
-  upfront_payment: { ID: "Permintaan Pembayaran Awal", EN: "Upfront Payment Request" },
-  credential_request: { ID: "Permintaan Kredensial / OTP", EN: "Credential / OTP Request" },
-  premature_sensitive_data: { ID: "Data Sensitif Terlalu Dini", EN: "Premature Sensitive Data" },
-  urgency_pressure: { ID: "Tekanan Waktu / Larangan Verifikasi", EN: "Urgency Pressure" },
-  unrealistic_offer: { ID: "Tawaran Gaji Tidak Wajar", EN: "Unrealistic Offer" },
-  unofficial_channel: { ID: "Kanal Komunikasi Meragukan", EN: "Suspicious Channel" },
-}
-
 const indicatorIcons: Record<IndicatorCode, React.ComponentType<{ className?: string }>> = {
   upfront_payment: Lock,
   credential_request: KeyRound,
@@ -93,187 +77,6 @@ const indicatorIcons: Record<IndicatorCode, React.ComponentType<{ className?: st
   urgency_pressure: Clock,
   unrealistic_offer: TrendingUp,
   unofficial_channel: MessageCircle,
-}
-
-export function localizeIndicatorReason(
-  reason: string,
-  code: IndicatorCode,
-  lang: "ID" | "EN"
-): string {
-  if (lang === "ID") {
-    if (reason.includes("Material is insufficient")) {
-      return "Materi belum cukup untuk menyimpulkan indikator ini."
-    }
-    if (reason.includes("Evidence found") || reason.includes("Quotes found")) {
-      return `Ada kutipan yang mendukung indikasi ${indicatorLabels[code].ID.toLowerCase()}; konteks perlu diverifikasi.`
-    }
-    if (reason.includes("not yet supported by sufficient evidence")) {
-      return "Indikasi belum didukung bukti yang cukup atau hasil ekstraksi bertentangan."
-    }
-    if (reason.includes("Not found in the readable material")) {
-      return "Tidak ditemukan pada materi yang terbaca; bukan jaminan lowongan aman."
-    }
-    return reason
-  }
-
-  // lang === "EN"
-  if (reason.includes("Materi belum cukup") || reason.includes("Material is insufficient")) {
-    return "Material is insufficient to conclude this indicator."
-  }
-  if (reason.includes("Ada kutipan") || reason.includes("Evidence found") || reason.includes("Quotes found")) {
-    return `Evidence found supporting indication of ${indicatorLabels[code].EN.toLowerCase()}; context requires verification.`
-  }
-  if (reason.includes("Indikasi belum didukung") || reason.includes("not yet supported by sufficient evidence")) {
-    return "Indication is not yet supported by sufficient evidence or extracted results conflict."
-  }
-  if (reason.includes("Tidak ditemukan pada materi") || reason.includes("Not found in the readable material")) {
-    return "Not found in the readable material; not a guarantee that the job is safe."
-  }
-  return reason
-}
-
-export function localizeSummary(summary: string, lang: "ID" | "EN"): string {
-  if (lang === "ID" || !summary) return summary
-
-  const isEnglish = /\b(this job offer|risk|applicant|payment|recruiter|official|material|detected|danger|caution)\b/i.test(
-    summary
-  )
-  if (isEnglish) return summary
-
-  let translated = summary
-  translated = translated.replace(
-    /Tawaran pekerjaan ini berisiko tinggi karena/gi,
-    "This job offer presents high risk because"
-  )
-  translated = translated.replace(
-    /Tawaran pekerjaan ini berisiko rendah/gi,
-    "This job offer is assessed as low risk"
-  )
-  translated = translated.replace(
-    /Tawaran pekerjaan ini perlu diwaspadai/gi,
-    "This job offer requires caution"
-  )
-  translated = translated.replace(
-    /Tawaran ini terindikasi berisiko tinggi/gi,
-    "This offer indicates high risk"
-  )
-  translated = translated.replace(
-    /Tawaran ini berisiko tinggi/gi,
-    "This offer is high risk"
-  )
-  translated = translated.replace(
-    /mewajibkan pelamar untuk melakukan pembayaran biaya administrasi di muka/gi,
-    "it requires applicants to make an upfront administrative payment"
-  )
-  translated = translated.replace(
-    /mewajibkan pelamar melakukan pembayaran/gi,
-    "it obligates applicants to make payments"
-  )
-  translated = translated.replace(
-    /sebagai syarat pendaftaran atau aktivasi akun/gi,
-    "as a condition for registration or account activation"
-  )
-  translated = translated.replace(
-    /sebagai syarat seleksi atau onboarding/gi,
-    "as a condition for selection or onboarding"
-  )
-  translated = translated.replace(
-    /sebagai syarat seleksi/gi,
-    "as a recruitment selection requirement"
-  )
-  translated = translated.replace(
-    /Selain itu, tawaran ini mencakup janji gaji yang sangat besar dengan persyaratan yang sangat minim serta menggunakan tekanan waktu yang mendesak\./gi,
-    "In addition, this offer promises unrealistically high salaries with minimal requirements and applies urgent time pressure."
-  )
-  translated = translated.replace(
-    /Selain itu, tawaran ini mencakup janji gaji yang sangat besar dengan persyaratan yang sangat minim/gi,
-    "Additionally, this offer promises unrealistically high salary with minimal requirements"
-  )
-  translated = translated.replace(
-    /janji gaji yang sangat besar/gi,
-    "unrealistically high salary promises"
-  )
-  translated = translated.replace(
-    /dengan persyaratan yang sangat minim/gi,
-    "with very minimal requirements"
-  )
-  translated = translated.replace(
-    /serta menggunakan tekanan waktu yang mendesak/gi,
-    "and imposes urgent time pressure"
-  )
-  translated = translated.replace(
-    /menggunakan tekanan waktu yang mendesak/gi,
-    "using urgent time pressure"
-  )
-  translated = translated.replace(
-    /tekanan waktu yang mendesak/gi,
-    "urgent time pressure"
-  )
-  translated = translated.replace(
-    /Identitas perekrut belum diverifikasi secara independen/gi,
-    "The recruiter's identity has not been independently verified"
-  )
-  translated = translated.replace(
-    /Materi belum cukup untuk menilai/gi,
-    "The material is insufficient to evaluate"
-  )
-  translated = translated.replace(
-    /Materi terlihat wajar/gi,
-    "The material appears standard and reasonable"
-  )
-
-  return translated
-}
-
-export function localizeRecommendation(rec: string, lang: "ID" | "EN"): string {
-  if (lang === "ID" || !rec) return rec
-  if (/\b(do not|verify|contact|never|check|avoid|official)\b/i.test(rec)) return rec
-
-  if (rec.includes("transfer") || rec.includes("biaya") || rec.includes("membayar")) {
-    return "Do not transfer any fees or pay administrative charges before receiving an official verified work contract."
-  }
-  if (rec.includes("kanal resmi") || rec.includes("sumber resmi") || rec.includes("verifikasi")) {
-    return "Independently verify company credentials and recruiter identity through official channels."
-  }
-  if (rec.includes("OTP") || rec.includes("password") || rec.includes("kredensial") || rec.includes("kata sandi")) {
-    return "Never share your OTP, PIN, account passwords, or personal credentials with anyone."
-  }
-  if (rec.includes("aplikasi") || rec.includes("APK") || rec.includes("instal")) {
-    return "Do not install suspicious applications or APK files requested by the recruiter."
-  }
-  return rec
-}
-
-export function localizeLegalSummary(summary: string, lang: "ID" | "EN"): string {
-  if (lang === "EN") {
-    if (summary.includes("Materi belum cukup untuk screening hukum")) {
-      return "Material is insufficient for legal screening."
-    }
-    if (
-      summary.includes("Rujukan hukum belum tersedia") ||
-      summary.includes("Indeks resmi belum tersedia")
-    ) {
-      return "Legal references unavailable. Fraud assessment does not determine legal compliance."
-    }
-  } else {
-    if (summary.includes("Material is insufficient")) {
-      return "Materi belum cukup untuk screening hukum."
-    }
-    if (summary.includes("Legal references unavailable")) {
-      return "Rujukan hukum belum tersedia. Hasil fraud tidak menentukan kepatuhan hukum."
-    }
-  }
-  return summary
-}
-
-export function localizeDisclaimer(disclaimer: string | undefined, lang: "ID" | "EN"): string {
-  if (lang === "EN") {
-    return "This category is an indicative assessment by Jeli AI based on the submitted material. AI results may be inaccurate. Independently verify through official sources."
-  }
-  return (
-    disclaimer ||
-    "Kategori ini adalah penilaian indikatif Jeli AI atas materi yang dikirim. Hasil AI dapat keliru. Verifikasi melalui sumber resmi secara mandiri."
-  )
 }
 
 export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
@@ -286,15 +89,43 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
   const [urlNote, setUrlNote] = useState("")
   const [image, setImage] = useState<{ file: File; previewUrl: string } | null>(null)
   const [imageDescription, setImageDescription] = useState("")
-  const [isScanning, setIsScanning] = useState(false)
-  const [result, setResult] = useState<JobAnalysisResponse | null>(null)
-  const [error, setError] = useState("")
+  const [scan, setScan] = useState<Scan | null>(null)
+  const [error, setError] = useState<{ lang: Language; message: string; action?: true } | null>(null)
   const [copied, setCopied] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const request = useRef<AbortController | null>(null)
+  const resultHeading = useRef<HTMLHeadingElement>(null)
+  const copyTimer = useRef<number>(undefined)
+  const current = scan?.lang === lang && !scan.signal.aborted ? scan : null
+  const isScanning = Boolean(current && !current.result)
+  const result = current?.result
+  const needsRescan = Boolean(scan && !current)
 
   useEffect(() => {
     if (image) return () => URL.revokeObjectURL(image.previewUrl)
   }, [image])
+
+  useEffect(() => () => {
+    request.current?.abort()
+    request.current = null
+  }, [lang])
+
+  useEffect(() => () => window.clearTimeout(copyTimer.current), [])
+
+  useEffect(() => {
+    if (!result) return
+    resultHeading.current?.focus({ preventScroll: true })
+    resultHeading.current?.scrollIntoView({ block: "start" })
+  }, [result])
+
+  function clearAnalysis() {
+    request.current?.abort()
+    request.current = null
+    window.clearTimeout(copyTimer.current)
+    setScan(null)
+    setError(null)
+    setCopied(false)
+  }
 
   const inputText = mode === "image" ? imageDescription.trim() : (mode === "url" ? urlNote.trim() : text.trim())
   const normalizedUrl = url.trim()
@@ -303,72 +134,99 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
   const targetUrl = mode === "url" ? normalizedUrl : undefined
   const file = mode === "image" ? image?.file : undefined
   const hasInput = Boolean(inputText || file || targetUrl)
-  const isTextALink = Boolean(
-    text.trim().startsWith("http") ||
-    /^(?:www\.|[a-zA-Z0-9-]+\.(?:co\.id|com|id|org|net|site|xyz))/i.test(text.trim())
-  )
+  const isTextALink = /^(?:https?:\/\/|www\.)\S+$/i.test(text.trim())
 
   const handleAnalyze = async () => {
-    if (isScanning || !hasInput) return
+    if (request.current || !hasInput) return
 
-    setError("")
-    setResult(null)
-    setIsScanning(true)
+    clearAnalysis()
+    const controller = new AbortController()
+    request.current = controller
+    const submitted: Scan = { lang, signal: controller.signal, targetUrl }
+    setScan(submitted)
     try {
-      setResult(await analyzeJob({ text: inputText, file, url: targetUrl, lang }))
+      if (targetUrl) {
+        let parsed: URL | undefined
+        try {
+          parsed = new URL(targetUrl)
+        } catch {
+          throw new JeliApiError("invalid_url", lang)
+        }
+        if (!parsed || !["http:", "https:"].includes(parsed.protocol) || !parsed.hostname.includes(".") || /\s/.test(targetUrl)) {
+          throw new JeliApiError("invalid_url", lang)
+        }
+      }
+      const data = await analyzeJob({ text: inputText, file, url: targetUrl, lang, signal: controller.signal })
+      if (!controller.signal.aborted) setScan({ ...submitted, result: data })
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
+      if (controller.signal.aborted) return
+      setScan(null)
+      setError({
+        lang,
+        message: requestError instanceof Error
           ? requestError.message
-          : (lang === "ID" ? "Analisis gagal diproses." : "Analysis failed to process.")
-      )
+          : (lang === "ID" ? "Analisis gagal. Coba lagi." : "Analysis failed. Try again."),
+      })
     } finally {
-      setIsScanning(false)
+      if (request.current === controller) request.current = null
     }
   }
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
-    setImage(selectedFile ? { file: selectedFile, previewUrl: URL.createObjectURL(selectedFile) } : null)
-    setResult(null)
-    setError("")
+    if (!selectedFile) return
+    clearAnalysis()
+    if (!["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)) {
+      setError({ lang, message: new JeliApiError("unsupported_image_type", lang).message })
+      return
+    }
+    setImage({ file: selectedFile, previewUrl: URL.createObjectURL(selectedFile) })
   }
 
   const handleCopyReply = async () => {
     const reply =
       lang === "ID"
-        ? "Terima kasih. Saya akan memverifikasi proses seleksi ini melalui kanal resmi perusahaan dan tidak dapat melakukan transfer biaya apa pun sebelum ada kontrak kerja resmi."
-        : "Thank you. I will verify this recruitment process through the company's official channels and cannot pay any fees before an official employment contract."
-    await navigator.clipboard.writeText(reply)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
+        ? "Terima kasih. Saya akan memverifikasi tawaran ini melalui kanal resmi perusahaan. Saya tidak akan membayar biaya rekrutmen atau membagikan data sensitif."
+        : "Thank you. I will verify this offer through the company's official channels. I will not pay recruitment fees or share sensitive data."
+    try {
+      setError(null)
+      await navigator.clipboard.writeText(reply)
+      setCopied(true)
+      window.clearTimeout(copyTimer.current)
+      copyTimer.current = window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setError({ lang, action: true, message: lang === "ID" ? "Penyalinan ditolak oleh browser." : "The browser blocked copying." })
+    }
   }
 
-  const handleDownloadPdf = () => {
-    if (!result) return
+  const handleDownloadPdf = async () => {
+    if (!result || !current || isDownloadingPdf) return
     setIsDownloadingPdf(true)
+    setError(null)
     try {
-      generatePdfReport({
-        result,
-        targetUrl: mode === "url" ? url.trim() : undefined,
-        lang,
-      })
-    } catch (err) {
-      console.error("Gagal membuat PDF:", err)
+      const { generatePdfReport } = await import("../utils/generatePdfReport")
+      if (document.documentElement.lang === lang.toLowerCase()) {
+        generatePdfReport({ result, targetUrl: current.targetUrl, lang })
+      }
+    } catch {
+      setError({ lang, action: true, message: lang === "ID" ? "PDF gagal dibuat. Coba lagi." : "Could not create the PDF. Try again." })
     } finally {
-      setTimeout(() => setIsDownloadingPdf(false), 800)
+      setIsDownloadingPdf(false)
     }
   }
 
   const risk = result?.fraud_assessment
-  const indicators = risk?.indicators.filter(({ state }) => state !== "not_detected") ?? []
+  const indicators = risk && risk.risk_category !== "insufficient_data"
+    ? risk.indicators.filter(({ state }) => state !== "not_detected")
+    : []
+  const detectedCount = indicators.filter(({ state }) => state === "detected").length
   const legal = result?.legal_screening
   const currentTheme = risk ? riskTheme[risk.risk_category] : null
   const RiskIcon = currentTheme ? currentTheme.icon : ShieldCheck
 
   return (
-    <div className="min-h-screen bg-[#F7F7F0] bg-warm-grid px-4 pb-20 pt-20 text-[#202C2B]">
-      <div className="mx-auto max-w-5xl">
+    <main className="min-h-screen bg-[#F7F7F0] bg-warm-grid px-4 pb-20 pt-24 text-[#202C2B]">
+      <div className="mx-auto max-w-4xl">
         {/* Top Header & Navigation Bar */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-[#064B50]/10 pb-4">
           <button
@@ -378,68 +236,52 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
             <ArrowLeft className="h-4 w-4" /> {t(lang, "backHome")}
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-full border border-[#064B50]/20 bg-[#064B50]/10 px-3 py-1.5 text-xs font-bold text-[#064B50] md:flex">
-              <Scan className="h-3.5 w-3.5 text-[#087F7A]" /> Jeli Job Scanner
-            </div>
-
-            {/* Grounded Navigation Pills: Cek Loker & Cek PT (Replaces floating bottom bar) */}
-            <div className="flex items-center gap-1 rounded-2xl border border-[#064B50]/15 bg-white p-1 shadow-xs">
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-xl bg-[#064B50] px-3.5 py-1.5 text-xs font-extrabold text-white shadow-xs"
-              >
-                <BriefcaseBusiness className="h-3.5 w-3.5" />
-                {lang === "ID" ? "Cek Loker" : "Job Checker"}
-              </button>
-              <a
-                href={AHU_COMPANY_SEARCH_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-extrabold text-[#064B50] transition-colors hover:bg-[#F7F7F0]"
-              >
-                <Building2 className="h-3.5 w-3.5" />
-                {lang === "ID" ? "Cek PT (AHU)" : "Verify PT (AHU)"}
-                <ExternalLink className="h-3 w-3 opacity-60" />
-              </a>
-            </div>
-          </div>
+          <a
+            href={AHU_COMPANY_SEARCH_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 rounded-xl border border-[#064B50]/15 bg-white px-3 py-2 text-xs font-bold text-[#064B50] hover:bg-[#F7F7F0]"
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            {lang === "ID" ? "Cek PT (AHU)" : "Check a Company (AHU)"}
+            <ExternalLink className="h-3 w-3" />
+          </a>
         </div>
 
         {/* Title & Introduction */}
         <div className="mx-auto mb-8 max-w-2xl text-center">
-          <h1 className="mb-2 text-3xl font-black tracking-tight text-[#064B50] sm:text-4xl">
-            {lang === "ID" ? "Cek Tawaran Kerja" : "Check a Job Offer"}
+          <h1 id="checker-title" className="mb-2 text-3xl font-black tracking-tight text-[#064B50] sm:text-4xl">
+            {t(lang, "checkOffer")}
           </h1>
           <p className="text-sm text-[#202C2B]/80 sm:text-base">
             {lang === "ID"
-              ? "Periksa indikasi penipuan rekrutmen melalui teks pesan, tautan lowongan kerja, atau screenshot poster tawaran."
-              : "Check for recruitment scam indicators using text messages, job links, or offer poster screenshots."}
+              ? "Masukkan teks, tautan, atau tangkapan layar lowongan."
+              : "Paste text, enter a link, or upload a job offer screenshot."}
           </p>
         </div>
 
-        {/* Main 2-Column Grid */}
-        <div className="grid items-start gap-6 lg:grid-cols-12">
-          {/* Left Column: Input Card */}
-          <section className="rounded-3xl border border-[#064B50]/15 bg-white p-5 shadow-sm sm:p-6 lg:col-span-7">
+        <div className="grid gap-6">
+          <form aria-labelledby="checker-title" className="min-w-0 rounded-3xl border border-[#064B50]/15 bg-white p-4 shadow-sm sm:p-6" onSubmit={(event) => {
+            event.preventDefault()
+            void handleAnalyze()
+          }}>
             {/* Input Mode Selector */}
             <div className="mb-5 grid grid-cols-3 gap-2 rounded-2xl bg-[#F7F7F0] p-1">
               {([
                 ["text", lang === "ID" ? "Teks" : "Text", Search],
-                ["url", lang === "ID" ? "Tautan / URL" : "Link / URL", Globe],
+                ["url", lang === "ID" ? "Tautan" : "Link", Globe],
                 ["image", lang === "ID" ? "Gambar" : "Image", ImageIcon],
               ] as const).map(([value, label, Icon]) => (
                 <button
                   key={value}
+                  type="button"
                   aria-pressed={mode === value}
-                  disabled={isScanning}
                   onClick={() => {
                     if (mode === value) return
                     setMode(value)
-                    setResult(null)
-                    setError("")
+                    clearAnalysis()
                   }}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-bold transition-all ${
+                  className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-bold transition-colors ${
                     mode === value
                       ? "bg-[#064B50] text-white shadow-xs"
                       : "text-[#202C2B]/70 hover:text-[#064B50]"
@@ -453,31 +295,34 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
             {/* Mode 1: Text Input */}
             {mode === "text" && (
               <div>
+                <label htmlFor="offer-text" className="mb-1.5 block text-sm font-bold text-[#064B50]">
+                  {lang === "ID" ? "Teks lowongan" : "Job offer text"}
+                </label>
                 <textarea
-                  rows={9}
+                  id="offer-text"
+                  rows={6}
+                  maxLength={12_000}
                   value={text}
-                  disabled={isScanning}
                   onChange={(event) => {
                     setText(event.target.value)
-                    setResult(null)
-                    setError("")
+                    clearAnalysis()
                   }}
                   placeholder={
                     lang === "ID"
-                      ? "Tempelkan teks lowongan kerja, pesan chat recruiter (WhatsApp/Telegram), atau email penawaran di sini..."
-                      : "Paste the complete job offer, recruiter chat (WhatsApp/Telegram), or offer email here..."
+                      ? "Tempel teks lowongan, pesan perekrut, atau email tawaran."
+                      : "Paste a job posting, recruiter message, or offer email."
                   }
                   className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-4 text-sm leading-relaxed outline-none focus:border-[#064B50] focus:bg-white transition-colors"
                 />
                 {isTextALink && (
-                  <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-[#064B50]/20 bg-[#064B50]/5 p-2.5 text-xs text-[#064B50]">
+                  <button type="button" className="mt-2.5 flex items-center gap-2 rounded-xl border border-[#064B50]/20 bg-[#064B50]/5 p-2.5 text-xs text-[#064B50]" onClick={() => {
+                    clearAnalysis()
+                    setUrl(text.trim())
+                    setMode("url")
+                  }}>
                     <Globe className="h-4 w-4 shrink-0 text-[#087F7A]" />
-                    <span>
-                      {lang === "ID"
-                        ? "Tautan terdeteksi: AI akan otomatis mengambil dan mengekstrak rincian pekerjaan dari halaman web ini."
-                        : "Link detected: AI will automatically fetch and extract job details from this URL."}
-                    </span>
-                  </div>
+                    {lang === "ID" ? "Gunakan tautan ini" : "Use this link"}
+                  </button>
                 )}
               </div>
             )}
@@ -486,48 +331,50 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
             {mode === "url" && (
               <div className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold text-[#064B50]">
-                    {lang === "ID" ? "Tautan / URL Lowongan Kerja" : "Job Offer Link / URL"}
+                  <label htmlFor="offer-url" className="mb-1.5 block text-sm font-bold text-[#064B50]">
+                    {lang === "ID" ? "Tautan lowongan" : "Job offer link"}
                   </label>
                   <div className="relative flex items-center">
                     <Globe className="absolute left-3.5 h-4 w-4 text-[#064B50]/50" />
                     <input
-                      type="url"
+                      id="offer-url"
+                      type="text"
+                      inputMode="url"
+                      autoCapitalize="none"
+                      maxLength={2048}
                       value={url}
-                      disabled={isScanning}
                       onChange={(event) => {
                         setUrl(event.target.value)
-                        setResult(null)
-                        setError("")
+                        clearAnalysis()
                       }}
-                      placeholder="https://glints.com/... atau tautan lowongan kerja lainnya"
+                      placeholder="https://glints.com/…"
                       className="w-full rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] py-3.5 pl-10 pr-4 text-sm outline-none focus:border-[#064B50] focus:bg-white transition-colors"
                     />
                   </div>
-                  <p className="mt-1.5 text-[11px] text-[#202C2B]/60">
+                  <p className="mt-1.5 text-xs text-[#202C2B]/75">
                     {lang === "ID"
-                      ? "Mendukung portal karir resmi (Glints, Jobstreet, LinkedIn, Kalibrr, dll.) maupun website perusahaan."
-                      : "Supports official portals (Glints, Jobstreet, LinkedIn, Kalibrr, etc.) or company career sites."}
+                      ? "Gunakan tautan yang dapat dibuka tanpa masuk akun."
+                      : "Use a link that opens without signing in."}
                   </p>
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-bold text-[#064B50]">
-                    {lang === "ID" ? "Catatan Tambahan (Opsional)" : "Additional Notes (Optional)"}
+                  <label htmlFor="url-notes" className="mb-1.5 block text-sm font-bold text-[#064B50]">
+                    {lang === "ID" ? "Catatan (opsional)" : "Notes (optional)"}
                   </label>
                   <textarea
-                    rows={4}
+                    id="url-notes"
+                    rows={3}
+                    maxLength={12_000}
                     value={urlNote}
-                    disabled={isScanning}
                     onChange={(event) => {
                       setUrlNote(event.target.value)
-                      setResult(null)
-                      setError("")
+                      clearAnalysis()
                     }}
                     placeholder={
                       lang === "ID"
-                        ? "Misal: pesan recruiter yang membagikan tautan, nomor kontak pengirim, atau petunjuk seleksi..."
-                        : "E.g. message from recruiter who sent the link, sender contact number, or selection instructions..."
+                        ? "Tambahkan pesan atau instruksi dari perekrut."
+                        : "Add a message or instructions from the recruiter."
                     }
                     className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-3 text-xs leading-relaxed outline-none focus:border-[#064B50] focus:bg-white transition-colors"
                   />
@@ -539,20 +386,19 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
             {mode === "image" && (
               <div className="space-y-3">
                 {!image ? (
-                  <label className="group flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#064B50]/20 bg-[#F7F7F0] p-6 text-center transition-all hover:border-[#087F7A] hover:bg-white">
+                  <label className="group flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#064B50]/20 bg-[#F7F7F0] p-6 text-center hover:border-[#087F7A] focus-within:outline-2 focus-within:outline-[#087F7A]">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#064B50]/10 text-[#087F7A] transition-transform group-hover:scale-110">
                       <Upload className="h-6 w-6" />
                     </div>
                     <span className="text-sm font-bold text-[#064B50]">
-                      {lang === "ID" ? "Pilih atau Tarik Screenshot Tawaran ke Sini" : "Choose or Drag Offer Screenshot Here"}
+                      {lang === "ID" ? "Pilih tangkapan layar" : "Choose a screenshot"}
                     </span>
-                    <span className="mt-1 text-xs text-[#202C2B]/60">Format PNG, JPG, atau WebP (Maks. 5 MB)</span>
+                    <span className="mt-1 text-xs text-[#202C2B]/75">PNG, JPG, WebP</span>
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
-                      disabled={isScanning}
                       onChange={handleImageChange}
-                      className="hidden"
+                      className="sr-only"
                     />
                   </label>
                 ) : (
@@ -561,31 +407,28 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                       <div className="flex items-center gap-2 truncate pr-2">
                         <ImageIcon className="h-4 w-4 shrink-0 text-[#087F7A]" />
                         <span className="truncate text-xs font-bold text-[#064B50]">{image.file.name}</span>
-                        <span className="text-[11px] text-[#202C2B]/60">
+                        <span className="text-[11px] text-[#202C2B]/75">
                           ({image.file.size >= 1024 * 1024
-                            ? `${(image.file.size / (1024 * 1024)).toFixed(1)} MB`
+                            ? `${(image.file.size / (1024 * 1024)).toLocaleString(locales[lang], { maximumFractionDigits: 1 })} MB`
                             : `${Math.round(image.file.size / 1024)} KB`})
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <label className="flex cursor-pointer items-center gap-1 rounded-xl bg-[#064B50] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#087F7A]">
+                        <label className="flex cursor-pointer items-center gap-1 rounded-xl bg-[#064B50] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#087F7A] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#087F7A]">
                           <Plus className="h-3.5 w-3.5" />
                           <span>{lang === "ID" ? "Ganti Gambar" : "Change"}</span>
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/webp"
-                            disabled={isScanning}
                             onChange={handleImageChange}
-                            className="hidden"
+                            className="sr-only"
                           />
                         </label>
                         <button
                           type="button"
-                          disabled={isScanning}
                           onClick={() => {
                             setImage(null)
-                            setResult(null)
-                            setError("")
+                            clearAnalysis()
                           }}
                           className="flex items-center justify-center rounded-xl border border-red-200 bg-red-50 p-1.5 text-red-600 transition-colors hover:bg-red-100"
                           title={lang === "ID" ? "Hapus gambar" : "Remove image"}
@@ -598,26 +441,29 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                     <div className="flex justify-center rounded-xl border border-[#064B50]/10 bg-white/80 p-2">
                       <img
                         src={image.previewUrl}
-                        alt="Job offer preview"
+                        alt={lang === "ID" ? "Pratinjau gambar lowongan" : "Job offer image preview"}
                         className="max-h-64 w-auto rounded-lg object-contain shadow-xs"
                       />
                     </div>
                   </div>
                 )}
 
+                <label htmlFor="image-notes" className="block text-sm font-bold text-[#064B50]">
+                  {lang === "ID" ? "Catatan (opsional)" : "Notes (optional)"}
+                </label>
                 <textarea
+                  id="image-notes"
                   rows={3}
+                  maxLength={12_000}
                   value={imageDescription}
-                  disabled={isScanning}
                   onChange={(event) => {
                     setImageDescription(event.target.value)
-                    setResult(null)
-                    setError("")
+                    clearAnalysis()
                   }}
                   placeholder={
                     lang === "ID"
-                      ? "Catatan tambahan dari gambar (opsional, misal bagian teks tertentu atau nomor kontak)..."
-                      : "Additional notes from the image (optional)..."
+                      ? "Tambahkan bagian gambar yang perlu diperhatikan."
+                      : "Point out anything in the image Jeli should check."
                   }
                   className="w-full resize-none rounded-2xl border border-[#064B50]/15 bg-[#F7F7F0] p-3 text-xs leading-relaxed outline-none focus:border-[#064B50] focus:bg-white transition-colors"
                 />
@@ -626,7 +472,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
 
             {/* Submit Action Button */}
             <button
-              onClick={handleAnalyze}
+              type="submit"
               disabled={isScanning || !hasInput}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#064B50] px-5 py-3.5 font-extrabold text-white transition-all hover:bg-[#087F7A] disabled:cursor-not-allowed disabled:opacity-50 shadow-xs"
             >
@@ -638,39 +484,37 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                 : (lang === "ID" ? "Analisis Tawaran" : "Analyze Offer")}
             </button>
 
-            {error && (
+            {error?.lang === lang && !error.action && (
               <p role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-700">
-                {error}
+                {error.message}
               </p>
             )}
 
             {/* Privacy notice */}
-            <p className="mt-3 text-center text-[11px] font-medium text-[#202C2B]/60">
+            <p className="mt-3 text-center text-xs text-[#202C2B]/75">
               {lang === "ID"
-                ? "Privasi terjaga. Jangan sertakan data pribadi sensitif."
-                : "Privacy protected. Do not include sensitive personal data."}
+                ? "Hapus data pribadi sensitif sebelum mengirim."
+                : "Remove sensitive personal information before sending."}
             </p>
-          </section>
+          </form>
 
           {/* Right Column: Output / Result Panel (Redesigned for optimal readability) */}
           <section
-            aria-live="polite"
-            aria-busy={isScanning}
-            className="rounded-3xl border border-[#064B50]/15 bg-white shadow-sm overflow-hidden lg:col-span-5"
+            aria-labelledby="analysis-results"
+            className="min-w-0 overflow-hidden rounded-3xl border border-[#064B50]/15 bg-white shadow-sm"
           >
             {!risk ? (
               /* Empty State */
-              <div className="flex min-h-80 flex-col items-center justify-center p-8 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#064B50]/10 text-[#087F7A]">
-                  <ShieldCheck className="h-8 w-8" />
-                </div>
-                <h2 className="text-lg font-black text-[#064B50]">
-                  {lang === "ID" ? "Hasil Analisis Risiko Akan Muncul di Sini" : "Analysis Result Will Appear Here"}
+              <div className="p-4 sm:p-6">
+                <h2 id="analysis-results" className="text-xl font-extrabold text-[#064B50]">
+                  {lang === "ID" ? "Hasil Analisis" : "Analysis Results"}
                 </h2>
-                <p className="mt-2 max-w-sm text-xs leading-relaxed text-[#202C2B]/70">
-                  {lang === "ID"
-                    ? "Pilih metode input (Teks, Tautan URL, atau Gambar), isi materi tawaran kerja, lalu tekan tombol 'Analisis Tawaran'."
-                    : "Choose an input method (Text, URL, or Image), provide offer material, and click 'Analyze Offer'."}
+                <p role="status" className="mt-2 text-sm text-[#202C2B]/80">
+                  {isScanning
+                    ? (lang === "ID" ? "Jeli sedang memeriksa tawaranmu…" : "Jeli is checking your offer…")
+                    : needsRescan
+                      ? (lang === "ID" ? "Analisis ulang untuk melihat hasil dalam bahasa Indonesia." : "Run the analysis again to see results in English.")
+                      : (lang === "ID" ? "Kirim tawaran kerja untuk melihat hasilnya." : "Submit a job offer to see the result.")}
                 </p>
               </div>
             ) : (
@@ -678,18 +522,13 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
               <div>
                 {/* Result Hero Banner */}
                 <div className={`p-5 text-white bg-gradient-to-r ${currentTheme?.bannerGradient}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase opacity-95">
-                      <RiskIcon className="h-4 w-4" />
-                      {lang === "ID" ? "Hasil Evaluasi Jeli AI" : "Jeli AI Evaluation"}
-                    </span>
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-[11px] font-black backdrop-blur-xs">
-                      {riskLabels[risk.risk_category][lang]}
-                    </span>
-                  </div>
-                  <h2 className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">
-                    {riskLabels[risk.risk_category][lang]}
+                  <h2 id="analysis-results" ref={resultHeading} tabIndex={-1} className="text-sm font-bold">
+                    {lang === "ID" ? "Hasil Analisis" : "Analysis Results"}
                   </h2>
+                  <p className="mt-2 flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+                    <RiskIcon className="h-6 w-6 shrink-0" />
+                    {riskLabels[risk.risk_category][lang]}
+                  </p>
                 </div>
 
                 {/* Result Details Container */}
@@ -700,7 +539,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                       {lang === "ID" ? "Ringkasan Penilaian" : "Assessment Summary"}
                     </h3>
                     <p className="font-medium text-[#202C2B] leading-relaxed">
-                      {localizeSummary(risk.summary, lang)}
+                      {risk.summary}
                     </p>
                   </div>
 
@@ -711,11 +550,15 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                         {lang === "ID" ? "Indikator Risiko" : "Risk Indicators"}
                       </h3>
                       <span className="rounded-full bg-[#064B50]/10 px-2 py-0.5 text-[11px] font-bold text-[#064B50]">
-                        {indicators.length} {lang === "ID" ? "terdeteksi" : "detected"}
+                        {detectedCount} {lang === "ID" ? "terdeteksi" : "detected"}
                       </span>
                     </div>
 
-                    {indicators.length === 0 ? (
+                    {indicators.length === 0 && risk.risk_category === "insufficient_data" ? (
+                      <p className="text-sm text-[#202C2B]/80">
+                        {lang === "ID" ? "Materi belum cukup untuk menilai indikator." : "There is not enough material to assess the indicators."}
+                      </p>
+                    ) : indicators.length === 0 ? (
                       <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs font-medium text-emerald-800">
                         <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
                         <span>
@@ -760,8 +603,8 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                                 </span>
                               </div>
 
-                              <p className="text-xs leading-relaxed text-[#202C2B]/80">
-                                {localizeIndicatorReason(indicator.reason, indicator.code, lang)}
+                              <p className="text-sm leading-relaxed text-[#202C2B]/80">
+                                {indicator.reason}
                               </p>
 
                               {indicator.evidence.map(({ source, quote }) => (
@@ -769,11 +612,11 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                                   key={`${source}-${quote}`}
                                   className="rounded-xl border-l-4 border-red-500 bg-red-50/60 p-2.5 text-xs"
                                 >
-                                  <p className="italic font-medium text-[#202C2B]">“{quote}”</p>
-                                  <span className="mt-1 block text-[10px] font-bold uppercase text-[#202C2B]/50">
+                                  <p className="break-words italic font-medium text-[#202C2B]">“{quote}”</p>
+                                  <span className="mt-1 block text-[11px] font-bold text-[#202C2B]/75">
                                     {source === "image"
-                                      ? (lang === "ID" ? "Bukti dari Screenshot" : "Evidence from Screenshot")
-                                      : (lang === "ID" ? "Bukti dari Teks/URL" : "Evidence from Text/URL")}
+                                      ? (lang === "ID" ? "Kutipan dari gambar" : "Quote from image")
+                                      : (lang === "ID" ? "Kutipan dari teks" : "Quote from text")}
                                   </span>
                                 </div>
                               ))}
@@ -793,11 +636,11 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                       {risk.recommendations.map((recommendation, idx) => (
                         <div
                           key={idx}
-                          className="flex items-start gap-2.5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 text-xs leading-relaxed text-emerald-950"
+                          className="flex items-start gap-2.5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-3 text-sm leading-relaxed text-emerald-950"
                         >
                           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                           <span className="font-medium">
-                            {localizeRecommendation(recommendation, lang)}
+                            {recommendation}
                           </span>
                         </div>
                       ))}
@@ -805,13 +648,13 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                   </div>
 
                   {/* Legal References Section */}
-                  {legal && legal.references.length > 0 && (
+                  {legal && (
                     <div className="space-y-2.5">
                       <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#064B50]">
                         <Scale className="h-3.5 w-3.5 text-[#087F7A]" />
                         {lang === "ID" ? "Rujukan Regulasi Ketenagakerjaan RI" : "Indonesian Labor Regulations"}
                       </h3>
-                      <p className="text-xs text-[#202C2B]/80">{localizeLegalSummary(legal.summary, lang)}</p>
+                      <p className="text-sm text-[#202C2B]/80">{legalSummary(legal, lang)}</p>
                       <div className="space-y-2">
                         {legal.references.map((reference) => (
                           <div
@@ -824,10 +667,10 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                               rel="noreferrer"
                               className="inline-flex items-center gap-1 font-bold text-[#064B50] hover:underline"
                             >
-                              <span>{reference.title}{reference.article && ` · ${reference.article}`}</span>
+                              <span lang="id">{reference.title}{reference.article && ` · ${reference.article}`}</span>
                               <ExternalLink className="h-3 w-3" />
                             </a>
-                            <p className="mt-1.5 whitespace-pre-line text-[11px] text-[#202C2B]/75">
+                            <p lang="id" className="mt-1.5 whitespace-pre-line text-xs text-[#202C2B]/75">
                               {reference.excerpt}
                             </p>
                           </div>
@@ -863,19 +706,19 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
                           : (lang === "ID" ? "Salin Draf Balasan Aman" : "Copy Safe Reply")}
                       </button>
                       <a
-                        href={AHU_COMPANY_SEARCH_URL}
-                        target="_blank"
-                        rel="noreferrer"
+                        href="#simulator"
                         className="flex items-center justify-center gap-1.5 rounded-xl border border-[#064B50]/20 bg-[#F7F7F0] px-4 py-2.5 text-xs font-bold text-[#064B50] transition-colors hover:bg-white"
                       >
-                        <Building2 className="h-4 w-4" />
-                        <span>{lang === "ID" ? "Verifikasi PT di AHU" : "Verify in AHU"}</span>
-                        <ExternalLink className="h-3 w-3 opacity-60" />
+                        <MessageCircle className="h-4 w-4" />
+                        <span>{lang === "ID" ? "Latih respons" : "Practise a response"}</span>
                       </a>
                     </div>
 
-                    <p className="text-[11px] leading-relaxed text-[#202C2B]/60 italic">
-                      {localizeDisclaimer(result?.disclaimer, lang)}
+                    {error?.lang === lang && error.action && (
+                      <p role="alert" className="text-sm text-red-800">{error.message}</p>
+                    )}
+                    <p className="text-xs leading-relaxed text-[#202C2B]/75 italic">
+                      {result?.disclaimer}
                     </p>
                   </div>
                 </div>
@@ -884,7 +727,7 @@ export const JobOfferCheckerPage: React.FC<JobOfferCheckerPageProps> = ({
           </section>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
 

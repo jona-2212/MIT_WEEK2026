@@ -106,7 +106,7 @@ RESPONSES = {
                             "url": {
                                 "type": "string",
                                 "maxLength": 2048,
-                                "description": "Tautan URL publik lowongan kerja yang akan diekstrak.",
+                                "description": "Tautan publik lowongan kerja.",
                             },
                             "file": {
                                 "type": "string",

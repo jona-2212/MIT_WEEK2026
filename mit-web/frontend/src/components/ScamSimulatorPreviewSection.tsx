@@ -99,16 +99,16 @@ const PREVIEW_SCENARIOS: PreviewScenario[] = [
           en: "Refuse payment & request verification through an official company email",
         },
         feedbackTitle: {
-          id: "🛡️ Keputusan Tepat & Aman (100% Terlindungi)!",
-          en: "🛡️ Smart & Safe Decision (100% Protected)!",
+          id: "🛡️ Pilihan lebih aman",
+          en: "🛡️ Safer choice",
         },
         feedbackBody: {
           id: "Refleks juara! Anda menggagalkan upaya manipulasi penipu yang memanfaatkan urgensi palsu dan iming-iming gaji tinggi.",
           en: "Outstanding reflex! You defeated a scam attempt engineered with fake urgency and inflated salary bait.",
         },
         lesson: {
-          id: "Menolak segala pungutan di awal dan menuntut kanal resmi mematahkan 99% modus penipuan lowongan kerja.",
-          en: "Refusing upfront charges and demanding official corporate channels defeats 99% of recruitment scams.",
+          id: "Tolak biaya di awal dan periksa tawaran melalui kanal resmi yang kamu temukan sendiri.",
+          en: "Decline upfront fees and verify the offer through an official channel you find yourself.",
         },
       },
     ],
@@ -296,9 +296,9 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
       <div className="pointer-events-none absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-[#087F7A]/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-10 lg:grid-cols-12 lg:gap-12">
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-12">
           {/* Left Column: Heading, Value Props, CTA */}
-          <div className="lg:col-span-5">
+          <div className="min-w-0 lg:col-span-5">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#064B50]/15 bg-white px-3.5 py-1.5 shadow-2xs">
               <Sparkles className="h-3.5 w-3.5 text-[#087F7A]" />
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#064B50]">
@@ -312,8 +312,8 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
 
             <p className="mb-6 text-base leading-relaxed text-[#202C2B]/85">
               {lang === "ID"
-                ? "Bukan sekadar teori. Uji refleksmu langsung di sini menghadapi pesan manipulatif perekrut palsu dan ketahui konsekuensinya dalam hitungan detik."
-                : "Not just theory. Test your reflexes right here against manipulative fake recruiter messages and see the real consequences in seconds."}
+                ? "Balas pesan perekrut fiktif, lalu lihat dampak pilihanmu."
+                : "Reply to a fictional recruiter and see what your choice could lead to."}
             </p>
 
             {/* Quick feature checklist */}
@@ -327,7 +327,7 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
                     {lang === "ID" ? "3 Langkah Latihan Terarah" : "3 Structured Practice Steps"}
                   </p>
                   <p className="text-[11px] text-[#202C2B]/70">
-                    {lang === "ID" ? "Amati pola red flag → Pilih respons taktis → Pahami risikonya." : "Spot the red flag → Choose your response → Understand the real risk."}
+                    {lang === "ID" ? "Kenali tanda bahaya, pilih respons, lalu pahami risikonya." : "Spot the warning sign, choose a reply, and understand the risk."}
                   </p>
                 </div>
               </div>
@@ -361,8 +361,8 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
           </div>
 
           {/* Right Column: Live Interactive Simulation Playground Card */}
-          <div className="lg:col-span-7">
-            <div className="rounded-3xl border border-[#064B50]/15 bg-white p-5 shadow-xl sm:p-7">
+          <div className="min-w-0 lg:col-span-7">
+            <div className="rounded-3xl border border-[#064B50]/15 bg-white p-4 shadow-xl sm:p-7">
               {/* Card Header: Live badge + Title */}
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[#064B50]/10 pb-4">
                 <div className="flex items-center gap-2.5">
@@ -372,7 +372,7 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
                   </span>
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-[#087F7A]">
-                      {lang === "ID" ? "UJI REFLEKS CEPAT • LIVE PREVIEW" : "QUICK REFLEX TEST • LIVE PREVIEW"}
+                      {lang === "ID" ? "LATIHAN SINGKAT" : "QUICK PRACTICE"}
                     </span>
                     <h3 className="text-sm font-extrabold text-[#064B50]">
                       {currentScenario.category[lang === "ID" ? "id" : "en"]}
@@ -393,8 +393,9 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
                     <button
                       key={scen.id}
                       type="button"
+                      aria-pressed={isActive}
                       onClick={() => handleScenarioChange(idx)}
-                      className={`rounded-xl px-2.5 py-2.5 text-center transition-all ${
+                      className={`min-w-0 rounded-xl px-1 py-2.5 text-center transition-colors sm:px-2.5 ${
                         isActive
                           ? "bg-[#064B50] text-white shadow-sm ring-2 ring-[#064B50]/20"
                           : "bg-[#F7F7F0] text-[#202C2B]/70 hover:bg-[#EBECE1] hover:text-[#064B50]"
@@ -409,17 +410,17 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
               </div>
 
               {/* 3-Step Guided Breadcrumbs */}
-              <div className="mb-4 flex items-center justify-between rounded-xl bg-[#F7F7F0] px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-wider text-[#202C2B]/60 sm:text-[11px]">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#F7F7F0] px-3 py-2 text-[10px] font-extrabold uppercase tracking-wider text-[#202C2B]/80 sm:text-[11px]">
                 <div className={`flex items-center gap-1.5 ${!selectedOption ? "font-black text-[#064B50]" : ""}`}>
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#064B50]/10 text-[9px] text-[#064B50]">1</span>
                   {lang === "ID" ? "Amati Pola" : "Spot Pattern"}
                 </div>
-                <span>→</span>
+                <span aria-hidden="true" className="hidden sm:inline">→</span>
                 <div className={`flex items-center gap-1.5 ${!selectedOption ? "font-black text-[#087F7A]" : ""}`}>
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#087F7A]/15 text-[9px] text-[#087F7A]">2</span>
                   {lang === "ID" ? "Pilih Respons" : "Choose Response"}
                 </div>
-                <span>→</span>
+                <span aria-hidden="true" className="hidden sm:inline">→</span>
                 <div className={`flex items-center gap-1.5 ${selectedOption ? "font-black text-emerald-700" : ""}`}>
                   <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[9px] ${selectedOption ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"}`}>3</span>
                   {lang === "ID" ? "Pahami Risiko" : "Understand Risk"}
@@ -472,6 +473,7 @@ export const ScamSimulatorPreviewSection: React.FC<ScamSimulatorPreviewSectionPr
                       <button
                         key={opt.id}
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => setSelectedOptionId(opt.id)}
                         className={`group relative flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${
                           isSelected

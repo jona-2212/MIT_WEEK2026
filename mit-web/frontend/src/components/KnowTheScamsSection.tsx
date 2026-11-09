@@ -28,7 +28,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
         lang === "ID"
           ? "Modus Transfer Seragam, Tes Medis, & Tiket Travel"
           : "Advance fees for uniforms, medical checkup, or travel",
-      badge: lang === "ID" ? "MODUS #1 PALING BANYAK KORBAN" : "#1 MOST COMMON SCAM",
+      badge: lang === "ID" ? "BIAYA DI AWAL" : "UPFRONT FEES",
       explanation:
         lang === "ID"
           ? "Pelamar diminta mentransfer sejumlah uang di awal dengan alasan biaya administrasi, seragam kerja, tes psikotes, atau pemesanan tiket travel agen rekanan. Penipu menjanjikan uang akan dikembalikan (reimburse) saat hari pertama kerja, yang tidak pernah terjadi."
@@ -50,14 +50,14 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
       ],
       safetyActions: [
         lang === "ID"
-          ? "Pegang prinsip baku: Perusahaan resmi TIDAK PERNAH memungut biaya sepeser pun dari pelamar."
-          : "Remember the golden rule: Legitimate companies NEVER charge candidates any fee.",
+          ? "Tunda pembayaran dan periksa permintaan biaya melalui kanal resmi perusahaan."
+          : "Pause before paying and verify the fee request through an official company channel.",
         lang === "ID"
           ? "Tolak mentransfer uang dan segera cek reputasi nomor rekening di situs resmi CekRekening.id."
           : "Refuse payment and verify bank account on official police blacklists.",
         lang === "ID"
-          ? "Laporkan nomor kontak perekrut ke Jeli dan platform aduan Kemenaker."
-          : "Report recruiter contact info to Jeli and Labor Ministry hotline.",
+          ? "Gunakan kanal pengaduan resmi bila perlu."
+          : "Use an official reporting channel if needed.",
       ],
       handwrittenNote:
         lang === "ID"
@@ -72,7 +72,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
         lang === "ID"
           ? "Tawaran Gaji Puluhan Juta Tanpa Syarat & Misi Paruh Waktu"
           : "Astronomical wages for simple tasks without requirements",
-      badge: lang === "ID" ? "MODUS TASK SCAM / PONZI" : "TASK SCAM / PONZI",
+      badge: lang === "ID" ? "PENIPUAN TUGAS BERBAYAR" : "PAID TASK SCAM",
       explanation:
         lang === "ID"
           ? 'Lowongan menawarkan gaji belasan hingga puluhan juta rupiah per bulan untuk pekerjaan enteng seperti ketik data, like video media sosial, atau ulas produk. Pada awalnya pelamar diberi sedikit uang receh, lalu dipaksa deposit uang jutaan untuk membuka "misi bernilai tinggi".'
@@ -265,7 +265,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                 : "SCAM PATTERN RECOGNITION"}
             </span>
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#064B50] mb-4">
+          <h2 tabIndex={-1} className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#064B50] mb-4">
             {lang === "ID"
               ? "Tidak semua tawaran kerja seperti yang terlihat."
               : "Not every job offer is what it seems."}
@@ -280,13 +280,14 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
         {/* ONE Large Interactive Showcase Panel */}
         <div className="bg-white border border-[#064B50]/15 rounded-3xl p-5 sm:p-8 lg:p-10 shadow-lg">
           {/* Five Clickable Rounded Category Tabs at Top */}
-          <div className="flex items-center justify-start sm:justify-center overflow-x-auto pb-4 mb-8 gap-2 scrollbar-none">
+          <div className="mb-8 flex flex-wrap items-center justify-center gap-2">
             {scamCategories.map((cat, idx) => {
               const isSelected = activeCategory === idx
               return (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(idx)}
+                  aria-pressed={isSelected}
                   className={`px-4 sm:px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 flex items-center gap-2 shrink-0 ${
                     isSelected
                       ? "bg-[#064B50] text-[#B8F000] shadow-sm font-black"
@@ -309,7 +310,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
             {/* Left Column: Visual Scenario Illustration Mockup */}
             <div className="lg:col-span-6 relative flex flex-col items-center justify-center">
               {/* Handwritten Post-it Note */}
-              <div className="absolute -top-4 -left-2 sm:-left-4 bg-[#B8F000] text-[#064B50] font-handwriting text-base sm:text-lg font-bold px-3 py-1 rounded-xl shadow-md transform -rotate-3 border border-[#064B50]/20 z-20 pointer-events-none select-none max-w-xs">
+              <div className="relative mb-3 max-w-xs rounded-xl border border-[#064B50]/20 bg-[#B8F000] px-3 py-1 font-handwriting text-base font-bold text-[#064B50] shadow-sm sm:text-lg">
                 {cur.handwrittenNote}
                 <div className="absolute -bottom-1.5 left-4 w-3 h-3 bg-[#B8F000] transform rotate-45 border-r border-b border-[#064B50]/20" />
               </div>
@@ -317,12 +318,12 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
               {/* Custom Detailed Illustration Box depending on Category */}
               <div className="w-full max-w-md bg-[#F7F7F0] border border-[#064B50]/15 rounded-3xl p-5 shadow-2xs relative overflow-hidden transition-all duration-300">
                 {/* Header Badge */}
-                <div className="flex items-center justify-between pb-3 border-b border-[#064B50]/10 mb-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[#064B50]/10 pb-3">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-red-700 bg-red-100 border border-red-200 px-2.5 py-1 rounded-lg">
                     {cur.badge}
                   </span>
-                  <span className="text-xs text-[#202C2B]/60 font-mono">
-                    {lang === "ID" ? "Simulasi Kasus Nyata" : "Real Case Simulation"}
+                  <span className="text-xs text-[#202C2B]/75">
+                    {lang === "ID" ? "Contoh fiktif" : "Fictional example"}
                   </span>
                 </div>
 
@@ -392,7 +393,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
                       {lang === "ID" ? (
                         <>
-                          🚨 <strong>Jebakan:</strong> Modus Ponzi Task Scam. Uang
+                          🚨 <strong>Jebakan:</strong> Modus penipuan tugas berbayar. Uang
                           deposit besar tidak akan pernah bisa ditarik kembali.
                         </>
                       ) : (
@@ -563,7 +564,7 @@ export const KnowTheScamsSection: React.FC<KnowTheScamsSectionProps> = ({
               <div className="w-full mb-6">
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-red-700 mb-3 flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-red-600" />
-                  <span>{lang === "ID" ? "3 Tanda Bahaya Utama (Red Flags):" : "3 Main Red Flags:"}</span>
+                  <span>{lang === "ID" ? "Tanda bahaya" : "Warning signs"}</span>
                 </h4>
                 <div className="space-y-2">
                   {cur.warningSigns.map((sign, i) => (

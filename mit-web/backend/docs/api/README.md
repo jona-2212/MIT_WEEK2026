@@ -8,7 +8,8 @@ Tujuan: menjelaskan kontrak HTTP yang tersedia untuk frontend dan pengujian. Ope
 |---|---|---|
 | GET | `/health` | 200 JSON, liveness proses untuk probe |
 | GET | `/api/v1/health` | 200 JSON yang sama; pola versi bagi fitur berikutnya |
-| POST | `/api/v1/analyze` | [Recognition multipart](recognition.md), teks/gambar/gabungan satu kasus |
+| POST | `/api/v1/analyze` | [Recognition multipart](recognition.md), teks/gambar/URL satu kasus |
+| GET/POST | `/api/v1/roleplay/*` | [Jeli Lakon dan Sahabat Jeli](roleplay.md) |
 | GET | `/docs` | 200 HTML Swagger bawaan FastAPI |
 | GET | `/openapi.json` | 200 JSON OpenAPI yang dihasilkan schema |
 | GET | `/demo` | 200 HTML demo Recognition dan health, tidak ditampilkan dalam OpenAPI |

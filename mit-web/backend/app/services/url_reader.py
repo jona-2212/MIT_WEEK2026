@@ -1,124 +1,92 @@
 import asyncio
 import ipaddress
 import json
-import logging
 import re
 import socket
-import urllib.parse
+from urllib.parse import urlsplit
 
-from bs4 import BeautifulSoup
 import httpx
+from bs4 import BeautifulSoup
 
 from app.core.errors import AnalysisError
 
-logger = logging.getLogger("job_scam_guardian.url_reader")
-
-URL_REGEX = re.compile(
-    r"https?://(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,10}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)",
-    re.IGNORECASE,
-)
-
 MAX_PAGE_CHARS = 10_000
-
-CLOUDFLARE_PATTERNS = [
-    "attention required! | cloudflare",
+MAX_PAGE_BYTES = 512 * 1024
+MAX_REDIRECTS = 3
+REDIRECTS = {301, 302, 303, 307, 308}
+NAT64_PREFIXES = tuple(map(ipaddress.ip_network, ("64:ff9b::/96", "64:ff9b:1::/48")))
+BLOCKED = (
     "just a moment...",
     "verify you are human",
     "cf-browser-verification",
     "enable javascript and cookies to continue",
     "access to this page has been denied",
-    "please turn javascript on and reload the page",
-    "checking your browser before accessing",
-]
+    "attention required! | cloudflare",
+)
 
 
-def normalize_url(raw_url: str) -> str:
-    """Bersihkan dan standarisasi URL (termasuk menambahkan https jika tanpa skema)."""
-    url = raw_url.strip()
-    if not url:
-        return ""
-    # Hapus karakter pembungkus yang sering ter-copy (tanda kutip, kurung, titik di akhir)
-    url = re.sub(r"^[\"'<(\[]+|[\"'>)\]\.,]+$", "", url)
-    if not re.match(r"^https?://", url, re.IGNORECASE):
-        url = "https://" + url
+def normalize_url(raw: str) -> str:
+    value = raw.strip()
+    return value if re.match(r"^[a-z][a-z0-9+.-]*://", value, re.I) else f"https://{value}"
+
+
+def invalid_url() -> AnalysisError:
+    return AnalysisError(400, "invalid_url", "Gunakan tautan HTTP(S) dengan alamat publik.")
+
+
+def validate_target(url: httpx.URL) -> None:
+    if (
+        url.scheme not in {"http", "https"}
+        or not url.host
+        or url.userinfo
+        or "%" in url.host
+        or url.port not in {None, 443 if url.scheme == "https" else 80}
+    ):
+        raise invalid_url()
+
+
+def resolve_public(host: str, port: int) -> str:
     try:
-        parsed = urllib.parse.urlparse(url)
-        safe_path = urllib.parse.quote(urllib.parse.unquote(parsed.path), safe="/:@!$&'()*+,;=-_.~%")
-        safe_query = urllib.parse.quote(urllib.parse.unquote(parsed.query), safe="=&:@!$'()*+,;=-_.~%")
-        parsed = parsed._replace(path=safe_path, query=safe_query)
-        return urllib.parse.urlunparse(parsed)
-    except Exception:
-        return url
-
-
-def extract_first_url(text: str) -> str | None:
-    text = text.strip()
-    match = URL_REGEX.search(text)
-    if match:
-        return match.group(0)
-    # Deteksi URL tanpa prefix http/https (misal career.astra.co.id/...)
-    domain_match = re.search(
-        r"\b([a-zA-Z0-9][-a-zA-Z0-9]*\.)+(?:co\.id|com|org|net|id|site|xyz|online|edu|gov|ac\.id|go\.id)\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)",
-        text,
-        re.IGNORECASE,
-    )
-    if domain_match:
-        return "https://" + domain_match.group(0)
-    return None
-
-
-def is_safe_url(url: str) -> bool:
-    try:
-        parsed = urllib.parse.urlparse(url)
-    except Exception:
-        return False
-
-    if parsed.scheme.lower() not in ("http", "https"):
-        return False
-
-    hostname = parsed.hostname
-    if not hostname:
-        return False
-
-    # Block common local domain names
-    if hostname.lower() in ("localhost", "local", "internal"):
-        return False
-
-    # Check literal IP address
-    try:
-        ip = ipaddress.ip_address(hostname)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            return False
+        addresses = [
+            ipaddress.ip_address(info[4][0])
+            for info in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        ]
+    except socket.gaierror:
+        raise unreadable_url() from None
     except ValueError:
-        pass
+        raise invalid_url() from None
 
-    # Resolve domain to IP to prevent DNS rebinding SSRF
-    try:
-        addrinfo = socket.getaddrinfo(hostname, None)
-        for _, _, _, _, sockaddr in addrinfo:
-            ip_str = sockaddr[0]
-            ip = ipaddress.ip_address(ip_str)
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-                return False
-    except (socket.gaierror, ValueError):
-        # Could be DNS lookup error; allow httpx to fail gracefully if unreachable
-        pass
-
-    return True
-
-
-def is_blocked_content(text: str) -> bool:
-    low = text[:1500].lower()
-    return any(p in low for p in CLOUDFLARE_PATTERNS)
+    for ip in addresses:
+        candidate = ip.ipv4_mapped if isinstance(ip, ipaddress.IPv6Address) else None
+        checked = candidate or ip
+        if (
+            not checked.is_global
+            or checked.is_multicast
+            or checked.is_reserved
+            or any(ip in network for network in NAT64_PREFIXES)
+            or (isinstance(ip, ipaddress.IPv6Address) and (ip.sixtofour or ip.teredo))
+        ):
+            raise invalid_url()
+    if not addresses:
+        raise unreadable_url()
+    return str(addresses[0])
 
 
-def extract_rich_page_content(html: str, url: str) -> tuple[str, str]:
+def unreadable_url() -> AnalysisError:
+    return AnalysisError(422, "url_content_unavailable", "Halaman tidak dapat dibaca.")
+
+
+def extract_rich_page_content(html: str) -> tuple[str, str]:
     soup = BeautifulSoup(html, "html.parser")
     title_tag = soup.find("title")
     title = title_tag.get_text(strip=True) if title_tag else "Halaman Lowongan"
 
     meta_desc = ""
-    for attr in [{"name": "description"}, {"property": "og:description"}, {"name": "twitter:description"}]:
+    for attr in [
+        {"name": "description"},
+        {"property": "og:description"},
+        {"name": "twitter:description"},
+    ]:
         tag = soup.find("meta", attrs=attr)
         if tag and tag.get("content"):
             meta_desc = tag["content"].strip()
@@ -154,7 +122,10 @@ def extract_rich_page_content(html: str, url: str) -> tuple[str, str]:
                     clean_j_desc = re.sub(r"<[^>]+>", " ", j_desc)
                     clean_j_desc = re.sub(r"\s+", " ", clean_j_desc).strip()
 
-                    schema_text = f"[Skema Lowongan Resmi (JSON-LD)]\nPosisi: {j_title or 'N/A'}\nPerusahaan: {org_name or 'N/A'}"
+                    schema_text = (
+                        f"[Data lowongan (JSON-LD)]\nPosisi: {j_title or 'N/A'}"
+                        f"\nPerusahaan: {org_name or 'N/A'}"
+                    )
                     if it.get("employmentType"):
                         schema_text += f"\nTipe Kontrak: {it.get('employmentType')}"
                     if it.get("baseSalary"):
@@ -184,123 +155,71 @@ def extract_rich_page_content(html: str, url: str) -> tuple[str, str]:
 
     final_content = "\n\n".join(parts)[:MAX_PAGE_CHARS]
 
-    # Jika konten masih sangat minim (misal SPA tanpa SSR seperti React biasa)
-    if len(final_content.strip()) < 50:
-        parsed_url = urllib.parse.urlparse(url)
-        path_segments = [urllib.parse.unquote(p) for p in parsed_url.path.split("/") if p]
-        inferred_info = " / ".join(path_segments)
-        final_content = (
-            f"[Informasi Halaman Karir (Single-Page Application)]\n"
-            f"Domain Web: {parsed_url.netloc}\n"
-            f"Judul Dokumen: {title}\n"
-            f"Segmen Lowongan Terindikasi: {inferred_info}\n"
-        )
-        if meta_desc:
-            final_content += f"Deskripsi Meta: {meta_desc}\n"
-        if cleaned_body:
-            final_content += f"Teks yang Terbaca: {cleaned_body}\n"
-
-    return title, final_content
+    return title[:300], final_content
 
 
-async def fetch_url_content(url: str, timeout: float = 20.0) -> tuple[str, str]:
-    """Mengambil teks halaman web secara aman dan andal via Jina Reader atau HTTP fetch fallback."""
-    normalized = normalize_url(url)
-    if not is_safe_url(normalized):
-        raise AnalysisError(
-            400,
-            "invalid_url",
-            "Tautan tidak valid atau mengarah ke alamat jaringan privat/internal.",
-        )
-
-    # 1. Coba Jina Reader (menangani JavaScript-rendered job portals seperti Glints/Jobstreet/Astra)
-    jina_url = f"https://r.jina.ai/{normalized}"
+async def fetch_url_content(raw_url: str, timeout: float = 12.0) -> tuple[str, str]:
     try:
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            res = await client.get(
-                jina_url,
-                headers={
-                    "User-Agent": "JobScamGuardian/1.0 (+https://github.com/jona-2212/MIT_WEEK2026)",
-                    "Accept": "text/markdown, text/plain",
-                    "X-Return-Format": "markdown",
-                    "X-With-Generated-Alt": "true",
-                    "X-Timeout": "16",
-                },
-            )
-            if res.status_code == 200 and len(res.text.strip()) > 80:
-                raw_text = res.text
-                if not is_blocked_content(raw_text):
-                    title = "Halaman Lowongan"
-                    title_match = re.search(r"^Title:\s*(.+)$", raw_text, re.MULTILINE)
-                    if title_match:
-                        title = title_match.group(1).strip()
-                    cleaned = raw_text[:MAX_PAGE_CHARS]
-                    return title, cleaned
-                logger.warning(f"Jina reader terkena proteksi bot untuk {normalized}, beralih ke fetch langsung.")
-    except Exception as e:
-        logger.warning(f"Jina reader gagal untuk {normalized}: {e}, mencoba fetch langsung.")
-
-    # 2. Fallback direct HTTP fetch dengan browser headers lengkap & SSL fallback
-    browser_headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-    }
-
-    try:
-        try:
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, verify=True) as client:
-                res = await client.get(normalized, headers=browser_headers)
-        except (httpx.ConnectError, httpx.SecurityError) as ssl_err:
-            logger.warning(f"SSL verification gagal untuk {normalized} ({ssl_err}), mencoba verify=False.")
-            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, verify=False) as client:
-                res = await client.get(normalized, headers=browser_headers)
-
-        if res.status_code >= 400:
-            parsed = urllib.parse.urlparse(normalized)
-            path_segments = [urllib.parse.unquote(p) for p in parsed.path.split("/") if p]
-            inferred_job = " / ".join(path_segments) if path_segments else "Halaman Karir"
-            fallback_text = (
-                f"[Tautan Resmi: {normalized}]\n"
-                f"Domain: {parsed.netloc}\n"
-                f"Status Akses Web: Terproteksi/Login Wajib ({res.status_code})\n"
-                f"Informasi URL Terindikasi: {inferred_job}\n\n"
-                f"Catatan: Halaman web ini membatasi akses bot otomatis. AI menganalisis validitas domain pengirim ({parsed.netloc})."
-            )
-            return inferred_job, fallback_text
-
-        title, cleaned = extract_rich_page_content(res.text, normalized)
-        return title, cleaned
-
-    except AnalysisError:
-        raise
-    except httpx.TimeoutException:
-        parsed = urllib.parse.urlparse(normalized)
-        path_segments = [urllib.parse.unquote(p) for p in parsed.path.split("/") if p]
-        inferred_job = " / ".join(path_segments) if path_segments else "Tautan Karir"
-        return inferred_job, (
-            f"[Sumber URL: {normalized}]\n"
-            f"Domain: {parsed.netloc}\n"
-            f"Koneksi ke server lambat/timeout. Analisis dilakukan berdasarkan kredibilitas domain dan struktur tautan."
-        )
-    except Exception as e:
-        logger.error(f"Gagal mengambil URL {normalized}: {e}")
-        parsed = urllib.parse.urlparse(normalized)
-        path_segments = [urllib.parse.unquote(p) for p in parsed.path.split("/") if p]
-        inferred_job = " / ".join(path_segments) if path_segments else "Tautan Karir"
-        return inferred_job, (
-            f"[Sumber URL: {normalized}]\n"
-            f"Domain: {parsed.netloc}\n"
-            f"Status: Server web tidak merespons ({type(e).__name__}). Analisis berfokus pada keaslian domain."
-        )
+        target = httpx.URL(normalize_url(raw_url))
+        # Validate credentials even when empty and before HTTPX normalizes the authority.
+        if "@" in urlsplit(normalize_url(raw_url)).netloc:
+            raise invalid_url()
+        async with asyncio.timeout(timeout):
+            for hop in range(MAX_REDIRECTS + 1):
+                validate_target(target)
+                address = await asyncio.to_thread(
+                    resolve_public,
+                    target.host,
+                    target.port or (443 if target.scheme == "https" else 80),
+                )
+                pinned = target.copy_with(host=address, fragment=None)
+                # One client per hop keeps a pinned-IP pool from crossing TLS hostnames.
+                async with (
+                    httpx.AsyncClient(trust_env=False, follow_redirects=False) as client,
+                    client.stream(
+                        "GET",
+                        pinned,
+                        headers={
+                            "Host": target.netloc.decode("ascii"),
+                            "Accept": "text/html, text/plain",
+                            "Accept-Encoding": "identity",
+                        },
+                        extensions={"sni_hostname": target.raw_host.decode("ascii")},
+                    ) as response,
+                ):
+                    if response.status_code in REDIRECTS:
+                        location = response.headers.get("Location")
+                        if hop == MAX_REDIRECTS or not location:
+                            raise unreadable_url()
+                        if "@" in urlsplit(location).netloc:
+                            raise invalid_url()
+                        target = target.join(location)
+                        continue
+                    content_type = response.headers.get("Content-Type", "").split(";")[0].lower()
+                    if (
+                        response.status_code != 200
+                        or content_type not in {"text/html", "text/plain", "application/xhtml+xml"}
+                        or response.headers.get("Content-Encoding", "identity").lower()
+                        != "identity"
+                    ):
+                        raise unreadable_url()
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        if len(body) + len(chunk) > MAX_PAGE_BYTES:
+                            raise unreadable_url()
+                        body.extend(chunk)
+                    page = body.decode(response.encoding or "utf-8", errors="replace")
+                    if any(pattern in page[:2000].lower() for pattern in BLOCKED):
+                        raise unreadable_url()
+                    if content_type == "text/plain":
+                        title, content = "Lowongan", page[:MAX_PAGE_CHARS]
+                    else:
+                        title, content = await asyncio.to_thread(extract_rich_page_content, page)
+                    if len(content.strip()) < 50:
+                        raise unreadable_url()
+                    return title, content
+    except (httpx.InvalidURL, ValueError):
+        raise invalid_url() from None
+    except (TimeoutError, httpx.HTTPError, LookupError):
+        raise unreadable_url() from None
+    raise unreadable_url()

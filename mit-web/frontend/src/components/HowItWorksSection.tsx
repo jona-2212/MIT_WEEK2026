@@ -60,7 +60,7 @@ function ReceiveVisual({ lang, onCheckJobOffer }: { lang: "ID" | "EN"; onCheckJo
         <div className="mb-2 flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-300 bg-emerald-100 text-xs font-bold text-emerald-800">WA</span>
           <div>
-            <p className="text-xs font-bold text-[#202C2B]">{lang === "ID" ? "HR Recruitment PT Sumber Makmur" : "HR Recruitment Global Corp"}</p>
+            <p className="text-xs font-bold text-[#202C2B]">{lang === "ID" ? "Tim Rekrutmen PT Sumber Makmur" : "PT Sumber Makmur Recruitment Team"}</p>
             <p className="text-[10px] text-[#202C2B]/60">{lang === "ID" ? "Pesan belum tersimpan • Baru saja" : "Unstored message • Just now"}</p>
           </div>
         </div>
@@ -90,7 +90,7 @@ function AnalyzeVisual({ lang }: { lang: "ID" | "EN" }) {
       <div className="story-character-wrap"><StoryCharacter step="analyze" /></div>
       <div className="story-popup story-popup-analyze">
         <div className="mb-3 flex items-center justify-between border-b border-[#064B50]/10 pb-3">
-          <div className="flex items-center gap-2"><Scan className="h-4 w-4 animate-pulse text-[#064B50]" /><span className="text-xs font-bold text-[#064B50]">Jeli Deep Pattern Scanner</span></div>
+          <div className="flex items-center gap-2"><Scan className="h-4 w-4 animate-pulse text-[#064B50]" /><span className="text-xs font-bold text-[#064B50]">{lang === "ID" ? "Pemeriksaan Jeli" : "Jeli Pattern Check"}</span></div>
           <span className="rounded border border-red-200 bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800">{lang === "ID" ? "3 Pola Terdeteksi" : "3 Patterns Detected"}</span>
         </div>
         <div className="story-scan-sheet relative space-y-2 overflow-hidden rounded-2xl border border-[#064B50]/12 bg-white p-3.5 text-xs text-[#202C2B]">
@@ -175,7 +175,7 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
 
   const steps: StoryStep[] = [
     {
-      number: "01", tag: "RECEIVE",
+      number: "01", tag: lang === "ID" ? "TERIMA" : "RECEIVE",
       title: lang === "ID" ? "Kamu Menerima Pesan atau Tawaran" : "You receive an unexpected job offer.",
       description: lang === "ID" ? "Sebuah pesan masuk melalui WhatsApp, Telegram, atau email menawarkan posisi menarik dengan gaji tinggi dan syarat instan. Naluri cermatmu merasakan ada sesuatu yang janggal." : "A direct message or vacancy arrives with unusually high compensation and minimal screening requirements.",
       handwrittenNote: lang === "ID" ? "Sering datang saat kita lagi butuh banget 🥺" : "Often arrives when you need an opportunity most!",
@@ -183,23 +183,23 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
       visualType: "receive",
     },
     {
-      number: "02", tag: "ANALYZE",
+      number: "02", tag: lang === "ID" ? "ANALISIS" : "ANALYZE",
       title: lang === "ID" ? "Jeli Memindai Pola & Kejanggalan" : "Jeli scans for subtle deceptive patterns.",
       description: lang === "ID" ? "Sistem Jeli menganalisis teks secara mendalam: mendeteksi permintaan biaya tersembunyi, janji komisi tidak rasional, format kalimat mendesak, dan nomor kontak berisiko tinggi." : "Jeli inspects text and conversation details for hidden fee demands, linguistic pressure, and high-risk patterns.",
-      handwrittenNote: lang === "ID" ? "Cuma butuh 15 detik, langsung kebaca polanya! ⚡" : "Takes just 15 seconds to spot the red flags!",
+      handwrittenNote: lang === "ID" ? "Perhatikan syarat yang janggal." : "Watch for unusual requirements.",
       checkpoint: lang === "ID" ? "Analisis Bahasa & Deteksi Permintaan Biaya Tersembunyi" : "Linguistic Inspection & Advance Fee Demand Detection",
       visualType: "analyze",
     },
     {
-      number: "03", tag: "VERIFY",
+      number: "03", tag: lang === "ID" ? "VERIFIKASI" : "VERIFY",
       title: lang === "ID" ? "Verifikasi Entitas Perusahaan & Pengirim" : "Verify organization and sender authenticity.",
-      description: lang === "ID" ? "Mencocokkan nama perusahaan dengan registrasi resmi, memeriksa domain email (@gmail vs domain resmi korporat), meninjau kredensial perekrut, dan mengecek nomor rekening terkait." : "We cross-reference organization records, inspect email domain authenticity, and review verified company channels.",
-      handwrittenNote: lang === "ID" ? "Perekrut korporat resmi gak pakai email gratisan 🚫" : "Real corporate recruiters never use free webmail!",
+      description: lang === "ID" ? "Cari kanal resmi perusahaan secara mandiri, lalu cocokkan nama perusahaan, alamat email, dan identitas perekrut." : "Find the company's official channels yourself, then verify its name, email domain, and recruiter.",
+      handwrittenNote: lang === "ID" ? "Cocokkan alamat email perekrut." : "Verify the recruiter's email address.",
       checkpoint: lang === "ID" ? "Standar Pemeriksaan Jeli: Validasi Domain & Database Pengawasan" : "Jeli Verification Standard: Corporate Domain & Registry Audit",
       visualType: "verify",
     },
     {
-      number: "04", tag: "DECIDE",
+      number: "04", tag: lang === "ID" ? "PUTUSKAN" : "DECIDE",
       title: lang === "ID" ? "Pahami Risiko & Ambil Keputusan dengan Yakin" : "Understand risks and decide with confidence.",
       description: lang === "ID" ? "Dapatkan ringkasan kejelasan yang mudah dipahami: indikator risiko, alasan kejanggalan, serta panduan balasan aman agar kamu tidak dirugikan secara finansial maupun data." : "Receive clear, objective risk insights and practical reply guidance to safeguard your money and personal data.",
       handwrittenNote: lang === "ID" ? "Langkah aman, keputusan tenang 🛡️" : "Calm awareness, confident next move!",
@@ -249,7 +249,7 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
 
   const selectStep = (index: number) => {
     setActiveStep(index)
-    chapterRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" })
+    chapterRefs.current[index]?.scrollIntoView({ block: "center" })
   }
 
   const current = steps[activeStep]
@@ -265,7 +265,7 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto mb-16 max-w-3xl text-center">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#064B50]/15 bg-white px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-[#064B50] shadow-2xs">{lang === "ID" ? "ALUR PENGAMATAN CERMAT" : "OBSERVATION WORKFLOW"}</div>
-          <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-[#064B50] sm:text-4xl lg:text-5xl">{lang === "ID" ? "Bagaimana Jeli Mendampingimu" : "How Jeli Works"}</h2>
+          <h2 tabIndex={-1} className="mb-4 text-3xl font-extrabold tracking-tight text-[#064B50] sm:text-4xl lg:text-5xl">{lang === "ID" ? "Bagaimana Jeli Mendampingimu" : "How Jeli Works"}</h2>
           <p className="text-base text-[#202C2B]/80 sm:text-lg">{lang === "ID" ? "Perjalanan 4 langkah untuk mengenali informasi mencurigakan dan mengambil keputusan aman dengan percaya diri." : "A 4-step journey from spotting anomalies to making safe, informed choices with confidence."}</p>
         </div>
 
@@ -288,10 +288,10 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
                 key={step.number}
                 ref={(element) => { chapterRefs.current[index] = element }}
                 data-story-index={index}
-                className={`story-chapter flex min-h-[72vh] items-center py-10 transition-opacity duration-500 ${index !== activeStep ? "opacity-55 lg:opacity-45" : "opacity-100"}`}
+                className="story-chapter flex min-h-[72vh] items-center py-10"
               >
                 <div className="max-w-xl">
-                  <button onClick={() => selectStep(index)} className={`mb-4 flex items-center gap-3 text-left ${index === activeStep ? "text-[#064B50]" : "text-[#202C2B]/60"}`}>
+                  <button onClick={() => selectStep(index)} aria-pressed={index === activeStep} className="mb-4 flex items-center gap-3 text-left text-[#064B50]">
                     <span className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-extrabold shadow-sm transition-all ${index === activeStep ? "bg-[#064B50] text-[#B8F000] ring-4 ring-[#064B50]/15" : index < activeStep ? "bg-[#087F7A] text-white" : "border border-[#064B50]/20 bg-white"}`}>{step.number}</span>
                     <span className="text-xs font-black tracking-[0.2em]">{step.tag}</span>
                   </button>
@@ -316,8 +316,8 @@ export const HowItWorksSection: React.FC<HowItWorksSectionProps> = ({ onCheckJob
                 <div className="absolute right-6 top-5 z-20 rounded-full border border-[#064B50]/15 bg-white/90 px-3 py-1.5 text-[10px] font-black tracking-wider text-[#064B50] shadow-sm">{current.number} / 04 • {current.tag}</div>
                 <div key={current.visualType} className={`story-scene-animated story-scene-${current.visualType}`}>{renderVisual(current.visualType)}</div>
                 <div className="story-scene-controls z-20 flex items-center gap-1.5 border-t border-[#064B50]/10 bg-white/85 p-2.5 shadow-sm backdrop-blur">
-                  <button onClick={() => selectStep(activeStep === 0 ? steps.length - 1 : activeStep - 1)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronLeft className="h-4 w-4" /></button>
-                  <button onClick={() => selectStep((activeStep + 1) % steps.length)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]"><ChevronRight className="h-4 w-4" /></button>
+                  <button onClick={() => selectStep(activeStep === 0 ? steps.length - 1 : activeStep - 1)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]" aria-label={lang === "ID" ? "Tahap sebelumnya" : "Previous step"}><ChevronLeft className="h-4 w-4" /></button>
+                  <button onClick={() => selectStep((activeStep + 1) % steps.length)} className="rounded-xl border border-[#064B50]/10 bg-[#F7F7F0] p-2 text-[#064B50]" aria-label={lang === "ID" ? "Tahap berikutnya" : "Next step"}><ChevronRight className="h-4 w-4" /></button>
                 </div>
               </div>
             </div>

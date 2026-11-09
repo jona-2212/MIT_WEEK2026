@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,26 +8,50 @@ import {
   MicOff,
   RefreshCw,
   Send,
-  Sparkles,
   User,
   Volume2,
   VolumeX,
   Wand2,
 } from "lucide-react"
 import JeliAvatar, { type AvatarEmotion } from "./JeliAvatar"
-import { chatLiveRoleplay, getTtsAudioUrl, type ChatMessageItem } from "../services/roleplay"
+import { chatLiveRoleplay, getTtsAudio, type ChatMessageItem } from "../services/roleplay"
+import { locales, t, type Language } from "../i18n"
 
 interface Props {
   onBackToHome: () => void
   onOpenSimulator: () => void
-  lang?: "ID" | "EN"
+  lang: Language
+  active: boolean
+  voiceEnabled: boolean
+  onVoiceChange: (enabled: boolean) => void
+}
+
+type SpeechRecognizer = {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onstart: (() => void) | null
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
+  onerror: ((event: { error: string }) => void) | null
+  onend: (() => void) | null
+  start(): void
+  stop(): void
+  abort(): void
+}
+
+function speechRecognition() {
+  const browser = window as Window & {
+    SpeechRecognition?: new () => SpeechRecognizer
+    webkitSpeechRecognition?: new () => SpeechRecognizer
+  }
+  return browser.SpeechRecognition || browser.webkitSpeechRecognition
 }
 
 // Initial greetings
 const initialGreetingId: ChatMessageItem = {
   id: "msg-welcome",
   role: "assistant",
-  text: "Halo! Saya Jeli, sahabat AI penjaga keamanan karirmu. Kamu bisa mengobrol atau bertanya langsung lewat suara maupun tulisan. Ceritakan tawaran kerja yang mencurigakan, atau tanyakan ciri-ciri modus penipuan kerja!",
+  text: "Halo, aku Jeli. Ada tawaran kerja yang ingin kamu cek?",
   timestamp: "Baru saja",
   emotion: "happy",
 }
@@ -35,26 +59,28 @@ const initialGreetingId: ChatMessageItem = {
 const initialGreetingEn: ChatMessageItem = {
   id: "msg-welcome",
   role: "assistant",
-  text: "Hello! I'm Jeli, your AI career security guardian. You can chat or ask me directly via voice or text. Tell me about any suspicious job offers, or ask about common job scam tactics!",
+  text: "Hi, I’m Jeli. Is there a job offer you’d like to check?",
   timestamp: "Just now",
   emotion: "happy",
 }
 
 const suggestedPromptsId = [
-  "Ada lowongan admin WFH disuruh transfer biaya seragam Rp250.000, aman gak?",
-  "Perekrut kirim file undangan tes format .APK di WhatsApp",
-  "Tawaran paruh waktu like video YouTube dapat komisi besar",
-  "Bagaimana cara membedakan surat panggilan kerja asli vs palsu?",
+  ["Biaya seragam", "Lowongan admin jarak jauh meminta uang seragam Rp250.000. Apa yang perlu dicek?"],
+  ["Berkas APK", "Perekrut mengirim undangan tes berupa berkas APK lewat WhatsApp. Apa risikonya?"],
+  ["Komisi tugas", "Tawaran paruh waktu menjanjikan komisi besar untuk menyukai video. Apa tanda bahayanya?"],
+  ["Surat panggilan", "Bagaimana cara memeriksa keaslian surat panggilan kerja?"],
 ]
 
 const suggestedPromptsEn = [
-  "A WFH admin job asks for a $200 uniform deposit, is it safe?",
-  "Recruiter sent an interview invitation as a .APK file on WhatsApp",
-  "Part-time job offer to like YouTube videos for huge commissions",
-  "How to distinguish genuine job offer letters from fraudulent ones?",
+  ["Uniform fees", "A remote admin job asks for a Rp250,000 uniform deposit. What should I check?"],
+  ["APK file", "A recruiter sent an interview invitation as an APK file on WhatsApp. What are the risks?"],
+  ["Paid tasks", "A part-time job promises big commissions for liking videos. What are the warning signs?"],
+  ["Interview letters", "How can I check whether an interview letter is genuine?"],
 ]
 
-export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "ID" }: Props) {
+export function LiveAvatarRoleplayPage({
+  onBackToHome, onOpenSimulator, lang, active, voiceEnabled, onVoiceChange,
+}: Props) {
   const [messages, setMessages] = useState<ChatMessageItem[]>([
     lang === "EN" ? initialGreetingEn : initialGreetingId,
   ])
@@ -62,380 +88,240 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
   const [isLoading, setIsLoading] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isListening, setIsListening] = useState(false)
-  const [voiceEnabled, setVoiceEnabled] = useState(true)
   const [avatarEmotion, setAvatarEmotion] = useState<AvatarEmotion>("happy")
   const [speechError, setSpeechError] = useState("")
+  const [chatError, setChatError] = useState("")
 
-  const chatEndRef = useRef<HTMLDivElement>(null)
-  const recognitionRef = useRef<any>(null)
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const chatLog = useRef<HTMLDivElement>(null)
+  const recognitionRef = useRef<SpeechRecognizer | null>(null)
   const micPermittedRef = useRef<boolean>(false)
 
-  // Switch initial greeting when user toggles language if conversation hasn't progressed
-  useEffect(() => {
-    setMessages((prev) => {
-      if (prev.length === 1 && prev[0].id === "msg-welcome") {
-        return [lang === "EN" ? initialGreetingEn : initialGreetingId]
-      }
-      return prev
-    })
-  }, [lang])
+  const chatRequest = useRef<AbortController | null>(null)
+  const playbackRequest = useRef<AbortController | null>(null)
+  const voiceRef = useRef(voiceEnabled)
+  const isActive = useRef(false)
+  const permissionPending = useRef(false)
 
-  // Auto scroll chat to bottom
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading])
+    const log = chatLog.current
+    if (log) log.scrollTop = log.scrollHeight
+  }, [active, messages, isLoading])
 
-  // Setup Web Speech Recognition (Speech-to-Text: Bicara)
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    voiceRef.current = voiceEnabled
+  }, [voiceEnabled])
 
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition()
-      recognition.lang = lang === "EN" ? "en-US" : "id-ID"
+  const sendTranscript = useEffectEvent((transcript: string) => {
+    void handleSendMessage(transcript)
+  })
+
+  useEffect(() => {
+    if (!active) return
+    isActive.current = true
+    const Recognition = speechRecognition()
+    const recognition = Recognition ? new Recognition() : null
+    if (recognition) {
+      recognition.lang = locales[lang]
       recognition.continuous = false
       recognition.interimResults = false
-
       recognition.onstart = () => {
         setIsListening(true)
-        setAvatarEmotion("listening")
         setSpeechError("")
       }
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results?.[0]?.[0]?.transcript
-        setIsListening(false)
-        if (transcript && transcript.trim()) {
-          void handleSendMessage(transcript.trim())
-        }
+      recognition.onresult = (event) => {
+        const transcript = event.results[0]?.[0]?.transcript
+        if (transcript?.trim()) sendTranscript(transcript.trim())
       }
-
-      recognition.onerror = (event: any) => {
+      recognition.onerror = ({ error }) => {
         setIsListening(false)
-        setAvatarEmotion("idle")
-        console.warn("Speech recognition error:", event.error)
-
-        if (event.error === "no-speech") {
-          setSpeechError(
-            lang === "ID"
-              ? "Belum terdengar suara. Silakan klik tombol mikrofon lagi dan mulai berbicara."
-              : "No speech detected. Please click the microphone button again and start speaking."
-          )
-        } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-          micPermittedRef.current = false
-          setSpeechError(
-            lang === "ID"
-              ? "Izin mikrofon belum aktif di browser. Klik ikon gembok 🔒 atau setelan di samping localhost:5173 pada address bar browsermu, lalu ubah 'Mikrofon' menjadi 'Izinkan' (Allow)."
-              : "Microphone permission is not active. Click the lock icon 🔒 beside localhost:5173 in the address bar, then change 'Microphone' to 'Allow'."
-          )
-        } else if (event.error === "audio-capture") {
-          setSpeechError(
-            lang === "ID"
-              ? "Perangkat mikrofon tidak ditemukan atau sedang dipakai aplikasi lain."
-              : "Microphone device not found or already in use by another application."
-          )
-        } else if (event.error === "network") {
-          setSpeechError(
-            lang === "ID"
-              ? "Layanan suara memerlukan koneksi internet aktif. Kamu juga bisa mengetik di kolom teks di sebelah kanan!"
-              : "Voice service requires an active internet connection. You can also type directly in the chat box on the right!"
-          )
-        } else if (event.error !== "aborted") {
-          setSpeechError(
-            lang === "ID"
-              ? "Gagal mendeteksi suara. Silakan coba lagi atau gunakan kolom teks."
-              : "Voice detection failed. Please try again or use the text box."
-          )
-        }
+        if (error === "aborted") return
+        if (error === "not-allowed" || error === "service-not-allowed") micPermittedRef.current = false
+        setSpeechError(lang === "EN"
+          ? "Microphone unavailable. Check browser permissions or type your message."
+          : "Mikrofon tidak tersedia. Periksa izin browser atau ketik pesan.")
       }
-
-      recognition.onend = () => {
-        setIsListening(false)
-        if (!isSpeaking) {
-          setAvatarEmotion("idle")
-        }
-      }
-
+      recognition.onend = () => setIsListening(false)
       recognitionRef.current = recognition
     }
-
     return () => {
-      try {
-        recognitionRef.current?.abort()
-      } catch {}
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause()
-      }
-      window.speechSynthesis?.cancel()
-    }
-  }, [isSpeaking, lang])
-
-  // Browser Web Speech Synthesis Fallback
-  function fallbackBrowserSpeech(cleanText: string) {
-    if (!window.speechSynthesis) {
+      isActive.current = false
+      chatRequest.current?.abort()
+      playbackRequest.current?.abort()
+      playbackRequest.current = null
       setIsSpeaking(false)
-      setAvatarEmotion("idle")
-      return
+      setIsListening(false)
+      if (recognition) {
+        recognition.onstart = recognition.onresult = recognition.onerror = recognition.onend = null
+        recognition.abort()
+      }
+      recognitionRef.current = null
     }
+  }, [active, lang])
 
-    try {
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.resume()
-
-      const utterance = new SpeechSynthesisUtterance(cleanText)
-      utterance.lang = lang === "EN" ? "en-US" : "id-ID"
-      utterance.rate = 1.0
-      utterance.pitch = 1.05
-
-      const voices = window.speechSynthesis.getVoices()
-      const matchVoice = voices.find((v) =>
-        lang === "EN"
-          ? v.lang.startsWith("en") || v.lang.includes("EN")
-          : v.lang.startsWith("id") || v.lang.includes("ID")
-      )
-      if (matchVoice) utterance.voice = matchVoice
-
-      utterance.onstart = () => {
-        setIsSpeaking(true)
-        setAvatarEmotion("talking")
-      }
-      utterance.onend = () => {
-        setIsSpeaking(false)
-        setAvatarEmotion("idle")
-      }
-      utterance.onerror = () => {
-        setIsSpeaking(false)
-        setAvatarEmotion("idle")
-      }
-
-      window.speechSynthesis.speak(utterance)
-    } catch {
-      setIsSpeaking(false)
-      setAvatarEmotion("idle")
-    }
+  function stopPlayback() {
+    playbackRequest.current?.abort()
+    playbackRequest.current = null
+    setIsSpeaking(false)
   }
 
-  // Text-to-Speech (TTS: Suara Balasan Jeli yang Jernih & Alami)
-  function speakText(text: string) {
-    if (!voiceEnabled) return
-
-    // Stop previous audio or speech
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause()
-      currentAudioRef.current.currentTime = 0
-    }
-    window.speechSynthesis?.cancel()
-
-    // Clean text of markdown, urls, and special symbols
-    const cleanText = text
-      .replace(/https?:\/\/\S+/g, lang === "EN" ? "web link" : "tautan web")
-      .replace(/[*_#`~[\]]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-
-    if (!cleanText) return
-
+  async function speakText(text: string) {
+    if (!isActive.current || !voiceRef.current) return
+    stopPlayback()
+    const controller = new AbortController()
+    playbackRequest.current = controller
+    const { signal } = controller
     setIsSpeaking(true)
-    setAvatarEmotion("talking")
 
-    // Primary: Native MP3 audio stream from backend TTS (high quality voice in ID or EN)
-    const ttsLang = lang === "EN" ? "en" : "id"
-    const audioUrl = getTtsAudioUrl(cleanText, ttsLang)
-    const audio = new Audio(audioUrl)
-    currentAudioRef.current = audio
-
-    audio.onplay = () => {
-      setIsSpeaking(true)
-      setAvatarEmotion("talking")
-    }
-
-    audio.onended = () => {
+    const finish = () => {
+      if (signal.aborted) return
+      playbackRequest.current = null
       setIsSpeaking(false)
-      setAvatarEmotion("idle")
     }
-
-    audio.onerror = (e) => {
-      console.warn("Backend TTS stream error, falling back to Web Speech:", e)
-      fallbackBrowserSpeech(cleanText)
+    const browserSpeech = () => {
+      if (signal.aborted) return
+      if (!window.speechSynthesis) {
+        setSpeechError(lang === "ID" ? "Suara tidak tersedia. Balasan tetap bisa dibaca." : "Audio is unavailable. You can still read the reply.")
+        finish()
+        return
+      }
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = locales[lang]
+      utterance.onend = finish
+      utterance.onerror = finish
+      signal.addEventListener("abort", () => window.speechSynthesis.cancel(), { once: true })
+      try {
+        window.speechSynthesis.speak(utterance)
+      } catch {
+        finish()
+      }
     }
-
-    const playPromise = audio.play()
-    if (playPromise !== undefined) {
-      playPromise.catch((err) => {
-        console.warn("Audio autoplay blocked by browser policy, trying Web Speech fallback:", err)
-        fallbackBrowserSpeech(cleanText)
-      })
+    try {
+      const audioData = await getTtsAudio(text, lang === "EN" ? "en" : "id", signal)
+      if (signal.aborted) return
+      const url = URL.createObjectURL(audioData)
+      const audio = new Audio(url)
+      const release = () => {
+        audio.onended = audio.onerror = null
+        audio.pause()
+        audio.removeAttribute("src")
+        URL.revokeObjectURL(url)
+      }
+      signal.addEventListener("abort", release, { once: true })
+      audio.onended = () => {
+        release()
+        finish()
+      }
+      try {
+        await audio.play()
+        if (!signal.aborted) audio.onerror = () => {
+          release()
+          browserSpeech()
+        }
+      } catch {
+        release()
+        browserSpeech()
+      }
+    } catch {
+      browserSpeech()
     }
   }
 
-  // Explicitly prompt user for mic permission via getUserMedia
-  async function requestMicrophonePermission(): Promise<boolean> {
+  async function requestMicrophonePermission() {
+    if (permissionPending.current) return false
+    permissionPending.current = true
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setSpeechError(
-          lang === "ID"
-            ? "Browser ini belum mendukung akses mikrofon."
-            : "This browser does not support microphone access."
-        )
-        return false
-      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      // Stop tracks immediately so audio endpoint is released
       stream.getTracks().forEach((track) => track.stop())
+      if (!isActive.current) return false
       micPermittedRef.current = true
       setSpeechError("")
       return true
-    } catch (err: any) {
-      micPermittedRef.current = false
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        setSpeechError(
-          lang === "ID"
-            ? "Izin mikrofon belum diberikan. Klik ikon gembok 🔒 atau setelan di sebelah kiri URL pada address bar browsermu, lalu pilih 'Izinkan' (Allow) untuk Mikrofon."
-            : "Microphone permission was not granted. Click the lock icon 🔒 beside localhost:5173 on the address bar, then select 'Allow' for Microphone."
-        )
-      } else {
-        setSpeechError(
-          lang === "ID"
-            ? "Tidak dapat mengakses mikrofon. Pastikan perangkat mikrofon laptop/PC kamu aktif."
-            : "Cannot access microphone. Please ensure your microphone device is connected and unmuted."
-        )
-      }
+    } catch {
+      if (isActive.current) setSpeechError(lang === "EN"
+        ? "Microphone permission was denied or unavailable. You can type instead."
+        : "Izin mikrofon ditolak atau tidak tersedia. Kamu bisa mengetik pesan.")
       return false
+    } finally {
+      permissionPending.current = false
     }
   }
 
-  // Toggle voice recognition
   async function toggleListening() {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      setSpeechError(
-        lang === "ID"
-          ? "Browser ini belum mendukung pengenalan suara otomatis. Kamu tetap bisa mengobrol lancar menggunakan kolom teks di sebelah kanan!"
-          : "This browser does not support automatic speech recognition. You can still chat smoothly using the text box on the right!"
-      )
+    const recognition = recognitionRef.current
+    if (!recognition) {
+      setSpeechError(lang === "EN"
+        ? "Speech recognition is unavailable in this browser. You can type instead."
+        : "Pengenalan suara tidak tersedia di browser ini. Kamu bisa mengetik pesan.")
       return
     }
-
     if (isListening) {
-      try {
-        recognitionRef.current?.stop()
-      } catch {}
-      setIsListening(false)
-      setAvatarEmotion("idle")
+      recognition.stop()
       return
     }
-
-    if (isSpeaking) {
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause()
-      }
-      window.speechSynthesis?.cancel()
-      setIsSpeaking(false)
-    }
-
-    setSpeechError("")
-
-    // Check / request mic permission if not yet acquired
-    if (!micPermittedRef.current) {
-      const granted = await requestMicrophonePermission()
-      if (!granted) return
-      // Small delay on Windows to let CoreAudio driver release hardware
-      await new Promise((resolve) => setTimeout(resolve, 250))
-    }
-
+    stopPlayback()
+    if (!micPermittedRef.current && !await requestMicrophonePermission()) return
+    if (!isActive.current || recognition !== recognitionRef.current) return
     try {
-      recognitionRef.current?.start()
-    } catch (err: any) {
-      console.warn("Speech recognition start:", err)
-      try {
-        recognitionRef.current?.stop()
-        setTimeout(() => {
-          try {
-            recognitionRef.current?.start()
-          } catch {}
-        }, 150)
-      } catch {
-        setSpeechError(
-          lang === "ID"
-            ? "Gagal mengaktifkan mikrofon. Silakan coba klik tombol sekali lagi."
-            : "Failed to activate microphone. Please try clicking the button once more."
-        )
-      }
+      recognition.start()
+    } catch {
+      setSpeechError(lang === "EN" ? "Could not start the microphone." : "Mikrofon gagal dimulai.")
     }
   }
 
-  // Send message flow (Handles both voice and text)
   async function handleSendMessage(textToSend?: string) {
     const message = (textToSend || inputText).trim()
-    if (!message || isLoading) return
-
-    setInputText("")
-    setSpeechError("")
-
-    const userMsg: ChatMessageItem = {
-      id: `msg-${Date.now()}`,
-      role: "user",
-      text: message,
-      timestamp: new Date().toLocaleTimeString(lang === "EN" ? "en-US" : "id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+    if (!message || chatRequest.current || !isActive.current) return
+    if (message.length > 1000) {
+      setChatError(lang === "EN" ? "Use up to 1,000 characters." : "Gunakan maksimal 1.000 karakter.")
+      return
     }
-
-    setMessages((prev) => [...prev, userMsg])
+    const controller = new AbortController()
+    chatRequest.current = controller
+    const timestamp = new Date().toLocaleTimeString(locales[lang], {
+      hour: "2-digit", minute: "2-digit",
+    })
+    const id = crypto.randomUUID()
+    setInputText("")
+    setChatError("")
+    stopPlayback()
+    setMessages((prev) => [...prev, { id, role: "user", text: message, timestamp }])
     setIsLoading(true)
     setAvatarEmotion("thinking")
 
     try {
-      const historyPayload = messages.map((m) => ({
-        role: m.role,
-        text: m.text,
-      }))
-
-      // Always interact as Sahabat Jeli in selected language
-      const response = await chatLiveRoleplay(message, "jeli", historyPayload, lang)
-
-      const assistantMsg: ChatMessageItem = {
-        id: `msg-${Date.now() + 1}`,
-        role: "assistant",
-        text: response.reply,
-        timestamp: new Date().toLocaleTimeString(lang === "EN" ? "en-US" : "id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        emotion: response.emotion,
-      }
-
-      setMessages((prev) => [...prev, assistantMsg])
-      setAvatarEmotion(response.emotion)
-
-      // Speak response out loud in fluent Indonesian or English
-      speakText(response.reply)
-    } catch {
-      const fallbackMsg: ChatMessageItem = {
-        id: `msg-${Date.now() + 1}`,
-        role: "assistant",
-        text:
-          lang === "ID"
-            ? "Terima kasih sudah berbagi! Selalu ingat rumus JELI: Jangan pernah transfer uang sepeser pun untuk alasan seragam atau tes, dan jangan klik file berekstensi .APK dari nomor WhatsApp mana pun!"
-            : "Thanks for sharing! Always remember: Never transfer any money for uniform or test fees, and never open .APK files from any WhatsApp sender!",
-        timestamp: new Date().toLocaleTimeString(lang === "EN" ? "en-US" : "id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        emotion: "warning",
-      }
-      setMessages((prev) => [...prev, fallbackMsg])
+      const history = messages
+        .filter((m) => m.id !== "msg-welcome" && m.mode !== "fallback")
+        .map(({ role, text }) => ({ role, text }))
+      const reply = await chatLiveRoleplay(message, "jeli", history, lang, controller.signal)
+      if (controller.signal.aborted) return
+      setMessages((prev) => [...prev, {
+        id: `${id}-reply`, role: "assistant", text: reply.reply, mode: reply.mode,
+        timestamp, emotion: reply.emotion,
+      }])
+      setAvatarEmotion(reply.emotion)
+      void speakText(reply.reply)
+    } catch (err) {
+      if (controller.signal.aborted) return
+      setMessages((prev) => prev.filter((item) => item.id !== id))
+      setInputText(message)
       setAvatarEmotion("warning")
-      speakText(fallbackMsg.text)
+      setChatError(err instanceof Error ? err.message : (lang === "EN"
+        ? "Chat is unavailable. Try again." : "Chat belum tersedia. Coba lagi."))
     } finally {
-      setIsLoading(false)
+      if (chatRequest.current === controller) {
+        chatRequest.current = null
+        setIsLoading(false)
+        if (controller.signal.aborted) {
+          setMessages((prev) => prev.filter((item) => item.id !== id))
+          setInputText((prev) => prev || message)
+          setAvatarEmotion("happy")
+        }
+      }
     }
   }
 
   const suggestedPrompts = lang === "EN" ? suggestedPromptsEn : suggestedPromptsId
+  if (!active) return null
 
   return (
     <main className="min-h-screen bg-warm-grid px-4 pb-20 pt-24 text-[#202C2B]">
@@ -455,9 +341,7 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
           >
             <Wand2 size={14} className="text-[#087F7A]" />
             <span>
-              {lang === "ID"
-                ? "Buka Simulator Kuis Multi-Tahap (PDF)"
-                : "Open Multi-Stage Quiz Simulator (PDF)"}
+              {lang === "ID" ? "Buka Simulator" : "Open Simulator"}
             </span>
             <ArrowRight size={14} />
           </button>
@@ -465,43 +349,26 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
 
         {/* Feature Title Banner */}
         <div className="mb-6 text-center sm:text-left">
-          <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF7D5] px-3.5 py-1 text-xs font-extrabold uppercase tracking-widest text-[#064B50]">
-            <Sparkles size={14} className="text-[#087F7A]" />
-            {lang === "ID"
-              ? "Tanya Jeli Live · Sahabat AI Penjaga Karir"
-              : "Ask Jeli Live · AI Career Guardian"}
-          </div>
-          <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-[#064B50]">
-            {lang === "ID"
-              ? "Tanya Jawab Suara & Teks Bersama Sahabat Jeli"
-              : "Live Voice & Text Q&A with Sahabat Jeli"}
+          <h1 className="text-3xl font-extrabold tracking-tight text-[#064B50] sm:text-4xl">
+            {t(lang, "askJeli")}
           </h1>
-          <p className="mt-1.5 text-xs sm:text-sm text-[#202C2B]/75 max-w-2xl">
+          <p className="mt-2 max-w-2xl text-sm text-[#202C2B]/80">
             {lang === "ID"
-              ? "Bicara dibalas bicara, tulisan dibalas tulisan! Perhatikan mata Jeli yang berkedip alami, mulut yang bergerak saat berbicara, serta gestur tangan dinamis saat Jeli menjelaskan keamanan lowongan kerjamu."
-              : "Speak and be spoken to, write and receive replies! Watch Jeli's naturally blinking eyes, synchronized talking mouth, and dynamic hand gestures as Jeli explains your job security."}
+              ? "Tanya soal tawaran kerja lewat teks atau suara."
+              : "Ask about job offers by text or voice."}
           </p>
         </div>
 
         {/* Main Grid: Avatar on Left, Interactive Chat on Right */}
         <div className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)] items-start">
           {/* LEFT: Animated Avatar Card & Voice Controls */}
-          <div className="rounded-3xl border border-[#064B50]/15 bg-white p-6 shadow-sm flex flex-col items-center">
-            {/* Dedicated Sahabat Jeli Identity Badge */}
-            <div className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#EFF7D5] py-2.5 px-3 border border-[#064B50]/10 text-[#064B50]">
-              <Bot size={16} className="text-[#087F7A]" />
-              <span className="text-xs font-extrabold uppercase tracking-wider">
-                {lang === "ID"
-                  ? "Sahabat Jeli · Konsultan Keamanan Karir"
-                  : "Sahabat Jeli · Career Safety Consultant"}
-              </span>
-            </div>
+          <div className="flex min-w-0 flex-col items-center rounded-3xl border border-[#064B50]/15 bg-white p-4 shadow-sm sm:p-6">
 
             {/* THE ANIMATED AVATAR (Mata Kedap-Kedip, Mulut Berbicara, Tangan Bergerak) */}
             <div className="py-2">
               <JeliAvatar
                 character="jeli"
-                emotion={avatarEmotion}
+                emotion={isSpeaking ? "talking" : isListening ? "listening" : avatarEmotion}
                 isSpeaking={isSpeaking}
                 isListening={isListening}
                 size="lg"
@@ -510,16 +377,14 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
             </div>
 
             {/* Sound & Speech Audio Toggles */}
-            <div className="mt-4 flex w-full items-center justify-between gap-2 border-t border-slate-100 pt-4">
+            <div className="mt-4 flex w-full flex-wrap items-center justify-center gap-2 border-t border-slate-100 pt-4">
               <button
                 type="button"
+                aria-pressed={voiceEnabled}
                 onClick={() => {
-                  if (voiceEnabled) {
-                    if (currentAudioRef.current) currentAudioRef.current.pause()
-                    window.speechSynthesis?.cancel()
-                    setIsSpeaking(false)
-                  }
-                  setVoiceEnabled(!voiceEnabled)
+                  voiceRef.current = !voiceEnabled
+                  if (voiceEnabled) stopPlayback()
+                  onVoiceChange(!voiceEnabled)
                 }}
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${
                   voiceEnabled
@@ -530,8 +395,8 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
                 {voiceEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
                 <span>
                   {lang === "ID"
-                    ? `Suara AI: ${voiceEnabled ? "Aktif" : "Bisu"}`
-                    : `AI Voice: ${voiceEnabled ? "Active" : "Muted"}`}
+                    ? `Suara ${voiceEnabled ? "aktif" : "nonaktif"}`
+                    : `Voice ${voiceEnabled ? "on" : "off"}`}
                 </span>
               </button>
 
@@ -545,7 +410,7 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
                 className="inline-flex items-center gap-1.5 rounded-xl border border-[#064B50]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#064B50] hover:bg-[#F7F7F0] transition-colors disabled:opacity-40"
               >
                 <RefreshCw size={13} className={isSpeaking ? "animate-spin" : ""} />
-                <span>{lang === "ID" ? "Putar Suara Jeli" : "Play Jeli Voice"}</span>
+                <span>{lang === "ID" ? "Putar balasan" : "Play reply"}</span>
               </button>
             </div>
 
@@ -554,6 +419,9 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
               <button
                 type="button"
                 onClick={() => void toggleListening()}
+                aria-label={lang === "ID"
+                  ? (isListening ? "Selesai bicara" : "Mulai bicara")
+                  : (isListening ? "Finish speaking" : "Start speaking")}
                 className={`relative flex h-16 w-16 items-center justify-center rounded-full text-white shadow-lg transition-all transform hover:scale-105 active:scale-95 ${
                   isListening
                     ? "bg-red-500 ring-8 ring-red-200 animate-pulse"
@@ -574,88 +442,45 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
               <p className="mt-2 text-xs font-extrabold text-[#064B50]">
                 {isListening
                   ? lang === "ID"
-                    ? "Sedang Mendengarkan... (Klik untuk kirim)"
-                    : "Listening... (Click to send)"
+                    ? "Mendengarkan…"
+                    : "Listening…"
                   : lang === "ID"
-                  ? "Tekan untuk Bicara (Suara)"
-                  : "Push to Talk (Voice)"}
-              </p>
-              <p className="text-[11px] text-[#202C2B]/60">
-                {lang === "ID" ? "Bicara langsung dalam bahasa Indonesia" : "Speak directly in English"}
+                  ? "Tekan untuk bicara"
+                  : "Press to speak"}
               </p>
             </div>
 
             {/* Speech / Permission Helper & Troubleshooting */}
             {speechError && (
-              <div className="mt-3 w-full rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-900 space-y-2 animate-in fade-in-50">
-                <p className="font-bold flex items-center gap-1.5 text-red-700">
-                  <span>{lang === "ID" ? "⚠️ Akses Mikrofon" : "⚠️ Microphone Access"}</span>
-                </p>
-                <p className="text-[11px] leading-relaxed opacity-90">{speechError}</p>
-                <div className="pt-1 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void toggleListening()}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xs hover:bg-red-700 transition-colors"
-                  >
-                    <span>{lang === "ID" ? "🎙️ Izinkan & Coba Lagi" : "🎙️ Allow & Try Again"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSpeechError("")}
-                    className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-red-700 hover:bg-red-100 transition-colors"
-                  >
-                    {lang === "ID" ? "Tutup" : "Close"}
-                  </button>
-                </div>
-                <div className="mt-1 text-[10px] text-slate-600 bg-white/80 p-2 rounded-xl border border-red-100 leading-normal">
-                  {lang === "ID" ? (
-                    <>
-                      💡 <strong>Cara Mengizinkan di Browser:</strong> Klik ikon 🔒 (gembok) atau setelan di samping <code>localhost:5173</code> pada address bar ➔ Ubah <strong>Mikrofon</strong> menjadi <strong>Izinkan (Allow)</strong>.
-                    </>
-                  ) : (
-                    <>
-                      💡 <strong>How to Allow in Browser:</strong> Click the 🔒 lock or settings icon beside <code>localhost:5173</code> on your address bar ➔ Change <strong>Microphone</strong> to <strong>Allow</strong>.
-                    </>
-                  )}
-                </div>
+              <div className="mt-3 flex w-full flex-wrap items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-900">
+                <p role="alert" className="flex-1 leading-relaxed">{speechError}</p>
+                <button type="button" onClick={() => setSpeechError("")} className="rounded-lg px-2.5 py-1.5 font-bold hover:bg-red-100">
+                  {lang === "ID" ? "Tutup" : "Dismiss"}
+                </button>
               </div>
             )}
           </div>
 
           {/* RIGHT: Live Chat Box & Text Input */}
-          <div className="flex flex-col rounded-3xl border border-[#064B50]/15 bg-white shadow-sm overflow-hidden h-[620px]">
+          <div className="flex min-w-0 flex-col overflow-hidden rounded-3xl border border-[#064B50]/15 bg-white shadow-sm sm:h-[38rem]">
             {/* Header Chat */}
             <div className="flex items-center justify-between border-b border-[#064B50]/10 bg-[#FAFBF6] px-5 py-3.5">
               <div className="flex items-center gap-2">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#064B50] text-[#B8F000]">
                   <Bot size={15} />
                 </span>
-                <div>
-                  <h3 className="text-xs font-extrabold text-[#064B50]">
-                    {lang === "ID"
-                      ? "Percakapan Langsung dengan Sahabat Jeli"
-                      : "Live Conversation with Sahabat Jeli"}
-                  </h3>
-                  <p className="text-[10px] text-[#202C2B]/60">
-                    {lang === "ID"
-                      ? "Mode Suara (Voice) & Tulisan (Chat)"
-                      : "Voice & Text Interactive Mode"}
-                  </p>
-                </div>
+                <h2 className="text-sm font-extrabold text-[#064B50]">
+                  {lang === "ID" ? "Percakapan dengan Jeli" : "Chat with Jeli"}
+                </h2>
               </div>
-
-              <span className="rounded-full bg-[#EFF7D5] px-2.5 py-0.5 text-[10px] font-bold text-[#064B50]">
-                Live AI
-              </span>
             </div>
 
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            <div ref={chatLog} role="log" aria-label={lang === "ID" ? "Riwayat percakapan" : "Chat history"} className="min-h-44 max-h-[60dvh] flex-1 space-y-4 overflow-y-auto p-4 sm:min-h-0 sm:max-h-none sm:p-5">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex gap-2.5 max-w-[85%] ${
+                  className={`flex max-w-[95%] gap-2 sm:max-w-[85%] ${
                     msg.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
                   }`}
                 >
@@ -670,36 +495,32 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
                   </div>
 
                   <div
-                    className={`rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-2xs ${
+                    className={`min-w-0 rounded-2xl p-3 text-sm leading-relaxed shadow-2xs sm:p-4 ${
                       msg.role === "user"
                         ? "bg-[#064B50] text-white"
                         : "bg-[#F7F7F0] border border-[#064B50]/10 text-[#202C2B]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3 mb-1 text-[10px] opacity-75 font-bold">
-                      <span>{msg.role === "user" ? (lang === "ID" ? "Kamu" : "You") : "Sahabat Jeli"}</span>
+                      <span>{msg.role === "user" ? (lang === "ID" ? "Kamu" : "You") : "Jeli"}</span>
                       <span>{msg.timestamp}</span>
                     </div>
 
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    {msg.mode === "fallback" && (
+                      <p className="mb-1 font-semibold">{lang === "ID" ? "Panduan lokal" : "Local guidance"}</p>
+                    )}
+                    <p className="whitespace-pre-wrap wrap-anywhere">{msg.text}</p>
 
                     {/* Speaker play / replay button on AI bubble */}
                     {msg.role === "assistant" && (
                       <button
                         type="button"
                         onClick={() => speakText(msg.text)}
+                        disabled={!voiceEnabled}
                         className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[11px] font-bold text-[#064B50] shadow-2xs border border-[#064B50]/15 hover:bg-[#EFF7D5] transition-all"
                       >
                         <Volume2 size={13} className="text-[#087F7A]" />
-                        <span>
-                          {msg.id === "msg-welcome"
-                            ? lang === "ID"
-                              ? "🔊 Putar Suara Sambutan Jeli"
-                              : "🔊 Play Jeli's Welcome Voice"
-                            : lang === "ID"
-                            ? "🔊 Dengarkan Suara Jeli"
-                            : "🔊 Listen to Jeli's Voice"}
-                        </span>
+                        <span>{lang === "ID" ? "Dengarkan" : "Listen"}</span>
                       </button>
                     )}
                   </div>
@@ -707,40 +528,35 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
               ))}
 
               {isLoading && (
-                <div className="flex items-center gap-2 text-xs font-bold text-[#087F7A] p-2 bg-[#EFF7D5]/50 rounded-xl max-w-fit">
+                <div role="status" className="flex max-w-fit items-center gap-2 rounded-xl bg-[#EFF7D5]/50 p-2 text-xs font-bold text-[#064B50]">
                   <LoaderCircle size={15} className="animate-spin" />
-                  <span>
-                    {lang === "ID"
-                      ? "Jeli sedang berpikir dan menyiapkan suara balasan..."
-                      : "Jeli is thinking and preparing a spoken response..."}
-                  </span>
+                  <span>{lang === "ID" ? "Jeli sedang menyiapkan balasan…" : "Jeli is preparing a reply…"}</span>
                 </div>
               )}
-
-              <div ref={chatEndRef} />
             </div>
 
             {/* Quick Suggested Chips */}
             <div className="border-t border-slate-100 bg-[#FAFBF6] px-4 py-2.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[#064B50] mb-1.5">
-                {lang === "ID" ? "Contoh Pertanyaan Cepat:" : "Quick Suggested Questions:"}
+                {lang === "ID" ? "Contoh pertanyaan" : "Suggested questions"}
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {suggestedPrompts.map((prompt) => (
+                {suggestedPrompts.map(([label, prompt]) => (
                   <button
                     key={prompt}
                     type="button"
                     onClick={() => void handleSendMessage(prompt)}
                     disabled={isLoading}
-                    className="rounded-lg border border-[#064B50]/15 bg-white px-2.5 py-1 text-[11px] font-medium text-[#064B50] hover:bg-[#EFF7D5] transition-colors disabled:opacity-50 text-left line-clamp-1"
+                    className="min-h-9 rounded-lg border border-[#064B50]/15 bg-white px-2.5 py-1 text-left text-xs font-medium text-[#064B50] hover:bg-[#EFF7D5] disabled:opacity-50"
                   >
-                    + {prompt.slice(0, 42)}…
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Input Bar (Tulisan dibalas tulisan & suara) */}
+            {chatError && <p role="alert" className="px-3 py-2 text-xs text-red-700">{chatError}</p>}
             <form
               onSubmit={(e) => {
                 e.preventDefault()
@@ -750,19 +566,22 @@ export function LiveAvatarRoleplayPage({ onBackToHome, onOpenSimulator, lang = "
             >
               <input
                 type="text"
+                aria-label={lang === "ID" ? "Pertanyaan untuk Jeli" : "Question for Jeli"}
                 value={inputText}
+                maxLength={1000}
                 onChange={(e) => setInputText(e.target.value)}
                 disabled={isLoading}
                 placeholder={
                   lang === "ID"
-                    ? "Ketik pertanyaan atau ceritakan tawaran kerja di sini…"
-                    : "Type your question or describe the job offer here…"
+                    ? "Tulis pertanyaanmu…"
+                    : "Write your question…"
                 }
-                className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs sm:text-sm focus:outline-2 focus:outline-[#087F7A]"
+                className="min-w-0 flex-1 rounded-xl border border-[#064B50]/25 px-3.5 py-2.5 text-sm focus:outline-2 focus:outline-[#087F7A]"
               />
 
               <button
                 type="submit"
+                aria-label={lang === "ID" ? "Kirim pesan" : "Send message"}
                 disabled={isLoading || !inputText.trim()}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#064B50] text-white hover:bg-[#087F7A] transition-colors disabled:opacity-40"
               >

@@ -36,7 +36,7 @@ export const ClosingCtaSection: React.FC<ClosingCtaSectionProps> = ({
         </div>
       </div>
       <div className="flex justify-center lg:col-span-4">
-        <JeliCompanion state="celebrate" size="xl" />
+        <JeliCompanion state="celebrate" size="xl" lang={lang} />
       </div>
     </div>
   </section>
