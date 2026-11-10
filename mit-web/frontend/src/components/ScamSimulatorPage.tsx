@@ -384,7 +384,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
   const customTemplates = lang === "EN" ? customTemplatesEn : customTemplatesId
 
   return (
-    <main className="min-h-screen bg-warm-grid px-4 pb-24 pt-6 text-[#202C2B]">
+    <main className="min-h-screen bg-warm-grid px-4 pb-24 pt-24 text-[#202C2B]">
       <div className="mx-auto max-w-5xl">
         {/* Navigation back & Switch to Live Avatar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
