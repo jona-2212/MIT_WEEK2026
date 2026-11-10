@@ -23,7 +23,7 @@ function pageFromHash(hash: string): Page {
 const readHash = () => window.location.hash.slice(1)
 
 export default function App() {
-  const [avatarVoiceEnabled, setAvatarVoiceEnabled] = useState(true)
+  const [avatarVoiceEnabled, setAvatarVoiceEnabled] = useState(false)
   const [simulatorMode, setSimulatorMode] = useState<"guided" | "chat">("guided")
   const [hash, setHash] = useState(readHash)
   const activePage = pageFromHash(hash)

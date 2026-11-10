@@ -115,6 +115,9 @@ export function LiveAvatarRoleplayPage({
 
   useEffect(() => {
     voiceRef.current = voiceEnabled
+    if (!voiceEnabled) {
+      stopPlayback()
+    }
   }, [voiceEnabled])
 
   const sendTranscript = useEffectEvent((transcript: string) => {
@@ -156,6 +159,9 @@ export function LiveAvatarRoleplayPage({
       playbackRequest.current = null
       setIsSpeaking(false)
       setIsListening(false)
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
       if (recognition) {
         recognition.onstart = recognition.onresult = recognition.onerror = recognition.onend = null
         recognition.abort()
@@ -168,6 +174,9 @@ export function LiveAvatarRoleplayPage({
     playbackRequest.current?.abort()
     playbackRequest.current = null
     setIsSpeaking(false)
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
   }
 
   async function speakText(text: string) {
