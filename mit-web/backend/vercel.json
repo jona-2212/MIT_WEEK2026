@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "functions": {
+    "index.py": {
+      "includeFiles": "{data/legal_index/*.json,data/knowledge/sources.json,app/services/ai/prompts/recognition-v2.txt,demo/index.html}",
+      "excludeFiles": "{tests/**,scripts/**,docs/**,data/examples/**,data/knowledge/pdf/**,data/chroma_local/**,data/legal_staging/**,.venv/**,.uv-cache/**,.pytest_cache/**,.ruff_cache/**,.env*}"
+    }
+  }
+}
