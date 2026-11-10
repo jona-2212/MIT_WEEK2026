@@ -125,7 +125,7 @@ Gunakan contoh fiktif atau samarkan data pribadi sebelum mengirim. Jeli mengirim
 | Materi | Akses |
 | --- | --- |
 | Situs live | [Buka Jeli](https://jeli-mit.vercel.app/#home) |
-| Video demonstrasi · maksimal 5 menit | **Tautan video resmi belum ditambahkan.** <!-- Ganti teks ini dengan tautan langsung ke video resmi. --> |
+| Video demonstrasi · maksimal 5 menit |[https://drive.google.com/drive/folders/11HcbpnGFz4UnpxVIa-04SdCE7CDHotaT]|
 | Kode sumber | [MIT_WEEK2026 di GitHub](https://github.com/jona-2212/MIT_WEEK2026) |
 | Dokumentasi teknis | [Panduan Pengembangan](docs/DEVELOPMENT.md) |
 
