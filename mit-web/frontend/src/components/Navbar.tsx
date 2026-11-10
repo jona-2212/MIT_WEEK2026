@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ArrowRight, Menu, Mic, Search, Sparkles, X } from "lucide-react"
+import { ArrowRight, Home, Menu, Mic, Search, Sparkles, X } from "lucide-react"
 import { t, type Language, type TranslationKey } from "../i18n"
 import JeliLogo from "./JeliLogo"
 import type { Page } from "../App"
@@ -11,7 +11,7 @@ interface NavbarProps {
 }
 
 const links: { href: string; label: TranslationKey; page?: Page; icon?: typeof Mic }[] = [
-  { href: "#home", label: "home", page: "home" },
+  { href: "#home", label: "home", page: "home", icon: Home },
   { href: "#simulator", label: "simulator", page: "simulator", icon: Sparkles },
   { href: "#avatar", label: "askJeli", page: "avatar", icon: Mic },
 ]
@@ -75,7 +75,7 @@ export function Navbar({ activePage = "home", lang = "ID", onToggleLang }: Navba
               onClick={onToggleLang}
               aria-label={languageAction}
               title={languageAction}
-              className="flex min-h-10 items-center gap-1 rounded-xl border border-[#064B50]/15 bg-white px-2 text-xs font-bold text-[#202C2B] hover:border-[#064B50]/35 sm:px-3"
+              className="mr-2 flex min-h-10 items-center gap-1 rounded-xl border border-[#064B50]/15 bg-white px-2 text-xs font-bold text-[#202C2B] hover:border-[#064B50]/35 sm:mr-3.5 sm:px-3"
             >
               <span className={lang === "ID" ? "font-black text-[#064B50]" : "text-[#202C2B]/70"}>ID</span>
               <span aria-hidden="true">/</span>
