@@ -106,14 +106,17 @@ def ground_indicators(
         elif detected and not any(i.state == IndicatorState.NOT_DETECTED for i in observations):
             state = IndicatorState.DETECTED
             reason = (
-                f"Evidence found supporting indication of {labels[code]}; context requires verification."
+                f"Evidence found supporting indication of {labels[code]}; "
+                "context requires verification."
                 if is_en
-                else f"Ada kutipan yang mendukung indikasi {labels[code]}; konteks perlu diverifikasi."
+                else f"Ada kutipan yang mendukung indikasi {labels[code]}; "
+                "konteks perlu diverifikasi."
             )
         elif uncertain:
             state = IndicatorState.UNCERTAIN
             reason = (
-                "Indication is not yet supported by sufficient evidence or extracted results conflict."
+                "Indication is not yet supported by sufficient evidence "
+                "or extracted results conflict."
                 if is_en
                 else "Indikasi belum didukung bukti yang cukup atau hasil ekstraksi bertentangan."
             )

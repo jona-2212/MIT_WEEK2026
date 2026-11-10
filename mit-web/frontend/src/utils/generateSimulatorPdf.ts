@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf"
+import { locales, type Language } from "../i18n"
 import type { Scenario } from "../services/roleplay"
 
 export interface UserAnswerRecord {
@@ -19,7 +20,7 @@ export interface UserAnswerRecord {
 interface GenerateSimulatorPdfOptions {
   scenario: Scenario
   answers: UserAnswerRecord[]
-  lang?: "ID" | "EN"
+  lang?: Language
 }
 
 export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: GenerateSimulatorPdfOptions): void {
@@ -28,6 +29,7 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
     unit: "mm",
     format: "a4",
   })
+  const en = lang === "EN"
 
   const pageWidth = 210
   const pageHeight = 297
@@ -57,14 +59,14 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
   doc.setTextColor(100, 116, 139)
   doc.text(
     lang === "ID"
-      ? "Laporan Hasil Latihan Simulator Scam & Uji Keputusan Refleks AI"
-      : "Job Scam Simulator Training Report & AI Decision Evaluation",
+      ? "Rapor latihan penipuan kerja"
+      : "Job scam practice report",
     margin,
     y + 5
   )
 
   const now = new Date()
-  const dateStr = now.toLocaleDateString("id-ID", {
+  const dateStr = now.toLocaleString(locales[lang], {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -74,7 +76,7 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
   doc.setFontSize(8)
   doc.setTextColor(71, 85, 105)
   doc.text(`${lang === "ID" ? "Waktu Latihan" : "Date"}: ${dateStr}`, pageWidth - margin, y, { align: "right" })
-  doc.text(`ID Skenario: ${scenario.id}`, pageWidth - margin, y + 4.5, { align: "right" })
+  doc.text(`${en ? "Scenario ID" : "ID skenario"}: ${scenario.id}`, pageWidth - margin, y + 4.5, { align: "right" })
 
   y += 11
   doc.setDrawColor(226, 232, 240)
@@ -82,56 +84,38 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
   doc.line(margin, y, pageWidth - margin, y)
   y += 6
 
-  // --- SUMMARY SCORE CARD ---
-  const totalCompleted = answers.length
-  const correctCount = answers.filter((a) => a.isCorrect).length
-  const scorePercent = totalCompleted > 0 ? Math.round((correctCount / totalCompleted) * 100) : 0
+  // --- SCENARIO SUMMARY ---
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(12)
+  const titleLines: string[] = doc.splitTextToSize(scenario.title, contentWidth - 10)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8.5)
+  const descLines: string[] = doc.splitTextToSize(scenario.description, contentWidth - 10)
+  const cardHeight = 17 + titleLines.length * 5 + descLines.length * 4
 
-  ensureSpace(36)
-  // Background card
+  ensureSpace(cardHeight + 6)
   doc.setFillColor(247, 247, 240)
-  doc.roundedRect(margin, y, contentWidth, 32, 3, 3, "F")
+  doc.roundedRect(margin, y, contentWidth, cardHeight, 3, 3, "F")
   doc.setDrawColor(8, 127, 122)
   doc.setLineWidth(0.8)
-  doc.line(margin, y, margin, y + 32)
+  doc.line(margin, y, margin, y + cardHeight)
 
-  // Title of scenario
   doc.setFont("helvetica", "bold")
   doc.setFontSize(12)
   doc.setTextColor(6, 75, 80)
-  doc.text(scenario.title, margin + 5, y + 8)
+  doc.text(titleLines, margin + 5, y + 8)
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8.5)
   doc.setTextColor(71, 85, 105)
-  const descLines = doc.splitTextToSize(scenario.description, contentWidth - 55)
-  doc.text(descLines.slice(0, 2), margin + 5, y + 14)
+  const descY = y + 8 + titleLines.length * 5
+  doc.text(descLines, margin + 5, descY)
+  const answered = en
+    ? `${answers.length} of ${scenario.questions?.length ?? answers.length} questions answered.`
+    : `${answers.length} dari ${scenario.questions?.length ?? answers.length} pertanyaan dijawab.`
+  doc.text(answered, margin + 5, descY + descLines.length * 4 + 2)
 
-  // Score badge
-  const scoreBoxX = pageWidth - margin - 45
-  const scoreBoxY = y + 4
-  const badgeColor = scorePercent >= 80 ? [8, 127, 122] : scorePercent >= 50 ? [217, 119, 6] : [220, 38, 38]
-  doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2])
-  doc.roundedRect(scoreBoxX, scoreBoxY, 40, 24, 2, 2, "F")
-
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(14)
-  doc.setTextColor(255, 255, 255)
-  doc.text(`${scorePercent}%`, scoreBoxX + 20, scoreBoxY + 10, { align: "center" })
-
-  doc.setFontSize(7.5)
-  doc.setFont("helvetica", "normal")
-  doc.text(`${correctCount}/${totalCompleted} ${lang === "ID" ? "Aman" : "Safe"}`, scoreBoxX + 20, scoreBoxY + 16, {
-    align: "center",
-  })
-  doc.text(
-    scorePercent >= 80 ? "SANGAT SIAP" : scorePercent >= 50 ? "PERLU WASPADA" : "BERISIKO TINGGI",
-    scoreBoxX + 20,
-    scoreBoxY + 21,
-    { align: "center" }
-  )
-
-  y += 38
+  y += cardHeight + 6
 
   // --- QUESTIONS BREAKDOWN HEADER ---
   ensureSpace(12)
@@ -152,14 +136,14 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
     doc.setFont("helvetica", "bold")
     doc.setFontSize(8.5)
     doc.setTextColor(30, 58, 138)
-    doc.text(`Pertanyaan ${ans.questionNumber}: ${ans.title}`, margin + 3, y + 5)
+    doc.text(`${en ? "Question" : "Pertanyaan"} ${ans.questionNumber}: ${ans.title}`, margin + 3, y + 5)
     y += 10
 
     // Recruiter Message quote
     doc.setFont("helvetica", "italic")
     doc.setFontSize(8)
     doc.setTextColor(75, 85, 99)
-    const recruiterLines = doc.splitTextToSize(`Pesan Perekrut: "${ans.recruiterMessage}"`, contentWidth - 8)
+    const recruiterLines = doc.splitTextToSize(`${en ? "Recruiter message" : "Pesan perekrut"}: "${ans.recruiterMessage}"`, contentWidth - 8)
     ensureSpace(recruiterLines.length * 4 + 4)
     doc.text(recruiterLines, margin + 4, y)
     y += recruiterLines.length * 3.8 + 3
@@ -168,45 +152,58 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
     doc.setFont("helvetica", "bold")
     doc.setFontSize(8)
     doc.setTextColor(6, 75, 80)
-    const challengeLines = doc.splitTextToSize(`Tantangan: ${ans.challengeText}`, contentWidth - 8)
+    const challengeLines = doc.splitTextToSize(`${en ? "Challenge" : "Tantangan"}: ${ans.challengeText}`, contentWidth - 8)
     ensureSpace(challengeLines.length * 4 + 4)
     doc.text(challengeLines, margin + 4, y)
     y += challengeLines.length * 3.8 + 4
 
     // User Response & Correctness
-    ensureSpace(20)
     const isAnsCorrect = ans.isCorrect
     const statusBg = isAnsCorrect ? [240, 253, 244] : [254, 242, 242]
     const statusTextCol = isAnsCorrect ? [22, 101, 52] : [153, 27, 27]
+    const statusLabel = isAnsCorrect ? (en ? "Safe choice" : "Pilihan aman") : (en ? "Risky choice" : "Pilihan berisiko")
+    doc.setFont("helvetica", "bold")
+    doc.setFontSize(8)
+    const statusLines = doc.splitTextToSize(
+      ans.feedbackLabel ? `${statusLabel} · ${ans.feedbackLabel}` : statusLabel,
+      contentWidth - 14
+    )
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(7.8)
+    const optionLines = doc.splitTextToSize(
+      `${en ? "Your choice" : "Pilihanmu"}: ${ans.selectedOptionText}`,
+      contentWidth - 14
+    )
+    const saferLines = !isAnsCorrect && ans.correctOptionText
+      ? doc.splitTextToSize(`${en ? "Safer choice" : "Pilihan lebih aman"}: ${ans.correctOptionText}`, contentWidth - 14)
+      : []
+    const responseHeight = 7 + (statusLines.length + optionLines.length + saferLines.length) * 3.6
+    ensureSpace(responseHeight + 3)
 
     doc.setFillColor(statusBg[0], statusBg[1], statusBg[2])
-    doc.roundedRect(margin + 2, y, contentWidth - 4, 14, 2, 2, "F")
+    doc.roundedRect(margin + 2, y, contentWidth - 4, responseHeight, 2, 2, "F")
     doc.setDrawColor(statusTextCol[0], statusTextCol[1], statusTextCol[2])
     doc.setLineWidth(0.3)
-    doc.roundedRect(margin + 2, y, contentWidth - 4, 14, 2, 2, "S")
+    doc.roundedRect(margin + 2, y, contentWidth - 4, responseHeight, 2, 2, "S")
 
     doc.setFont("helvetica", "bold")
     doc.setFontSize(8)
     doc.setTextColor(statusTextCol[0], statusTextCol[1], statusTextCol[2])
-    doc.text(
-      isAnsCorrect ? `[OK] ${ans.feedbackLabel || "Jawaban Tepat & Aman"}` : `[PERINGATAN] ${ans.feedbackLabel || "Jawaban Salah / Terjebak"}`,
-      margin + 5,
-      y + 5
-    )
+    doc.text(statusLines, margin + 5, y + 5)
 
     doc.setFont("helvetica", "normal")
     doc.setFontSize(7.8)
     doc.setTextColor(30, 41, 59)
-    const userOptionLines = doc.splitTextToSize(`Pilihanmu: ${ans.selectedOptionText}`, contentWidth - 14)
-    doc.text(userOptionLines.slice(0, 2), margin + 5, y + 10)
-    y += 17
+    doc.text(optionLines, margin + 5, y + 6 + statusLines.length * 3.6)
+    if (saferLines.length) doc.text(saferLines, margin + 5, y + 6 + (statusLines.length + optionLines.length) * 3.6)
+    y += responseHeight + 3
 
     // Explanation
     if (ans.explanation) {
       doc.setFont("helvetica", "normal")
       doc.setFontSize(7.5)
       doc.setTextColor(71, 85, 105)
-      const explLines = doc.splitTextToSize(`Analisis: ${ans.explanation}`, contentWidth - 8)
+      const explLines = doc.splitTextToSize(`${en ? "Analysis" : "Analisis"}: ${ans.explanation}`, contentWidth - 8)
       ensureSpace(explLines.length * 3.5 + 4)
       doc.text(explLines, margin + 4, y)
       y += explLines.length * 3.5 + 3
@@ -214,13 +211,15 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
 
     // Good Answer Description (Deskripsi Jawaban yang Baik)
     if (ans.goodAnswerSummary) {
-      ensureSpace(18)
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(7.5)
       doc.setFillColor(254, 252, 232) // light yellow #fefce8
       const goodLines = doc.splitTextToSize(
-        `Deskripsi Jawaban yang Baik: ${ans.goodAnswerSummary}`,
+        `${en ? "What makes a good reply" : "Ciri balasan yang baik"}: ${ans.goodAnswerSummary}`,
         contentWidth - 12
       )
       const goodBoxHeight = Math.max(12, goodLines.length * 3.4 + 5)
+      ensureSpace(goodBoxHeight + 3)
       doc.roundedRect(margin + 2, y, contentWidth - 4, goodBoxHeight, 1.5, 1.5, "F")
       doc.setDrawColor(202, 138, 4)
       doc.setLineWidth(0.3)
@@ -235,14 +234,14 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
 
     // Educational Takeaway
     if (ans.educationalTakeaway) {
-      ensureSpace(12)
       doc.setFont("helvetica", "italic")
       doc.setFontSize(7.2)
       doc.setTextColor(8, 127, 122)
       const takeawayLines = doc.splitTextToSize(
-        `Dasar Regulasi & Tips Kunci: ${ans.educationalTakeaway}`,
+        `${en ? "Key takeaway" : "Pelajaran utama"}: ${ans.educationalTakeaway}`,
         contentWidth - 8
       )
+      ensureSpace(takeawayLines.length * 3.4 + 4)
       doc.text(takeawayLines, margin + 4, y)
       y += takeawayLines.length * 3.4 + 4
     }
@@ -263,14 +262,14 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
   doc.setFont("helvetica", "bold")
   doc.setFontSize(7.5)
   doc.setTextColor(15, 23, 42)
-  doc.text("Kanal Aduan Resmi Penipuan Kerja RI:", margin + 4, y + 5)
+  doc.text(en ? "Official reporting channels in Indonesia" : "Kanal aduan resmi di Indonesia", margin + 4, y + 5)
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(7)
   doc.setTextColor(71, 85, 105)
-  doc.text("1. Cek Rekening & Rekam Jejak Pelaku: https://cekrekening.id", margin + 4, y + 9)
-  doc.text("2. Laporan Penipuan Siber Polri: https://patrolisiber.id", margin + 4, y + 13)
-  doc.text("3. Aduan Tenaga Kerja / TPPO: Kemnaker RI & BP2MI (Call Center: 133)", margin + 4, y + 17)
+  doc.text(en ? "1. Check bank accounts: https://cekrekening.id" : "1. Cek rekening: https://cekrekening.id", margin + 4, y + 9)
+  doc.text(en ? "2. Report cyber fraud to the police: https://patrolisiber.id" : "2. Lapor penipuan siber ke Polri: https://patrolisiber.id", margin + 4, y + 13)
+  doc.text(en ? "3. Labour and trafficking reports: Kemnaker RI and BP2MI (133)" : "3. Aduan tenaga kerja dan TPPO: Kemnaker RI dan BP2MI (133)", margin + 4, y + 17)
 
   // Page numbers on all pages
   const totalPages = doc.getNumberOfPages()
@@ -280,7 +279,7 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
     doc.setFontSize(7)
     doc.setTextColor(148, 163, 184)
     doc.text(
-      `Halaman ${i} dari ${totalPages} · Jeli Lakon Simulator · Dokumen Hasil Latihan Mandiri`,
+      en ? `Page ${i} of ${totalPages} · Jeli Lakon` : `Halaman ${i} dari ${totalPages} · Jeli Lakon`,
       pageWidth / 2,
       pageHeight - 6,
       { align: "center" }
@@ -289,5 +288,5 @@ export function generateSimulatorPdf({ scenario, answers, lang = "ID" }: Generat
 
   // Save PDF file
   const safeTitle = scenario.title.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 30)
-  doc.save(`Laporan-Latihan-Jeli-${safeTitle}-${Date.now().toString().slice(-6)}.pdf`)
+  doc.save(`${en ? "Jeli-Practice-Report" : "Laporan-Latihan-Jeli"}-${safeTitle}-${now.toISOString().slice(0, 10)}.pdf`)
 }

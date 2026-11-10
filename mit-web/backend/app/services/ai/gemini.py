@@ -36,7 +36,7 @@ class GeminiProvider:
         if lang == "EN":
             if "properties" in schema and "summary" in schema["properties"]:
                 schema["properties"]["summary"]["description"] = (
-                    "Executive risk evaluation summary in 1–3 sentences strictly written in English."
+                    "Executive risk evaluation summary in 1–3 sentences written in English."
                 )
             if "properties" in schema and "recommendations" in schema["properties"]:
                 schema["properties"]["recommendations"]["description"] = (
@@ -45,16 +45,21 @@ class GeminiProvider:
 
             system_instruction = (
                 SYSTEM_PROMPT.replace(
-                    "Anda membantu pencari kerja Indonesia menilai risiko tawaran kerja berdasarkan konteks.",
-                    "You help evaluate job scam risks based on context. Even though the job materials are in Indonesian, all your explanations, summary, and recommendations MUST be written in English.",
+                    "Anda membantu pencari kerja Indonesia menilai risiko tawaran kerja "
+                    "berdasarkan konteks.",
+                    "You help evaluate job scam risks based on context. "
+                    "Even though the job materials are in Indonesian, all your explanations, "
+                    "summary, and recommendations MUST be written in English.",
                 )
                 .replace(
                     "Tulis summary dalam 1–3 kalimat bahasa Indonesia.",
-                    "CRITICAL: Write summary in 1–3 sentences strictly in English. Do NOT use Indonesian in the summary.",
+                    "CRITICAL: Write summary in 1–3 sentences strictly in English. "
+                    "Do NOT use Indonesian in the summary.",
                 )
                 .replace(
                     "Isi recommendations dengan 1–4 langkah aman dan konkret yang sesuai konteks.",
-                    "CRITICAL: Write recommendations with 1–4 safe, actionable, concrete steps strictly in English.",
+                    "CRITICAL: Write recommendations with 1–4 safe, actionable, concrete steps "
+                    "strictly in English.",
                 )
             )
 
@@ -62,7 +67,8 @@ class GeminiProvider:
         if lang == "EN":
             user_content["output_language"] = "English"
             user_content["instruction"] = (
-                "Evaluate the job offer and write the 'summary' and 'recommendations' strictly in English."
+                "Evaluate the job offer and write the 'summary' and 'recommendations' "
+                "strictly in English."
             )
 
         parts: list[dict] = [{"text": json.dumps(user_content, ensure_ascii=False)}]

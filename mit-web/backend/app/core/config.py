@@ -33,7 +33,18 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(default=15.0, ge=1, le=60)
     legal_top_k: int = Field(default=3, ge=1, le=10)
     legal_min_similarity: float = Field(default=0.75, ge=-1, le=1, allow_inf_nan=False)
+    roleplay_signing_secret: SecretStr | None = None
+    gemini_roleplay_model: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9.-]{0,99}$")
+    eleven_labs: SecretStr | None = None
     elevenlabs_api_key: SecretStr | None = None
+    elevenlabs_voice_id: str = Field(default="TMvmhlKUioQA4U7LOoko", pattern=r"^[A-Za-z0-9]{1,64}$")
+    elevenlabs_voice_id_en: str = Field(
+        default="JBFqnCBsd6RMkjVDRZzb", pattern=r"^[A-Za-z0-9]{1,64}$"
+    )
+
+    @property
+    def elevenlabs_key(self) -> SecretStr | None:
+        return self.eleven_labs or self.elevenlabs_api_key
 
     @property
     def max_image_bytes(self) -> int:
@@ -77,10 +88,21 @@ class Settings(BaseSettings):
                 result.append(normalized)
         return result
 
-    @field_validator("gemini_api_key", "elevenlabs_api_key", mode="before")
+    @field_validator(
+        "gemini_api_key",
+        "eleven_labs",
+        "elevenlabs_api_key",
+        "roleplay_signing_secret",
+        mode="before",
+    )
     @classmethod
     def empty_key_is_none(cls, value: str | SecretStr | None) -> str | SecretStr | None:
         return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("gemini_roleplay_model", mode="before")
+    @classmethod
+    def default_roleplay_model(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
 
     @model_validator(mode="after")
     def validate_environment(self) -> "Settings":

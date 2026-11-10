@@ -71,7 +71,11 @@ Key hanya di environment backend/`.env`, tidak di browser, source, fixture, log,
 | `APP_ENV` | `development` | development/test/production; fixture hanya di test |
 | `APP_NAME`, `LOG_LEVEL`, `DEBUG` | lihat template | Metadata layanan/log; DEBUG false pada produksi |
 | `ALLOWED_ORIGINS` | kosong | Origin HTTP(S) eksplisit, dipisah koma; bukan autentikasi |
-| `ELEVENLABS_API_KEY` | kosong | Belum digunakan |
+| `ROLEPLAY_SIGNING_SECRET` | kosong | Minimal 32 karakter untuk chat perekrut Jeli Lakon |
+| `GEMINI_ROLEPLAY_MODEL` | kosong | Model chat dan skenario kustom, default mengikuti `GEMINI_MODEL` |
+| `ELEVEN_LABS` | kosong | Kunci TTS ElevenLabs. Nama alternatif `ELEVENLABS_API_KEY` |
+| `ELEVENLABS_VOICE_ID` | `TMvmhlKUioQA4U7LOoko` | Suara Indonesia Andi |
+| `ELEVENLABS_VOICE_ID_EN` | `JBFqnCBsd6RMkjVDRZzb` | Suara Inggris George |
 
 Total multipart dibatasi **batas gambar + 64 KiB**, baik dari Content-Length maupun stream aktual. Profil Vercel: 4.259.840 byte total, di bawah 4,5 MB. Batas teks 12.000 karakter/48.000 byte, gambar 16 MP; MIME/decode, animasi, metadata, dan spool memori tetap diperiksa. Screenshot dibaca model yang sama, belum OCR independen. Samarkan data pribadi sebelum submit.
 

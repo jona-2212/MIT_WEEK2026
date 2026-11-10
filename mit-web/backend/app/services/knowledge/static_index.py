@@ -54,14 +54,12 @@ def verify_index(
             raise ValueError("legal_index_invalid")
         if manifest.index_sha256 != manifest_digest(manifest):
             raise ValueError("legal_manifest_checksum_mismatch")
-        entries, registry_hash = load_registry(registry_path)
-        if registry_hash != manifest.registry_sha256:
-            raise ValueError("legal_registry_mismatch")
+        entries, _ = load_registry(registry_path, expected_sha256=manifest.registry_sha256)
         chunks_raw = read_bounded(path / "chunks.json", 8 << 20)
         vectors_raw = read_bounded(path / "vectors.json", 32 << 20)
         if (
-            digest(chunks_raw) != manifest.chunks_sha256
-            or digest(vectors_raw) != manifest.vectors_sha256
+            digest(chunks_raw.replace(b"\r\n", b"\n")) != manifest.chunks_sha256
+            or digest(vectors_raw.replace(b"\r\n", b"\n")) != manifest.vectors_sha256
         ):
             raise ValueError("legal_index_checksum_mismatch")
         chunk_data = json.loads(chunks_raw)

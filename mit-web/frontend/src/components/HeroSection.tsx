@@ -4,14 +4,12 @@ import { JeliCompanion } from "./JeliCompanion"
 
 interface HeroSectionProps {
   onCheckJobOffer: () => void
-  onExploreHowItWorks: () => void
   onOpenAvatar?: () => void
   lang: "ID" | "EN"
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   onCheckJobOffer,
-  onExploreHowItWorks,
   onOpenAvatar,
   lang,
 }) => (
@@ -36,7 +34,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </span>
           </h1>
           <div className="mb-8 max-w-xl">
-            <p className="mb-2 font-serif-italic text-lg font-bold text-[#087F7A] sm:text-xl">
+            <p className="mb-2 font-serif-italic text-lg font-bold text-[#064B50] sm:text-xl">
               {lang === "ID" ? "Kenali yang janggal, putuskan dengan yakin." : "See through the noise. Navigate with confidence."}
             </p>
             <p className="text-base leading-relaxed text-[#202C2B]/80 sm:text-lg">
@@ -52,10 +50,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               {lang === "ID" ? "Cek Tawaran Kerja" : "Check a Job Offer"}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </button>
-            <button onClick={onExploreHowItWorks} className="group flex items-center justify-center gap-2.5 rounded-xl border border-[#064B50]/15 bg-white px-6 py-3.5 text-base font-bold shadow-2xs transition-all hover:bg-[#EBECE1]">
+            <a href="#how-it-works" className="group flex items-center justify-center gap-2.5 rounded-xl border border-[#064B50]/15 bg-white px-6 py-3.5 text-base font-bold shadow-2xs transition-all hover:bg-[#EBECE1]">
               {lang === "ID" ? "Pelajari Cara Kerjanya" : "Explore How It Works"}
               <ArrowDown className="h-4 w-4 text-[#064B50] transition-transform group-hover:translate-y-0.5" />
-            </button>
+            </a>
             {onOpenAvatar && (
               <button
                 onClick={onOpenAvatar}
@@ -66,9 +64,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-[#087F7A]"></span>
                 </span>
                 <span>
-                  {lang === "ID"
-                    ? "Tanya Jeli Live (Voice & Avatar)"
-                    : "Ask Jeli Live (Voice & Avatar)"}
+                  {lang === "ID" ? "Tanya Jeli" : "Ask Jeli"}
                 </span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </button>
@@ -87,7 +83,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="relative flex w-full max-w-sm flex-col items-center justify-center py-8 sm:py-12">
             {/* Mascot in the Center */}
             <div className="relative z-10 animate-float-slow transition-transform hover:scale-105">
-              <JeliCompanion state="scanning" size="lg" onInteract={onOpenAvatar} />
+              <JeliCompanion state="scanning" size="lg" onInteract={onOpenAvatar} lang={lang} />
             </div>
 
             {/* Floating Badge 1: Multi-Format (Top-Left) */}
@@ -98,7 +94,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
                 <div>
                   <p className="text-[11px] font-extrabold text-[#064B50]">
-                    {lang === "ID" ? "Multi-Format" : "Multi-Format"}
+                    {lang === "ID" ? "Beragam Format" : "Multiple Formats"}
                   </p>
                   <p className="text-[10px] font-medium text-[#202C2B]/65">
                     {lang === "ID" ? "Teks • Gambar • URL" : "Text • Image • URL"}
@@ -115,10 +111,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
                 <div>
                   <p className="text-[11px] font-extrabold text-[#064B50]">
-                    {lang === "ID" ? "Legalitas PT" : "Legal Company"}
+                    {lang === "ID" ? "Cek Perusahaan" : "Company Check"}
                   </p>
                   <p className="text-[10px] font-medium text-[#202C2B]/65">
-                    {lang === "ID" ? "Database AHU Resmi" : "Official AHU Check"}
+                    {lang === "ID" ? "Lewat portal AHU" : "Via the AHU portal"}
                   </p>
                 </div>
               </div>

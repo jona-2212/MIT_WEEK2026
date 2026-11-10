@@ -29,9 +29,18 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
   const [mouthFrame, setMouthFrame] = useState(0)
   // Hand gesture frame (Tangan bergerak seolah-olah hidup)
   const [gestureTick, setGestureTick] = useState(0)
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const update = () => setReducedMotion(preference.matches)
+    preference.addEventListener("change", update)
+    return () => preference.removeEventListener("change", update)
+  }, [])
 
   // 1. Natural blinking loop (Kedip mata setiap 3.2 - 5 detik)
   useEffect(() => {
+    if (reducedMotion) return
     let blinkTimeout: ReturnType<typeof setTimeout>
     const blinkInterval = setInterval(() => {
       setIsBlinking(true)
@@ -44,28 +53,26 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
       clearInterval(blinkInterval)
       clearTimeout(blinkTimeout)
     }
-  }, [])
+  }, [reducedMotion])
 
   // 2. Animated lip-sync loop when speaking (Mulut bergerak saat berbicara)
   useEffect(() => {
-    if (!isSpeaking) {
-      setMouthFrame(0)
-      return
-    }
+    if (!isSpeaking || reducedMotion) return
     const mouthInterval = setInterval(() => {
       setMouthFrame((prev) => (prev + 1) % 4)
     }, 130) // cycles mouth shapes smoothly
 
     return () => clearInterval(mouthInterval)
-  }, [isSpeaking])
+  }, [isSpeaking, reducedMotion])
 
   // 3. Hand & body gesture cycle (Tangan bergerak aktif saat berbicara / mendengarkan)
   useEffect(() => {
+    if (reducedMotion) return
     const gestureInterval = setInterval(() => {
       setGestureTick((prev) => (prev >= 100000 ? 0 : prev + 1))
     }, 30) // 30ms tick for fluid, responsive 33fps animation
     return () => clearInterval(gestureInterval)
-  }, [])
+  }, [reducedMotion])
 
   // Dynamic symmetrical hand rotation and translation based on state
   const isTalkingOrActive = isSpeaking || emotion === "talking"
@@ -104,9 +111,9 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
   }
 
   const sizeClasses = {
-    md: "w-56 h-56",
-    lg: "w-72 h-72 sm:w-80 sm:h-80",
-    xl: "w-80 h-80 sm:w-96 sm:h-96",
+    md: "w-52 aspect-square sm:w-56",
+    lg: "w-52 aspect-square sm:w-72 lg:w-80",
+    xl: "w-52 aspect-square sm:w-80 lg:w-96",
   }[size]
 
   const statusLabel = isListening
@@ -116,10 +123,8 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
     : emotion === "thinking"
     ? (lang === "ID" ? "Jeli Sedang Berpikir..." : "Jeli is thinking...")
     : emotion === "warning"
-    ? (lang === "ID" ? "Deteksi Tanda Bahaya (Red Flag)!" : "Red Flag Warning Detected!")
-    : emotion === "celebrate" || emotion === "happy"
-    ? (lang === "ID" ? "Keputusan Cerdas & Aman!" : "Smart & Safe Decision!")
-    : (lang === "ID" ? "Siaga & Siap Tanya Jawab" : "Ready for Q&A")
+    ? (lang === "ID" ? "Tetap waspada" : "Stay alert")
+    : (lang === "ID" ? "Siap membantu" : "Ready to help")
 
   const isRecruiter = character === "recruiter"
   const mainHue = isRecruiter ? "#1E293B" : "#064B50"
@@ -131,12 +136,12 @@ export const JeliAvatar: React.FC<JeliAvatarProps> = ({
       {(isSpeaking || isListening) && (
         <div className="absolute inset-0 -top-4 flex items-center justify-center pointer-events-none">
           <span
-            className={`absolute h-64 w-64 rounded-full border-2 animate-ping opacity-25 ${
+            className={`absolute h-52 w-52 rounded-full border-2 animate-ping opacity-25 sm:h-64 sm:w-64 ${
               isListening ? "border-amber-400" : "border-[#087F7A]"
             }`}
           />
           <span
-            className={`absolute h-72 w-72 rounded-full border opacity-20 animate-pulse ${
+            className={`absolute h-56 w-56 rounded-full border opacity-20 animate-pulse sm:h-72 sm:w-72 ${
               isListening ? "border-amber-500" : "border-[#B8F000]"
             }`}
           />

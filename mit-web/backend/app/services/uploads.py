@@ -10,7 +10,7 @@ from starlette.requests import ClientDisconnect, Request
 
 from app.core.errors import AnalysisError
 from app.schemas.recognition import AnalyzeInput
-from app.services.url_reader import extract_first_url, fetch_url_content, normalize_url
+from app.services.url_reader import fetch_url_content, normalize_url
 
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_REQUEST_BYTES = MAX_IMAGE_BYTES + 64 * 1024
@@ -171,26 +171,47 @@ async def read_analyze_form(request: Request) -> tuple[AnalyzeInput, tuple[bytes
         lang = "EN" if str(raw_lang).strip().upper() == "EN" else "ID"
 
         target_url = normalize_url(raw_url) if raw_url.strip() else None
-        if not target_url and text.strip():
-            detected = extract_first_url(text)
-            if detected:
-                target_url = normalize_url(detected)
+        if len(text.strip()) > 12_000 or len(target_url or "") > 2_048:
+            raise AnalysisError(422, "invalid_text", "Teks atau tautan melebihi batas panjang.")
 
+        processed_text = text.strip()
+        url_unreadable = False
         if target_url:
-            title, web_content = await fetch_url_content(target_url)
-            url_block = f"[Sumber URL: {target_url}]\n[Judul Lowongan: {title}]\n\n{web_content}"
-            if text.strip() and text.strip() != target_url:
-                processed_text = f"Catatan Pengguna:\n{text.strip()}\n\n{url_block}"
+            try:
+                title, web_content = await fetch_url_content(target_url)
+            except AnalysisError as exc:
+                if exc.code != "url_content_unavailable":
+                    raise
+                url_unreadable = True
+                if not processed_text and file is None:
+                    raise AnalysisError(
+                        422,
+                        exc.code,
+                        "Could not read the page. Paste the job posting text."
+                        if lang == "EN"
+                        else "Halaman tidak dapat dibaca. Tempelkan teks lowongan.",
+                    ) from None
             else:
-                processed_text = url_block
-        else:
-            processed_text = text
+                block = f"[Sumber URL: {target_url}]\n[Judul Lowongan: {title}]\n\n{web_content}"
+                remaining = 12_000 - len(processed_text) - 2
+                if remaining >= len(block) - len(web_content) + 50:
+                    processed_text = (processed_text + "\n\n" + block[:remaining]).strip()
+                else:
+                    url_unreadable = True
+            if url_unreadable:
+                target_url = None
 
         if not processed_text.strip() and file is None:
-            raise AnalysisError(400, "empty_input", "Isi teks lowongan, tautan URL, atau pilih satu gambar.")
+            raise AnalysisError(
+                400, "empty_input", "Isi teks lowongan, tautan URL, atau pilih satu gambar."
+            )
         try:
             validated = AnalyzeInput(
-                text=processed_text, has_image=file is not None, url=target_url, lang=lang
+                text=processed_text,
+                has_image=file is not None,
+                url=target_url,
+                lang=lang,
+                url_unreadable=url_unreadable,
             )
         except ValidationError:
             raise AnalysisError(

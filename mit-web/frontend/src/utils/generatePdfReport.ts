@@ -1,39 +1,19 @@
 import { jsPDF } from "jspdf"
-import type { JobAnalysisResponse, RiskCategory, IndicatorCode } from "../services/api"
-import {
-  localizeIndicatorReason,
-  localizeDisclaimer,
-  localizeSummary,
-  localizeRecommendation,
-} from "../components/JobOfferCheckerPage"
+import { locales, type Language } from "../i18n"
+import type { JobAnalysisResponse, RiskCategory } from "../services/api"
+import { indicatorLabels, legalSummary, riskLabels } from "./localizeAnalysis"
 
 interface GeneratePdfReportOptions {
   result: JobAnalysisResponse
   targetUrl?: string
-  lang: "ID" | "EN"
-}
-
-const riskTitles: Record<RiskCategory, Record<"ID" | "EN", string>> = {
-  high: { ID: "RISIKO TINGGI (HIGH RISK)", EN: "HIGH RISK" },
-  medium: { ID: "PERLU WASPADA (MEDIUM RISK)", EN: "NEEDS CAUTION (MEDIUM RISK)" },
-  low: { ID: "RISIKO RENDAH (LOW RISK)", EN: "LOW RISK" },
-  insufficient_data: { ID: "DATA BELUM CUKUP", EN: "INSUFFICIENT DATA" },
+  lang: Language
 }
 
 const riskColors: Record<RiskCategory, [number, number, number]> = {
   high: [220, 38, 38], // #dc2626
-  medium: [217, 119, 6], // #d97706
-  low: [8, 127, 122], // #087F7A
+  medium: [146, 64, 14],
+  low: [6, 75, 80],
   insufficient_data: [75, 85, 99], // #4b5563
-}
-
-const indicatorTitles: Record<IndicatorCode, Record<"ID" | "EN", string>> = {
-  upfront_payment: { ID: "Permintaan Pembayaran Awal", EN: "Upfront Payment Request" },
-  credential_request: { ID: "Permintaan Kredensial / OTP", EN: "Credential / OTP Request" },
-  premature_sensitive_data: { ID: "Data Sensitif Terlalu Dini", EN: "Premature Sensitive Data" },
-  urgency_pressure: { ID: "Tekanan Waktu / Larangan Verifikasi", EN: "Urgency Pressure" },
-  unrealistic_offer: { ID: "Tawaran Gaji Tidak Wajar", EN: "Unrealistic Offer" },
-  unofficial_channel: { ID: "Kanal Komunikasi Meragukan", EN: "Suspicious Channel" },
 }
 
 export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReportOptions): void {
@@ -80,7 +60,7 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
 
   // Document metadata box on top right
   const now = new Date()
-  const dateStr = now.toLocaleDateString("id-ID", {
+  const dateStr = now.toLocaleDateString(locales[lang], {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -118,7 +98,7 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
     doc.setFontSize(8)
     doc.setTextColor(8, 127, 122)
     doc.text(
-      `${lang === "ID" ? "Tautan Sumber" : "Source Link"}: ${targetUrl.slice(0, 85)}${targetUrl.length > 85 ? "..." : ""}`,
+      `${lang === "ID" ? "Tautan yang dikirim" : "Submitted link"}: ${targetUrl.slice(0, 85)}${targetUrl.length > 85 ? "..." : ""}`,
       margin,
       y
     )
@@ -136,7 +116,7 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   doc.setFont("helvetica", "bold")
   doc.setFontSize(12)
   doc.setTextColor(255, 255, 255)
-  doc.text(riskTitles[risk.risk_category][lang], margin + 6, y + 8)
+  doc.text(riskLabels[risk.risk_category][lang].toUpperCase(), margin + 6, y + 8)
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8.5)
@@ -161,10 +141,14 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   y += 24
 
   // --- 4. RINGKASAN ANALISIS (EXECUTIVE SUMMARY) ---
-  ensureSpace(25)
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(8.5)
+  const summaryLines = doc.splitTextToSize(risk.summary, contentWidth - 8)
+  const summaryHeight = 10 + summaryLines.length * 3.8
+  ensureSpace(summaryHeight + 4)
   doc.setFillColor(248, 250, 252)
   doc.setDrawColor(226, 232, 240)
-  doc.roundedRect(margin, y, contentWidth, 20, 2, 2, "FD")
+  doc.roundedRect(margin, y, contentWidth, summaryHeight, 2, 2, "FD")
 
   doc.setFont("helvetica", "bold")
   doc.setFontSize(9)
@@ -174,21 +158,22 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8.5)
   doc.setTextColor(30, 41, 59)
-  const summaryLines = doc.splitTextToSize(localizeSummary(risk.summary, lang), contentWidth - 8)
   doc.text(summaryLines, margin + 4, y + 10)
 
-  y += 24
+  y += summaryHeight + 4
 
   // --- 5. INDIKATOR RISIKO TERDETEKSI ---
-  const activeIndicators = risk.indicators.filter((item) => item.state !== "not_detected")
+  const activeIndicators = risk.risk_category === "insufficient_data"
+    ? []
+    : risk.indicators.filter((item) => item.state !== "not_detected")
   ensureSpace(15)
   doc.setFont("helvetica", "bold")
   doc.setFontSize(10.5)
   doc.setTextColor(6, 75, 80)
   doc.text(
     lang === "ID"
-      ? `INDIKATOR RISIKO TERDETEKSI (${activeIndicators.length})`
-      : `DETECTED RISK INDICATORS (${activeIndicators.length})`,
+      ? "INDIKATOR RISIKO"
+      : "RISK INDICATORS",
     margin,
     y
   )
@@ -196,15 +181,15 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
 
   if (activeIndicators.length === 0) {
     ensureSpace(12)
-    doc.setFillColor(240, 253, 244)
+    doc.setFillColor(248, 250, 252)
     doc.roundedRect(margin, y, contentWidth, 10, 2, 2, "F")
     doc.setFont("helvetica", "normal")
     doc.setFontSize(8.5)
-    doc.setTextColor(22, 101, 52)
+    doc.setTextColor(30, 41, 59)
     doc.text(
-      lang === "ID"
-        ? "✓ Tidak ada indikator penipuan eksplisit yang ditemukan pada materi ini."
-        : "✓ No explicit scam indicators detected in this material.",
+      risk.risk_category === "insufficient_data"
+        ? (lang === "ID" ? "Materi belum cukup untuk menilai indikator." : "There is not enough material to assess the indicators.")
+        : (lang === "ID" ? "Tidak ada indikator penipuan eksplisit yang terdeteksi." : "No explicit scam indicators were detected."),
       margin + 4,
       y + 6.5
     )
@@ -212,16 +197,19 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   } else {
     for (const indicator of activeIndicators) {
       const isDetected = indicator.state === "detected"
-      const localizedReason = localizeIndicatorReason(indicator.reason, indicator.code, lang)
-      const reasonLines = doc.splitTextToSize(localizedReason, contentWidth - 12)
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(8)
+      const reasonLines = doc.splitTextToSize(indicator.reason, contentWidth - 12)
+      doc.setFont("helvetica", "italic")
+      doc.setFontSize(7.5)
       const evidenceLines = indicator.evidence.map((ev) =>
         doc.splitTextToSize(
-          `“${ev.quote}” (${ev.source === "image" ? "Screenshot" : (lang === "ID" ? "Teks" : "Text")})`,
+          `“${ev.quote}” (${ev.source === "image" ? (lang === "ID" ? "Gambar" : "Image") : (lang === "ID" ? "Teks" : "Text")})`,
           contentWidth - 16
         )
       )
-      const totalEvidenceHeight = evidenceLines.reduce((acc, lines) => acc + lines.length * 3.8, 0)
-      const itemHeight = 12 + reasonLines.length * 3.8 + (indicator.evidence.length > 0 ? totalEvidenceHeight + 6 : 0)
+      const totalEvidenceHeight = evidenceLines.reduce((acc, lines) => acc + lines.length * 3.8 + 5, 0)
+      const itemHeight = 12 + reasonLines.length * 3.8 + totalEvidenceHeight
 
       ensureSpace(itemHeight + 4)
 
@@ -234,7 +222,7 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
       doc.setFont("helvetica", "bold")
       doc.setFontSize(9)
       doc.setTextColor(30, 41, 59)
-      doc.text(indicatorTitles[indicator.code][lang], margin + 4, y + 5.5)
+      doc.text(indicatorLabels[indicator.code][lang], margin + 4, y + 5.5)
 
       doc.setFontSize(7.5)
       if (isDetected) {
@@ -290,8 +278,9 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
     y += 5
 
     for (const rec of risk.recommendations) {
-      const localizedRec = localizeRecommendation(rec, lang)
-      const recLines = doc.splitTextToSize(`• ${localizedRec}`, contentWidth - 8)
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(8.5)
+      const recLines = doc.splitTextToSize(`• ${rec}`, contentWidth - 8)
       const recHeight = recLines.length * 3.8 + 2
       ensureSpace(recHeight)
 
@@ -306,8 +295,8 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
 
   // --- 7. RUJUKAN HUKUM & REGULASI ---
   const legal = result.legal_screening
-  if (legal && legal.references.length > 0) {
-    ensureSpace(15)
+  if (legal) {
+    ensureSpace(21)
     doc.setFont("helvetica", "bold")
     doc.setFontSize(10.5)
     doc.setTextColor(6, 75, 80)
@@ -317,11 +306,22 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
       y
     )
     y += 5
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(8.5)
+    doc.setTextColor(30, 41, 59)
+    const legalLines = doc.splitTextToSize(legalSummary(legal, lang), contentWidth)
+    doc.text(legalLines, margin, y)
+    y += legalLines.length * 3.8 + 2
 
     for (const ref of legal.references) {
       const titleText = `${ref.title}${ref.article ? ` (${ref.article})` : ""}`
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(8)
+      const titleLines = doc.splitTextToSize(titleText, contentWidth - 8)
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(7.5)
       const excerptLines = doc.splitTextToSize(ref.excerpt, contentWidth - 8)
-      const refHeight = 6 + excerptLines.length * 3.5
+      const refHeight = 7 + (titleLines.length + excerptLines.length) * 3.5
 
       ensureSpace(refHeight + 3)
       doc.setFillColor(248, 250, 252)
@@ -331,12 +331,12 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
       doc.setFont("helvetica", "bold")
       doc.setFontSize(8)
       doc.setTextColor(8, 127, 122)
-      doc.text(titleText, margin + 4, y + 4)
+      doc.text(titleLines, margin + 4, y + 4)
 
       doc.setFont("helvetica", "normal")
       doc.setFontSize(7.5)
       doc.setTextColor(71, 85, 105)
-      doc.text(excerptLines, margin + 4, y + 8)
+      doc.text(excerptLines, margin + 4, y + 5 + titleLines.length * 3.5)
 
       y += refHeight + 2
     }
@@ -353,9 +353,7 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   doc.setFontSize(7)
   doc.setTextColor(148, 163, 184)
   const disclaimerText = doc.splitTextToSize(
-    lang === "ID"
-      ? `${result.disclaimer} Hak Cipta © Jeli AI — Pendamping Keamanan Pencari Kerja Indonesia. Unduh resmi via platform Jeli.`
-      : `${localizeDisclaimer(result.disclaimer, lang)} Copyright © Jeli AI — Indonesia Job Seeker Digital Safety Guardian. Downloaded via Jeli Platform.`,
+    result.disclaimer,
     contentWidth
   )
   doc.text(disclaimerText, margin, y)
@@ -364,7 +362,7 @@ export function generatePdfReport({ result, targetUrl, lang }: GeneratePdfReport
   const filenameDate = now.toISOString().slice(0, 10)
   const filename =
     lang === "ID"
-      ? `Laporan-Evaluasi-Jeli-${result.fraud_assessment.risk_category.toUpperCase()}-${filenameDate}.pdf`
-      : `Jeli-Assessment-Report-${result.fraud_assessment.risk_category.toUpperCase()}-${filenameDate}.pdf`
+      ? `Laporan-Analisis-Jeli-${filenameDate}.pdf`
+      : `Jeli-Analysis-Report-${filenameDate}.pdf`
   doc.save(filename)
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -29,12 +29,13 @@ import {
   type Scenario,
   type SimulatorQuestion,
 } from "../services/roleplay"
-import { generateSimulatorPdf, type UserAnswerRecord } from "../utils/generateSimulatorPdf"
+import { locales, t, type Language } from "../i18n"
+import type { UserAnswerRecord } from "../utils/generateSimulatorPdf"
 
 interface Props {
   onBackToHome: () => void
   onOpenAvatar?: () => void
-  lang: "ID" | "EN"
+  lang: Language
 }
 
 const customTemplatesId = [
@@ -56,22 +57,56 @@ const customTemplatesEn = [
 const button =
   "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-all focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#087F7A] disabled:cursor-not-allowed disabled:opacity-50"
 
+function SimulatorDialog({ titleId, onDismiss, children }: { titleId: string; onDismiss: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = ref.current
+    dialog?.showModal()
+    return () => dialog?.close()
+  }, [])
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      onCancel={(event) => {
+        event.preventDefault()
+        onDismiss()
+      }}
+      className="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl overflow-auto rounded-3xl border border-[#064B50]/15 bg-white p-0 shadow-2xl backdrop:bg-black/55"
+    >
+      {children}
+    </dialog>
+  )
+}
+
 export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
-  const [scenarios, setScenarios] = useState<Scenario[]>([])
+  const [catalogs, setCatalogs] = useState<Partial<Record<Language, { items: Scenario[]; error?: string }>>>({})
+  const [customScenarios, setCustomScenarios] = useState<{ scenario: Scenario; prompt: string }[]>([])
   const [selectedId, setSelectedId] = useState("")
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
 
   // Simulation Active State (Starts directly on question 1)
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0)
-  const [answers, setAnswers] = useState<Record<number, UserAnswerRecord>>({})
+  const [choices, setChoices] = useState<Record<number, string>>({})
   const [isFinished, setIsFinished] = useState(false)
+  const questionHeading = useRef<HTMLHeadingElement>(null)
+  const reportHeading = useRef<HTMLHeadingElement>(null)
 
   // Custom Scenario Generation State
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [customPrompt, setCustomPrompt] = useState("")
-  const [generatingCustom, setGeneratingCustom] = useState(false)
-  const [customError, setCustomError] = useState("")
+  const [customPending, setCustomPending] = useState<Language | null>(null)
+  const [customError, setCustomError] = useState<{ lang: Language; message: string } | null>(null)
+  const customRequest = useRef<AbortController | null>(null)
+
+  useEffect(() => () => customRequest.current?.abort(), [lang])
+  const generatingCustom = customPending === lang
+
+  function closeCustom() {
+    customRequest.current?.abort()
+    customRequest.current = null
+    setCustomPending(null)
+    setShowCustomModal(false)
+  }
 
   // PDF Download feedback
   const [downloadingPdf, setDownloadingPdf] = useState(false)
@@ -79,6 +114,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
   // Custom Modal Pop-up State
   const [modalDialog, setModalDialog] = useState<{
     isOpen: boolean
+    lang?: Language
     title: string
     message: string
     confirmText?: string
@@ -94,6 +130,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
   function showAlertDialog(title: string, message: string, variant: "info" | "warning" | "danger" = "info") {
     setModalDialog({
       isOpen: true,
+      lang,
       title,
       message,
       confirmText: lang === "ID" ? "Mengerti" : "Understood",
@@ -118,6 +155,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
   }) {
     setModalDialog({
       isOpen: true,
+      lang,
       title,
       message,
       confirmText,
@@ -131,45 +169,67 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
     setModalDialog((prev) => ({ ...prev, isOpen: false }))
   }
 
-  // Fetch scenarios whenever language toggles
+  const catalog = catalogs[lang]
+  const loading = !catalog
+  const scenarios = [
+    ...customScenarios.filter(({ scenario }) => scenario.language === lang).map(({ scenario }) => scenario),
+    ...(catalog?.items ?? []),
+  ]
+
   useEffect(() => {
+    if (catalog) return
     const controller = new AbortController()
-    setLoading(true)
     getScenarios(controller.signal, lang)
       .then((items) => {
-        if (controller.signal.aborted) return
-        setScenarios(items)
-        if (items.length > 0) {
-          setSelectedId((prev) => {
-            if (prev && items.some((i) => i.id === prev)) return prev
-            return items[0].id
-          })
-        }
-        setError("")
+        if (!controller.signal.aborted) setCatalogs((previous) => ({ ...previous, [lang]: { items } }))
       })
       .catch((e: unknown) => {
-        if (!controller.signal.aborted)
-          setError(
-            e instanceof Error
-              ? e.message
-              : lang === "ID"
-              ? "Gagal memuat latihan."
-              : "Failed to load practice scenarios."
-          )
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
+        if (controller.signal.aborted) return
+        const error = e instanceof Error ? e.message : (lang === "ID" ? "Gagal memuat latihan." : "Could not load the scenarios.")
+        setCatalogs((previous) => ({ ...previous, [lang]: { items: [], error } }))
       })
     return () => controller.abort()
-  }, [lang])
+  }, [catalog, lang])
 
-  const activeScenario = scenarios.find((s) => s.id === selectedId) || scenarios[0]
+  const activeScenario = selectedId ? scenarios.find((s) => s.id === selectedId) : scenarios[0]
+  const untranslatedCustom = !activeScenario ? customScenarios.find(({ scenario }) => scenario.id === selectedId) : undefined
   const questions: SimulatorQuestion[] = activeScenario?.questions || []
   const activeQuestion: SimulatorQuestion | undefined = questions[currentQuestionIdx]
+  const answers: Record<number, UserAnswerRecord> = {}
+  questions.forEach((question, index) => {
+    const option = question.options.find(({ id }) => id === choices[question.question_number])
+    if (!option) return
+    answers[index] = {
+      questionNumber: question.question_number,
+      title: question.title,
+      recruiterMessage: question.recruiter_message,
+      challengeText: question.challenge_text,
+      selectedOptionId: option.id,
+      selectedOptionText: option.text,
+      isCorrect: option.is_correct,
+      feedbackLabel: option.feedback_label,
+      explanation: option.explanation,
+      goodAnswerSummary: question.good_answer_summary,
+      educationalTakeaway: question.educational_takeaway,
+      correctOptionText: question.options.find((item) => item.is_correct)?.text,
+    }
+  })
   const currentAnswer = answers[currentQuestionIdx]
 
+  function focusPanel(panel: "question" | "report" = "question") {
+    requestAnimationFrame(() => {
+      const heading = panel === "report" ? reportHeading.current : questionHeading.current
+      heading?.focus({ preventScroll: true })
+      heading?.scrollIntoView({ block: "start" })
+    })
+  }
+
   function handleSelectScenario(id: string) {
-    if (Object.keys(answers).length > 0 && !isFinished) {
+    if (id === activeScenario?.id) {
+      focusPanel(isFinished ? "report" : "question")
+      return
+    }
+    if (Object.keys(choices).length > 0 && !isFinished) {
       showConfirmDialog({
         title: lang === "ID" ? "Ganti Skenario Latihan?" : "Switch Practice Scenario?",
         message:
@@ -182,61 +242,44 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
         onConfirm: () => {
           setSelectedId(id)
           setCurrentQuestionIdx(0)
-          setAnswers({})
+          setChoices({})
           setIsFinished(false)
-          setError("")
           closeModalDialog()
-          window.scrollTo({ top: 120, behavior: "smooth" })
+          focusPanel()
         },
       })
       return
     }
     setSelectedId(id)
     setCurrentQuestionIdx(0)
-    setAnswers({})
+    setChoices({})
     setIsFinished(false)
-    setError("")
-    window.scrollTo({ top: 120, behavior: "smooth" })
+    focusPanel()
   }
 
   function handleSelectOption(option: QuestionOption) {
-    if (!activeQuestion) return
-
-    const record: UserAnswerRecord = {
-      questionNumber: activeQuestion.question_number,
-      title: activeQuestion.title,
-      recruiterMessage: activeQuestion.recruiter_message,
-      challengeText: activeQuestion.challenge_text,
-      selectedOptionId: option.id,
-      selectedOptionText: option.text,
-      isCorrect: option.is_correct,
-      feedbackLabel: option.feedback_label,
-      explanation: option.explanation,
-      goodAnswerSummary: activeQuestion.good_answer_summary,
-      educationalTakeaway: activeQuestion.educational_takeaway,
-      correctOptionText: activeQuestion.options.find((o) => o.is_correct)?.text,
-    }
-
-    setAnswers((prev) => ({
+    if (!activeQuestion || !activeScenario) return
+    setSelectedId(activeScenario.id)
+    setChoices((prev) => ({
       ...prev,
-      [currentQuestionIdx]: record,
+      [activeQuestion.question_number]: option.id,
     }))
   }
 
   function handleNextQuestion() {
     if (currentQuestionIdx < questions.length - 1) {
       setCurrentQuestionIdx((prev) => prev + 1)
-      window.scrollTo({ top: 180, behavior: "smooth" })
+      focusPanel()
     } else {
       setIsFinished(true)
-      window.scrollTo({ top: 120, behavior: "smooth" })
+      focusPanel("report")
     }
   }
 
   function handlePrevQuestion() {
     if (currentQuestionIdx > 0) {
       setCurrentQuestionIdx((prev) => prev - 1)
-      window.scrollTo({ top: 180, behavior: "smooth" })
+      focusPanel()
     }
   }
 
@@ -263,33 +306,27 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
       onConfirm: () => {
         closeModalDialog()
         setIsFinished(true)
-        window.scrollTo({ top: 120, behavior: "smooth" })
+        focusPanel("report")
       },
     })
   }
 
   function handleRestartSimulation() {
     setCurrentQuestionIdx(0)
-    setAnswers({})
+    setChoices({})
     setIsFinished(false)
-    window.scrollTo({ top: 120, behavior: "smooth" })
+    focusPanel()
   }
 
-  function handleDownloadPdf() {
-    if (!activeScenario) return
+  async function handleDownloadPdf() {
+    if (!activeScenario || downloadingPdf) return
     setDownloadingPdf(true)
     try {
-      const records = Object.keys(answers)
-        .map(Number)
-        .sort((a, b) => a - b)
-        .map((idx) => answers[idx])
-      generateSimulatorPdf({
-        scenario: activeScenario,
-        answers: records,
-        lang,
-      })
-    } catch (e) {
-      console.error("PDF generation failed:", e)
+      const { generateSimulatorPdf } = await import("../utils/generateSimulatorPdf")
+      if (document.documentElement.lang === lang.toLowerCase()) {
+        generateSimulatorPdf({ scenario: activeScenario, answers: answeredList, lang })
+      }
+    } catch {
       showAlertDialog(
         lang === "ID" ? "Gagal Mengunduh Dokumen" : "Failed to Download Document",
         lang === "ID"
@@ -298,49 +335,56 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
         "warning"
       )
     } finally {
-      setTimeout(() => setDownloadingPdf(false), 800)
+      setDownloadingPdf(false)
     }
   }
 
   async function handleCreateCustomScenario(e?: React.FormEvent) {
     e?.preventDefault()
-    if (!customPrompt.trim() || generatingCustom) return
+    const prompt = customPrompt.trim()
+    if (prompt.length < 20 || (customRequest.current && !customRequest.current.signal.aborted)) return
 
-    setGeneratingCustom(true)
-    setCustomError("")
+    setCustomPending(lang)
+    setCustomError(null)
     const controller = new AbortController()
 
+    customRequest.current = controller
+
     try {
-      const created = await generateCustomScenario(customPrompt.trim(), controller.signal)
-      setScenarios((prev) => [created, ...prev])
+      const created = await generateCustomScenario(prompt, controller.signal, lang)
+      if (controller.signal.aborted) return
+      setCustomScenarios((prev) => [{ scenario: created, prompt }, ...prev])
       setSelectedId(created.id)
       setCurrentQuestionIdx(0)
-      setAnswers({})
+      setChoices({})
       setIsFinished(false)
       setShowCustomModal(false)
       setCustomPrompt("")
-      window.scrollTo({ top: 120, behavior: "smooth" })
+      focusPanel()
     } catch (err: unknown) {
-      setCustomError(
-        err instanceof Error
+      if (controller.signal.aborted) return
+      setCustomError({
+        lang,
+        message: err instanceof Error
           ? err.message
           : lang === "ID"
           ? "Gagal membuat skenario AI. Pastikan backend aktif."
-          : "Failed to create AI scenario. Ensure backend is running."
-      )
+          : "Could not create the scenario. Try again.",
+      })
     } finally {
-      setGeneratingCustom(false)
+      if (customRequest.current === controller) {
+        customRequest.current = null
+        setCustomPending(null)
+      }
     }
   }
 
   const answeredList = Object.values(answers)
   const totalAnswered = answeredList.length
-  const correctCount = answeredList.filter((a) => a.isCorrect).length
-  const scorePercent = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0
   const customTemplates = lang === "EN" ? customTemplatesEn : customTemplatesId
 
   return (
-    <main className="min-h-screen bg-warm-grid px-4 pb-24 pt-28 text-[#202C2B]">
+    <main className="min-h-screen bg-warm-grid px-4 pb-24 pt-6 text-[#202C2B]">
       <div className="mx-auto max-w-5xl">
         {/* Navigation back & Switch to Live Avatar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -356,8 +400,8 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
               <Mic size={15} className="text-[#B8F000]" />
               <span>
                 {lang === "ID"
-                  ? "Coba Tanya Jeli Live (Voice & Avatar)"
-                  : "Try Ask Jeli Live (Voice & Avatar)"}
+                  ? "Tanya Jeli"
+                  : "Ask Jeli"}
               </span>
               <ArrowRight size={14} />
             </button>
@@ -368,43 +412,29 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
         <header className="mb-8 max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF7D5] px-3.5 py-1 text-xs font-extrabold uppercase tracking-widest text-[#064B50]">
             <Sparkles size={14} className="text-[#087F7A]" />
-            {lang === "ID" ? "Jeli Lakon · Simulator Scam Interaktif" : "Jeli Lakon · Interactive Scam Simulator"}
+            Jeli Lakon · {t(lang, "simulator")}
           </div>
           <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#064B50] sm:text-4xl">
             {lang === "ID"
-              ? "Latih refleksmu menghadapi modus penipuan kerja."
-              : "Train your reflexes against deceptive job scam tactics."}
+              ? "Latih respons terhadap penipuan kerja"
+              : "Practise responding to job scams"}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#202C2B]/75">
             {lang === "ID"
-              ? "Setiap modul menyajikan studi kasus nyata beserta kemungkinan skenario dari penipu. Pilih responsmu di setiap pertanyaan, pelajari analisis benar/salah dan deskripsi jawaban yang baik, lalu unduh rapor lengkapmu dalam format PDF."
-              : "Each module presents a real-world case study and possible scammer tactics. Choose your response at each stage, learn instant right/wrong analysis with good answer guides, and download your comprehensive report card in PDF format."}
+              ? "Pilih skenario, coba responsmu, lalu lihat pembahasan dan unduh rapor."
+              : "Choose a scenario, try a response, then review your choices and download your report."}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-[#087F7A]">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> {lang === "ID" ? "5 Modul Studi Kasus Siap Pakai" : "5 Ready-to-Play Case Studies"}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> {lang === "ID" ? "Generator Kasus Mandiri (AI)" : "AI Custom Case Generator"}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> {lang === "ID" ? "Evaluasi Benar & Salah Seketika" : "Instant Right & Wrong Feedback"}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={15} /> {lang === "ID" ? "Unduh Laporan PDF" : "Download PDF Report"}
-            </span>
-          </div>
         </header>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-3 py-16 text-sm font-semibold text-[#064B50]">
+          <div role="status" className="flex items-center justify-center gap-3 py-16 text-sm font-semibold text-[#064B50]">
             <LoaderCircle className="animate-spin text-[#087F7A]" size={24} />
             <span>{lang === "ID" ? "Memuat data simulasi latihan…" : "Loading simulation exercises…"}</span>
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] items-start">
             {/* Left Sidebar: Scenario Selector & AI Custom Creator */}
-            <aside aria-label="Pilih skenario" className="space-y-3">
+            <aside aria-label={lang === "ID" ? "Pilih skenario" : "Choose a scenario"} className="space-y-3">
               <button
                 type="button"
                 onClick={() => setShowCustomModal(true)}
@@ -417,7 +447,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
               <div className="space-y-2.5">
                 {scenarios.map((item, index) => {
                   const isCustom = item.id.startsWith("custom-")
-                  const isSelected = selectedId === item.id
+                  const isSelected = activeScenario?.id === item.id
                   const qCount = item.questions?.length || item.total_questions || 5
 
                   return (
@@ -474,9 +504,10 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                         ? lang === "ID"
                           ? `Pertanyaan ${currentQuestionIdx + 1} dari ${questions.length}`
                           : `Question ${currentQuestionIdx + 1} of ${questions.length}`
-                        : lang === "ID"
+                        : isFinished && activeScenario ? lang === "ID"
                         ? "Laporan Evaluasi Keputusan"
-                        : "Decision Evaluation Report"}
+                        : "Practice Report"
+                        : null}
                     </p>
                   </div>
                 </div>
@@ -490,6 +521,25 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                   </button>
                 )}
               </div>
+
+              {untranslatedCustom && (
+                <div className="space-y-3 p-5">
+                  <p role="status" className="text-sm text-[#202C2B]/80">
+                    {lang === "ID" ? "Skenario kustom ini dibuat dalam bahasa Inggris." : "This custom scenario was created in Indonesian."}
+                  </p>
+                  <button className={`${button} bg-[#064B50] text-white`} onClick={() => {
+                    setCustomPrompt((draft) => draft || untranslatedCustom.prompt)
+                    setShowCustomModal(true)
+                  }}>
+                    {lang === "ID" ? "Buat ulang dalam bahasa Indonesia" : "Recreate in English"}
+                  </button>
+                </div>
+              )}
+              {!activeScenario && !untranslatedCustom && !catalog?.error && (
+                <p role="status" className="p-5 text-sm">
+                  {lang === "ID" ? "Pilih atau buat skenario untuk mulai." : "Choose or create a scenario to begin."}
+                </p>
+              )}
 
               {/* View 1: Active Multi-Stage Question (1 Question Active at a time) */}
               {!isFinished && activeQuestion && (
@@ -518,8 +568,8 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                       {activeScenario?.description}
                     </p>
 
-                    <div className="mt-2.5 flex items-start gap-1.5 text-xs font-semibold text-[#087F7A] bg-white/70 p-2.5 rounded-xl border border-[#064B50]/10">
-                      <span className="font-bold shrink-0">{lang === "ID" ? "Target Latihan:" : "Learning Objective:"}</span>
+                    <div className="mt-2.5 flex flex-wrap items-start gap-1.5 rounded-xl border border-[#064B50]/10 bg-white/70 p-2.5 text-xs text-[#064B50]">
+                      <strong>{lang === "ID" ? "Tujuan latihan" : "Learning objective"}</strong>
                       <span>{activeScenario?.objective}</span>
                     </div>
                   </div>
@@ -533,7 +583,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                           : `Question ${currentQuestionIdx + 1} of ${questions.length}`}
                       </span>
                       <span>
-                        {Math.round(((currentQuestionIdx + 1) / questions.length) * 100)}% {lang === "ID" ? "Selesai" : "Completed"}
+                        {Math.round((totalAnswered / questions.length) * 100)}% {lang === "ID" ? "Selesai" : "Completed"}
                       </span>
                     </div>
 
@@ -555,7 +605,9 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                             key={q.question_number}
                             onClick={() => {
                               setCurrentQuestionIdx(idx)
+                              focusPanel()
                             }}
+                            aria-current={currentQuestionIdx === idx ? "step" : undefined}
                             title={
                               lang === "ID"
                                 ? `Pertanyaan ${idx + 1}: ${q.title}`
@@ -575,7 +627,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                         ? `TAHAP ${activeQuestion.question_number} DARI ${questions.length}`
                         : `STAGE ${activeQuestion.question_number} OF ${questions.length}`}
                     </span>
-                    <h3 className="text-base sm:text-lg font-extrabold text-[#064B50]">{activeQuestion.title}</h3>
+                    <h3 ref={questionHeading} tabIndex={-1} className="text-base font-extrabold text-[#064B50] sm:text-lg">{activeQuestion.title}</h3>
                   </div>
 
                   {/* Recruiter Message Bubble */}
@@ -616,6 +668,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                         <button
                           key={option.id}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() => handleSelectOption(option)}
                           className={`w-full text-left rounded-2xl border-2 p-4 transition-all shadow-2xs ${optionBorder}`}
                         >
@@ -659,7 +712,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                           <XCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
                         )}
                         <div>
-                          <p className="text-xs sm:text-sm font-extrabold">
+                          <p role="status" className="text-xs sm:text-sm font-extrabold">
                             {currentAnswer.feedbackLabel}
                           </p>
                           <p className="mt-1 text-xs leading-relaxed opacity-90">
@@ -755,7 +808,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
               )}
 
               {/* View 2: Final Report & PDF Download Screen */}
-              {isFinished && (
+              {isFinished && activeScenario && (
                 <div className="p-6 sm:p-8 animate-in fade-in-50 duration-300 space-y-6">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#064B50] text-[#B8F000]">
@@ -765,46 +818,19 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                       <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#087F7A]">
                         {lang === "ID" ? "EVALUASI SIMULATOR JELI LAKON" : "JELI LAKON SIMULATOR EVALUATION"}
                       </span>
-                      <h2 className="text-2xl font-extrabold text-[#064B50]">
+                      <h2 ref={reportHeading} tabIndex={-1} className="text-2xl font-extrabold text-[#064B50]">
                         {lang === "ID" ? "Rapor Hasil Latihanmu" : "Your Practice Report Card"}
                       </h2>
                     </div>
                   </div>
 
-                  {/* Score Summary Card */}
                   <div className="rounded-3xl border border-[#064B50]/20 bg-[#F7F7F0] p-6 sm:p-7">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-[#087F7A]">
-                          {lang === "ID" ? `SKENARIO: ${activeScenario?.title}` : `SCENARIO: ${activeScenario?.title}`}
-                        </p>
-                        <h3 className="mt-1 text-xl font-extrabold text-[#064B50]">
-                          {scorePercent >= 80
-                            ? lang === "ID"
-                              ? "Kesiapan Tinggi: Kamu Sangat Jeli!"
-                              : "High Readiness: You are Extremely Sharp!"
-                            : scorePercent >= 50
-                            ? lang === "ID"
-                              ? "Cukup Siap: Perlu Penajaman di Beberapa Trik!"
-                              : "Moderately Ready: Some Traps Need Sharpening!"
-                            : lang === "ID"
-                            ? "Perlu Latihan: Modus Menjebak Berhasil Memperdayamu!"
-                            : "Needs Practice: Deceptive Traps Caught You!"}
-                        </h3>
-                        <p className="mt-2 text-xs sm:text-sm text-[#202C2B]/75 max-w-xl">
-                          {lang === "ID"
-                            ? `Kamu berhasil menyelesaikan ${totalAnswered} dari ${questions.length} pertanyaan, dengan ${correctCount} jawaban aman.`
-                            : `You completed ${totalAnswered} of ${questions.length} questions, with ${correctCount} safe answers.`}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col items-center justify-center rounded-2xl bg-[#064B50] px-6 py-4 text-white shadow-sm shrink-0">
-                        <span className="text-3xl font-extrabold text-[#B8F000]">{scorePercent}%</span>
-                        <span className="text-[11px] font-bold text-white/80">
-                          {correctCount} / {totalAnswered} {lang === "ID" ? "Tepat" : "Correct"}
-                        </span>
-                      </div>
-                    </div>
+                    <h3 className="text-xl font-extrabold text-[#064B50]">{activeScenario.title}</h3>
+                    <p className="mt-2 text-sm text-[#202C2B]/75">
+                      {lang === "ID"
+                        ? `${totalAnswered} dari ${questions.length} pertanyaan dijawab.`
+                        : `${totalAnswered} of ${questions.length} questions answered.`}
+                    </p>
 
                     {/* PDF Download Trigger Banner */}
                     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 border border-[#064B50]/15">
@@ -856,7 +882,6 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className="text-xs font-bold text-[#087F7A]">
-                            {lang === "ID" ? `Tahap ${item.questionNumber}: ` : `Stage ${item.questionNumber}: `}
                             {item.title}
                           </span>
                           <span
@@ -935,17 +960,18 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
               )}
 
               {/* Error Alert */}
-              {error && (
+              {catalog?.error && (
                 <div
                   role="alert"
                   className="m-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
                 >
-                  <p className="flex-1">{error}</p>
+                  <p className="flex-1">{catalog.error}</p>
                   <button
-                    aria-label={lang === "ID" ? "Tutup pesan kesalahan" : "Close error message"}
-                    onClick={() => setError("")}
+                    type="button"
+                    className="shrink-0 font-bold underline"
+                    onClick={() => setCatalogs((previous) => ({ ...previous, [lang]: undefined }))}
                   >
-                    <X size={16} />
+                    {lang === "ID" ? "Coba lagi" : "Retry"}
                   </button>
                 </div>
               )}
@@ -955,11 +981,12 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
 
         {/* Modal: Create Custom Scenario with AI */}
         {showCustomModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-2xs animate-in fade-in-50">
-            <div className="relative w-full max-w-xl rounded-3xl border border-[#064B50]/15 bg-white p-6 shadow-2xl sm:p-7">
+          <SimulatorDialog titleId="custom-scenario-title" onDismiss={closeCustom}>
+            <div className="relative p-4 sm:p-7">
               <button
                 type="button"
-                onClick={() => setShowCustomModal(false)}
+                onClick={closeCustom}
+                aria-label={lang === "ID" ? "Tutup dialog" : "Close dialog"}
                 className="absolute right-5 top-5 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
                 <X size={18} />
@@ -970,21 +997,16 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                   <Wand2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-[#064B50]">
-                    {lang === "ID" ? "Buat Skenario Latihan Kustom dengan AI" : "Create Custom AI Practice Scenario"}
+                  <h3 id="custom-scenario-title" className="pr-7 text-base font-extrabold text-[#064B50]">
+                    {lang === "ID" ? "Buat skenario sendiri" : "Create a custom scenario"}
                   </h3>
-                  <p className="text-xs text-[#202C2B]/60">
-                    {lang === "ID"
-                      ? "Ajukan kasus atau pertanyaanmu untuk dijadikan simulator interaktif."
-                      : "Submit your case or question to build an interactive simulator."}
-                  </p>
                 </div>
               </div>
 
               <p className="mb-3 text-xs leading-relaxed text-[#202C2B]/75">
                 {lang === "ID"
-                  ? "Pernah menerima pesan lowongan mencurigakan atau penasaran dengan modus tertentu? Ketikkan ceritanya, AI Jeli akan merancangnya menjadi rangkaian pertanyaan simulasi interaktif (hingga 5-7 tahap):"
-                  : "Received a suspicious job message or curious about a specific tactic? Describe it, and Jeli AI will build an interactive multi-stage quiz scenario (up to 5-7 stages):"}
+                  ? "Ceritakan kasus fiktif. Jeli akan menyiapkan latihan dalam bahasa Indonesia."
+                  : "Describe a fictional case. Jeli will prepare an exercise in English."}
               </p>
 
               {/* Quick Template Pills */}
@@ -994,6 +1016,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                     key={template}
                     type="button"
                     onClick={() => setCustomPrompt(template)}
+                    disabled={generatingCustom}
                     className="rounded-lg border border-[#064B50]/15 bg-[#F7F7F0] px-2.5 py-1 text-[11px] font-medium text-[#064B50] hover:bg-[#EFF7D5] transition-colors"
                   >
                     + {template.split(" ").slice(0, 4).join(" ")}…
@@ -1004,39 +1027,43 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
               <form onSubmit={(e) => void handleCreateCustomScenario(e)}>
                 <label htmlFor="custom-prompt" className="mb-1.5 block text-xs font-bold text-[#064B50]">
                   {lang === "ID"
-                    ? "Ceritakan situasi tawaran kerja / pertanyaan yang ingin kamu uji:"
-                    : "Describe the job offer situation or question you want to test:"}
+                    ? "Situasi yang ingin dilatih"
+                    : "Situation to practise"}
                 </label>
                 <textarea
                   id="custom-prompt"
                   rows={3}
+                  maxLength={1500}
+                  aria-describedby="custom-prompt-limit"
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   disabled={generatingCustom}
                   placeholder={
                     lang === "ID"
                       ? "Contoh: Saya dapat tawaran jadi admin data WFH tapi diminta transfer deposit uang seragam Rp200.000..."
-                      : "Example: I received an offer for remote data admin but they asked for a $200 uniform deposit..."
+                      : "Example: A remote admin job asks for a Rp200,000 uniform deposit."
                   }
                   className="w-full rounded-xl border border-[#064B50]/25 p-3 text-sm focus:outline-2 focus:outline-[#087F7A]"
                 />
 
-                {customError && (
-                  <p className="mt-2 text-xs font-bold text-red-600">{customError}</p>
+                <p id="custom-prompt-limit" className="mt-1 text-xs text-[#202C2B]/75">
+                  {lang === "ID" ? "Minimal 20 karakter" : "At least 20 characters"} · {customPrompt.length.toLocaleString(locales[lang])}/{(1500).toLocaleString(locales[lang])}
+                </p>
+                {customError?.lang === lang && (
+                  <p role="alert" className="mt-2 text-xs font-bold text-red-800">{customError.message}</p>
                 )}
 
                 <div className="mt-4 flex items-center justify-end gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setShowCustomModal(false)}
-                    disabled={generatingCustom}
+                    onClick={closeCustom}
                     className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
                   >
                     {lang === "ID" ? "Batal" : "Cancel"}
                   </button>
                   <button
                     type="submit"
-                    disabled={generatingCustom || !customPrompt.trim()}
+                    disabled={generatingCustom || customPrompt.trim().length < 20}
                     className="inline-flex items-center gap-2 rounded-xl bg-[#064B50] px-5 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-[#087F7A] disabled:opacity-50"
                   >
                     {generatingCustom ? (
@@ -1054,13 +1081,13 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                 </div>
               </form>
             </div>
-          </div>
+          </SimulatorDialog>
         )}
 
         {/* Custom Confirmation / Alert Modal Pop-up */}
-        {modalDialog.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-2xs animate-in fade-in-50">
-            <div className="relative w-full max-w-md rounded-3xl border border-[#064B50]/15 bg-white p-6 shadow-2xl sm:p-7 animate-in zoom-in-95 duration-150">
+        {modalDialog.isOpen && modalDialog.lang === lang && (
+          <SimulatorDialog titleId="scenario-dialog-title" onDismiss={closeModalDialog}>
+            <div className="relative p-4 sm:p-7">
               <button
                 type="button"
                 onClick={closeModalDialog}
@@ -1089,7 +1116,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                   )}
                 </div>
                 <div className="pr-4">
-                  <h3 className="text-base font-extrabold text-[#064B50] leading-snug">
+                  <h3 id="scenario-dialog-title" className="text-base font-extrabold text-[#064B50] leading-snug">
                     {modalDialog.title}
                   </h3>
                   <p className="mt-2 text-xs sm:text-sm text-[#202C2B]/75 leading-relaxed">
@@ -1129,7 +1156,7 @@ export function ScamSimulatorPage({ onBackToHome, onOpenAvatar, lang }: Props) {
                 </button>
               </div>
             </div>
-          </div>
+          </SimulatorDialog>
         )}
       </div>
     </main>

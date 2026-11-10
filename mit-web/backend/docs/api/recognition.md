@@ -2,6 +2,15 @@
 
 Kontrak mengganti response numerik versi 0.2.0. Request multipart, endpoint health/docs/demo, request ID, dan envelope error dipertahankan. Acuan: [SRS](../features/SRS_Jeli_F01_Backend_AI_Standalone_v1.2.md), [ADR](../decisions/ADR-0003-qualitative-static-rag.md).
 
+## Tautan publik
+
+Field `url` meminta ekstraksi halaman publik. Pembaca menghubungi IP yang telah
+divalidasi, memeriksa setiap redirect, dan mempertahankan verifikasi TLS.
+Jika halaman gagal dibaca, URL saja menghasilkan HTTP 422 `url_content_unavailable`.
+Jika pengguna juga mengirim teks atau gambar, respons memakai materi tersebut dan
+menambahkan catatan pada `fraud_assessment.unknowns`.
+Materi yang dinyatakan tidak cukup atau di luar konteks menghasilkan `insufficient_data`.
+
 ## Request
 
 `POST /api/v1/analyze`, `multipart/form-data`. Minimal satu input; `X-Request-ID` UUID opsional.
@@ -9,6 +18,8 @@ Kontrak mengganti response numerik versi 0.2.0. Request multipart, endpoint heal
 | Field | Aturan |
 |---|---|
 | `text` | Opsional; trim; maksimal 12.000 karakter/48.000 byte mentah |
+| `url` | Tautan publik HTTP(S), maksimal 2.048 karakter |
+| `lang` | ID atau EN, default ID |
 | `file` | Satu PNG/JPEG/WebP statis, 16 MP; 5 MiB lokal atau 4 MiB profil Vercel |
 
 Total body termasuk semua field, header multipart, dan boundary maksimal batas gambar + 64 KiB: lokal 5.308.416 byte, Vercel 4.259.840 byte. Server memeriksa deklarasi maupun byte stream aktual. Form duplikat, field tak dikenal, boundary terputus, MIME/decode tidak cocok, animasi, PDF, dan file rusak ditolak.

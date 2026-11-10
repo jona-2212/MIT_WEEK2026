@@ -1,3 +1,7 @@
+import type { Language } from "../i18n"
+import { JeliApiError } from "./errors"
+import { apiRequest } from "./http"
+
 export type RiskCategory = "low" | "medium" | "high" | "insufficient_data"
 export type IndicatorCode =
   | "upfront_payment"
@@ -37,8 +41,6 @@ export interface JobAnalysisResponse {
   disclaimer: string
 }
 
-const apiUrl = import.meta.env.VITE_AI_API_URL?.trim().replace(/\/+$/, "")
-  || (import.meta.env.DEV ? "http://127.0.0.1:8000" : "")
 export const AHU_COMPANY_SEARCH_URL = "https://ahu.go.id/pencarian/profil-pt/"
 
 export async function analyzeJob({
@@ -46,50 +48,27 @@ export async function analyzeJob({
   file,
   url,
   lang = "ID",
+  signal,
 }: {
   text?: string
   file?: File
   url?: string
-  lang?: "ID" | "EN"
+  lang?: Language
+  signal?: AbortSignal
 }): Promise<JobAnalysisResponse> {
-  if (!apiUrl) {
-    throw new Error(
-      lang === "ID"
-        ? "Alamat backend AI belum dikonfigurasi. Atur VITE_AI_API_URL."
-        : "AI backend address is not configured. Set VITE_AI_API_URL."
-    )
-  }
-
   const body = new FormData()
   if (text) body.append("text", text)
   if (file) body.append("file", file)
   if (url) body.append("url", url)
 
-  const query = lang ? `?lang=${encodeURIComponent(lang)}` : ""
-  const response = await fetch(`${apiUrl}/api/v1/analyze${query}`, {
+  const response = await apiRequest(`analyze?lang=${lang}`, lang, {
     method: "POST",
     body,
-  }).catch(() => {
-    throw new Error(
-      lang === "ID"
-        ? "Tidak dapat menghubungi backend AI."
-        : "Unable to connect to AI backend."
-    )
+    signal,
   })
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: { message: string } } | null
-    throw new Error(
-      payload?.error?.message ??
-        (lang === "ID"
-          ? `Analisis gagal (HTTP ${response.status}).`
-          : `Analysis failed (HTTP ${response.status}).`)
-    )
-  }
   const result = (await response.json().catch(() => null)) as JobAnalysisResponse | null
-  if (result?.analysis_version !== "recognition-v2") {
-    throw new Error(
-      lang === "ID" ? "Respons backend AI tidak valid." : "Invalid AI backend response."
-    )
+  if (result?.analysis_version !== "recognition-v2" || !result.fraud_assessment || !result.legal_screening) {
+    throw new JeliApiError("invalid_response", lang)
   }
   return result
 }
