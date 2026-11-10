@@ -29,7 +29,7 @@ def local_client(path: Path):
     return chromadb.PersistentClient(
         path=str(path),
         settings=Settings(
-            chroma_api_impl="chromadb.api.rust.RustBindingsAPI",
+            chroma_api_impl="chromadb.api.segment.SegmentAPI",
             anonymized_telemetry=False,
             allow_reset=False,
         ),
@@ -41,6 +41,7 @@ def initialize_chroma(
 ) -> dict:
     client = local_client(path)
     metadata = {
+        "hnsw:space": "cosine",
         "purpose": "official",
         "model_id": model_id,
         "dimensions": dimensions,
@@ -49,7 +50,6 @@ def initialize_chroma(
     collection = client.get_or_create_collection(
         name="jeli-legal-official",
         embedding_function=None,
-        configuration={"hnsw": {"space": "cosine"}},
         metadata=metadata,
     )
     actual = collection.metadata or {}
@@ -80,6 +80,7 @@ def sync_index_to_chroma(
         raise ValueError("chroma_fixture_collection_forbidden")
     client = local_client(database)
     metadata = {
+        "hnsw:space": "cosine",
         "purpose": manifest.purpose,
         "model_id": manifest.model_id,
         "dimensions": manifest.dimensions,
@@ -91,7 +92,6 @@ def sync_index_to_chroma(
         name=name,
         embedding_function=None,
         metadata=metadata,
-        configuration={"hnsw": {"space": "cosine"}},
     )
     actual = collection.metadata or {}
     for key in ("purpose", "model_id", "dimensions"):
