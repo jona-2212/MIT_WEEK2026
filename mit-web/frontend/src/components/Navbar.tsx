@@ -12,8 +12,6 @@ interface NavbarProps {
 
 const links: { href: string; label: TranslationKey; page?: Page; icon?: typeof Mic }[] = [
   { href: "#home", label: "home", page: "home" },
-  { href: "#how-it-works", label: "howItWorks" },
-  { href: "#know-the-scams", label: "knowScams" },
   { href: "#simulator", label: "simulator", page: "simulator", icon: Sparkles },
   { href: "#avatar", label: "askJeli", page: "avatar", icon: Mic },
 ]
@@ -55,7 +53,7 @@ export function Navbar({ activePage = "home", lang = "ID", onToggleLang }: Navba
             <JeliLogo variant="full" size="lg" className="max-sm:h-9" />
           </a>
 
-          <nav aria-label={t(lang, "navigation")} className="hidden items-center gap-1 rounded-2xl border border-[#064B50]/10 bg-white/90 px-2 py-1.5 shadow-sm xl:flex">
+          <nav aria-label={t(lang, "navigation")} className="hidden items-center gap-1 rounded-2xl border border-[#064B50]/10 bg-white/90 px-2 py-1.5 shadow-sm md:flex">
             {links.map(({ href, label, page, icon: Icon }) => (
               <a
                 key={href}
@@ -102,7 +100,7 @@ export function Navbar({ activePage = "home", lang = "ID", onToggleLang }: Navba
               aria-label={mobileMenuOpen ? t(lang, "closeMenu") : t(lang, "openMenu")}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation"
-              className="min-h-10 rounded-xl border border-[#064B50]/15 bg-white p-2 text-[#202C2B] hover:bg-[#F7F7F0] xl:hidden"
+              className="min-h-10 rounded-xl border border-[#064B50]/15 bg-white p-2 text-[#202C2B] hover:bg-[#F7F7F0] md:hidden"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -113,7 +111,7 @@ export function Navbar({ activePage = "home", lang = "ID", onToggleLang }: Navba
           id="mobile-navigation"
           hidden={!mobileMenuOpen}
           aria-label={t(lang, "navigation")}
-          className="mt-3 max-h-[calc(100dvh-5rem)] space-y-1 overflow-y-auto rounded-2xl border border-[#064B50]/15 bg-white p-2 shadow-lg xl:hidden"
+          className="mt-3 max-h-[calc(100dvh-5rem)] space-y-1 overflow-y-auto rounded-2xl border border-[#064B50]/15 bg-white p-2 shadow-lg md:hidden"
         >
           {links.map(({ href, label, page, icon: Icon }) => (
             <a
